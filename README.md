@@ -1,17 +1,27 @@
-# gowayanad
+# GoWayanad
 
-A new Flutter project.
+GoWayanad is a Flutter-based mobile application developed to provide ride assistance
+and emergency support services. 
 
-## Getting Started
+## Objectives
+- Provide fast and reliable ride assistance
+- Support users during emergency situations
+- Connect users with nearby drivers
+- Ensure a smooth and responsive mobile experience
 
-This project is a starting point for a Flutter application.
+## Features
+- User authentication using OTP
+- Ride request and management system
+- Driver and admin modules
+- Emergency support functionality
+- Feedback mechanism through ratings
+  
+## System Architecture
+- Flutter handles the frontend UI and user interaction
+- Firebase manages authentication and backend services
+- Firestore enables real-time data storage and updates
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Future Enhancements
+- Live GPS tracking
+- Payment gateway integration
+- Ride history and analytics
