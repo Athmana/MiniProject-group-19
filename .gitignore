@@ -1,0 +1,11 @@
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+android/.gradle/
+android/app/build/
+ios/Pods/
+ios/.symlinks/
+.env
