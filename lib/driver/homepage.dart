@@ -1,6 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:gowayanad/driver/driverequestscreen.dart';
-
+import 'package:gowayanad/services/ride_service.dart';
 
 class DriverHomePage extends StatefulWidget {
   const DriverHomePage({super.key});
@@ -11,6 +13,58 @@ class DriverHomePage extends StatefulWidget {
 
 class _DriverHomePageState extends State<DriverHomePage> {
   bool _isOnline = false;
+  final RideService _rideService = RideService();
+  StreamSubscription<QuerySnapshot>? _pendingRidesSubscription;
+
+  void _toggleOnlineStatus() {
+    setState(() {
+      _isOnline = !_isOnline;
+    });
+
+    if (_isOnline) {
+      _startListeningForRides();
+    } else {
+      _stopListeningForRides();
+    }
+  }
+
+  void _startListeningForRides() {
+    _pendingRidesSubscription = _rideService.getPendingRides().listen((
+      snapshot,
+    ) {
+      if (snapshot.docs.isNotEmpty) {
+        // For simplicity, grab the first pending ride
+        final doc = snapshot.docs.first;
+        final data = doc.data() as Map<String, dynamic>;
+
+        // Prevent showing multiple dialogues for the same or older rides
+        _stopListeningForRides();
+
+        Navigator.of(context)
+            .push(
+              MaterialPageRoute(
+                builder: (context) =>
+                    DriverRequestScreen(rideId: doc.id, rideData: data),
+              ),
+            )
+            .then((_) {
+              // Restart listening when returned, if still online
+              if (_isOnline) _startListeningForRides();
+            });
+      }
+    });
+  }
+
+  void _stopListeningForRides() {
+    _pendingRidesSubscription?.cancel();
+    _pendingRidesSubscription = null;
+  }
+
+  @override
+  void dispose() {
+    _stopListeningForRides();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,8 +79,11 @@ class _DriverHomePageState extends State<DriverHomePage> {
             height: double.infinity,
             color: const Color(0xFFE3EDFF),
             child: const Center(
-              child:
-                  Icon(Icons.map_rounded, size: 100, color: Colors.blueAccent),
+              child: Icon(
+                Icons.map_rounded,
+                size: 100,
+                color: Colors.blueAccent,
+              ),
             ),
           ),
 
@@ -43,29 +100,34 @@ class _DriverHomePageState extends State<DriverHomePage> {
                     child: Icon(Icons.person, color: Colors.grey),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(25),
                       boxShadow: [
-                        BoxShadow(color: Colors.black12, blurRadius: 5)
+                        BoxShadow(color: Colors.black12, blurRadius: 5),
                       ],
                     ),
                     child: const Text(
                       "Earnings: ₹940",
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                   IconButton(
                     onPressed: () {
-                      Navigator.of(context).push(MaterialPageRoute(
-                          builder: (context) => DriverRequestScreen()));
+                      // Manual check for requests can still exist or be removed
                     },
-                    icon: const Icon(Icons.notifications_active,
-                        color: Colors.black87),
-                  )
+                    icon: const Icon(
+                      Icons.notifications_active,
+                      color: Colors.black87,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -78,16 +140,18 @@ class _DriverHomePageState extends State<DriverHomePage> {
             right: 0,
             child: Center(
               child: GestureDetector(
-                onTap: () => setState(() => _isOnline = !_isOnline),
+                onTap: _toggleOnlineStatus,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: _isOnline ? Colors.green : Colors.redAccent,
                     borderRadius: BorderRadius.circular(30),
                     boxShadow: [
-                      BoxShadow(color: Colors.black26, blurRadius: 8)
+                      BoxShadow(color: Colors.black26, blurRadius: 8),
                     ],
                   ),
                   child: Row(
@@ -139,7 +203,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
                   const Text(
                     "Waiting for emergency requests...",
                     style: TextStyle(color: Colors.grey, fontSize: 13),
-                  )
+                  ),
                 ],
               ),
             ),
@@ -154,8 +218,10 @@ class _DriverHomePageState extends State<DriverHomePage> {
       children: [
         Icon(icon, color: const Color(0xFF2D62ED), size: 20),
         const SizedBox(height: 4),
-        Text(value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
         Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
       ],
     );

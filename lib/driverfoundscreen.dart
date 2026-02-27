@@ -1,9 +1,58 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/driverreachedscreen.dart';
+import 'package:gowayanad/services/ride_service.dart';
+import 'dart:async';
 
+class DriverFoundScreen extends StatefulWidget {
+  final String rideId;
 
-class DriverFoundScreen extends StatelessWidget {
-  const DriverFoundScreen({super.key});
+  const DriverFoundScreen({super.key, required this.rideId});
+
+  @override
+  State<DriverFoundScreen> createState() => _DriverFoundScreenState();
+}
+
+class _DriverFoundScreenState extends State<DriverFoundScreen> {
+  final RideService _rideService = RideService();
+  StreamSubscription<DocumentSnapshot>? _rideSubscription;
+  Map<String, dynamic>? _rideData;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenToRideStatus();
+  }
+
+  void _listenToRideStatus() {
+    _rideSubscription = _rideService.listenToRide(widget.rideId).listen((
+      snapshot,
+    ) {
+      if (snapshot.exists) {
+        setState(() {
+          _rideData = snapshot.data() as Map<String, dynamic>;
+        });
+        if (_rideData?['status'] == 'arrived') {
+          if (mounted) {
+            _rideSubscription?.cancel();
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    DriverReachedScreen(rideId: widget.rideId),
+              ),
+            );
+          }
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _rideSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -12,8 +61,10 @@ class DriverFoundScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title:
-            const Text("Tracking Ride", style: TextStyle(color: Colors.black)),
+        title: const Text(
+          "Tracking Ride",
+          style: TextStyle(color: Colors.black),
+        ),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -31,7 +82,9 @@ class DriverFoundScreen extends StatelessWidget {
                   Text(
                     "Driver Arriving in 4 min",
                     style: TextStyle(
-                        color: Colors.blue, fontWeight: FontWeight.bold),
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -53,12 +106,21 @@ class DriverFoundScreen extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                          child: _buildLocationCard("Pickup Location",
-                              "Kalpetta Main Road", "Wayanad, Kerala")),
+                        child: _buildLocationCard(
+                          "Pickup Location",
+                          _rideData?['pickupLocation'] ?? "Kalpetta Main Road",
+                          "Wayanad, Kerala",
+                        ),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
-                          child: _buildLocationCard("Destination",
-                              "Sulthan Bathery Hospital", "8.5 km away")),
+                        child: _buildLocationCard(
+                          "Destination",
+                          _rideData?['destination'] ??
+                              "Sulthan Bathery Hospital",
+                          "8.5 km away",
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -66,14 +128,22 @@ class DriverFoundScreen extends StatelessWidget {
                   // 5. Trip Timeline
                   const Align(
                     alignment: Alignment.centerLeft,
-                    child: Text("Trip Timeline",
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16)),
+                    child: Text(
+                      "Trip Timeline",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   _buildTimelineItem("Driver Found", "Just now", isDone: true),
-                  _buildTimelineItem("Driver is on the way", "4 min remaining",
-                      isDone: false, isLast: true),
+                  _buildTimelineItem(
+                    "Driver is on the way",
+                    "4 min remaining",
+                    isDone: false,
+                    isLast: true,
+                  ),
                 ],
               ),
             ),
@@ -99,11 +169,17 @@ class DriverFoundScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Driver Found",
-                    style: TextStyle(
-                        color: Colors.green, fontWeight: FontWeight.bold)),
-                Text("Arjun Kumar is on the way with a White Maruti Swift",
-                    style: TextStyle(fontSize: 12)),
+                Text(
+                  "Driver Found",
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  "Arjun Kumar is on the way with a White Maruti Swift",
+                  style: TextStyle(fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -121,7 +197,7 @@ class DriverFoundScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           // ignore: deprecated_member_use
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
         ],
       ),
       child: Row(
@@ -136,25 +212,31 @@ class DriverFoundScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Arjun Kumar",
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(
+                  "Arjun Kumar",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
                 Row(
                   children: [
                     Icon(Icons.star, color: Colors.orange, size: 16),
-                    Text(" 4.9",
-                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(
+                      " 4.9",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                   ],
                 ),
-                Text("White Maruti Swift • KL-07-XY-5678",
-                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(
+                  "White Maruti Swift • KL-07-XY-5678",
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ],
             ),
           ),
           ElevatedButton.icon(
             onPressed: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                  builder: (context) => DriverReachedScreen()));
+              // Manual Navigation for testing if needed, though replaced by stream listener
+              // Navigator.of(context).push(MaterialPageRoute(
+              //     builder: (context) => DriverReachedScreen(rideId: widget.rideId)));
             },
             icon: const Icon(Icons.call, size: 18),
             label: const Text("Call"),
@@ -162,9 +244,10 @@ class DriverFoundScreen extends StatelessWidget {
               backgroundColor: Colors.cyan,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -184,28 +267,34 @@ class DriverFoundScreen extends StatelessWidget {
           Row(
             children: [
               Icon(
-                  label == "Pickup Location"
-                      ? Icons.my_location
-                      : Icons.near_me,
-                  size: 14,
-                  color: Colors.grey),
+                label == "Pickup Location" ? Icons.my_location : Icons.near_me,
+                size: 14,
+                color: Colors.grey,
+              ),
               const SizedBox(width: 4),
-              Text(label,
-                  style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(title,
-              style:
-                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
           Text(sub, style: const TextStyle(fontSize: 11, color: Colors.grey)),
         ],
       ),
     );
   }
 
-  Widget _buildTimelineItem(String title, String subtitle,
-      {required bool isDone, bool isLast = false}) {
+  Widget _buildTimelineItem(
+    String title,
+    String subtitle, {
+    required bool isDone,
+    bool isLast = false,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -218,7 +307,8 @@ class DriverFoundScreen extends StatelessWidget {
                 color: isDone ? Colors.blue : Colors.white,
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: isDone ? Colors.blue : Colors.grey.shade300),
+                  color: isDone ? Colors.blue : Colors.grey.shade300,
+                ),
               ),
               child: isDone
                   ? const Icon(Icons.check, size: 16, color: Colors.white)
@@ -232,11 +322,16 @@ class DriverFoundScreen extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title,
-                style: TextStyle(
-                    fontWeight: isDone ? FontWeight.bold : FontWeight.normal)),
-            Text(subtitle,
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: isDone ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            Text(
+              subtitle,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ],
         ),
       ],

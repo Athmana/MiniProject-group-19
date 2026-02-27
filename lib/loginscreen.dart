@@ -3,6 +3,8 @@ import 'package:gowayanad/services/auth_services.dart';
 import 'package:gowayanad/services/user_add.dart';
 
 class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
   @override
   _LoginScreenState createState() => _LoginScreenState();
 }
@@ -13,7 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return  Scaffold(
+    return Scaffold(
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -24,15 +26,15 @@ class _LoginScreenState extends State<LoginScreen> {
               Text(
                 "Welcome Back",
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 "Enter your Email to sign in",
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.grey[600],
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
               ),
               const SizedBox(height: 40),
               TextField(
@@ -41,26 +43,26 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: InputDecoration(
                   labelText: "Email",
                   prefixIcon: const Icon(Icons.email),
-                  
+
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
               const SizedBox(height: 24),
-               TextField(
+              TextField(
                 controller: passwordController,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
                   labelText: "Password",
                   prefixIcon: const Icon(Icons.email),
-                  
+
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
-                const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
               SizedBox(
                 width: double.infinity,
@@ -73,23 +75,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: ()=> AuthService().loginAndRoute(
-                emailController.text, 
-                 passwordController.text, 
-                 context
-               ),
-                   
-                  
+                  onPressed: () => AuthService().loginAndRoute(
+                    emailController.text,
+                    passwordController.text,
+                    context,
+                  ),
+
                   child: const Text("LOGIN", style: TextStyle(fontSize: 16)),
                 ),
               ),
-            SizedBox(height: 20,),
-            
-               SizedBox(
+              SizedBox(height: 20),
+
+              SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                     child: const Text("ADD USER/DRIVER", style: TextStyle(fontSize: 16)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
@@ -97,15 +97,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: (){
- Navigator.of(context).push(MaterialPageRoute(builder: (context)=>RegisterScreen()));
-                  }
-               ),
-                   
-                  
-               
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => RegisterScreen()),
+                    );
+                  },
+                  child: const Text(
+                    "ADD USER/DRIVER",
+                    style: TextStyle(fontSize: 16),
+                  ),
                 ),
-              
+              ),
             ],
           ),
         ),
@@ -122,23 +124,22 @@ class _LoginScreenState extends State<LoginScreen> {
     //         SizedBox(height: 20),
     //         ElevatedButton(
     //           onPressed: () => AuthService().loginAndRoute(
-    //             emailController.text, 
-    //             passwordController.text, 
+    //             emailController.text,
+    //             passwordController.text,
     //             context
     //           ),
     //           child: Text("Login"),
     //         ),
     //         SizedBox(height: 30,
-        
+
     //         ),
     //          ElevatedButton(
-    //           child: Text("ADD USER"), 
+    //           child: Text("ADD USER"),
     //           onPressed: (){
     //           Navigator.of(context).push(MaterialPageRoute(builder: (context)=>RegisterScreen()));
     //           }
     //           ),
-            
-            
+
     //       ],
     //     ),
     //   ),

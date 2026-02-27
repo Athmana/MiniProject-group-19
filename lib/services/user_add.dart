@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/services/auth_services.dart';
 
-
 class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
+
   @override
   _RegisterScreenState createState() => _RegisterScreenState();
 }
@@ -10,9 +11,9 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  
+
   // Default role
-  String _selectedRole = 'user'; 
+  String _selectedRole = 'user';
 
   final List<String> _roles = ['user', 'driver'];
 
@@ -24,14 +25,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _selectedRole,
       );
       // After registration, send them to the login or home
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Registration Successful!")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Registration Successful!")));
       Navigator.pop(context); // Go back to login
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: ${e.toString()}")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
     }
   }
 
@@ -53,27 +54,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
               obscureText: true,
             ),
             SizedBox(height: 20),
-            
+
             // Role Selection Dropdown
             DropdownButtonFormField<String>(
-              value: _selectedRole,
+              initialValue: _selectedRole,
               decoration: InputDecoration(labelText: "Register as:"),
-              items: _roles.map((role) => DropdownMenuItem(
-                value: role,
-                child: Text(role.toUpperCase()),
-              )).toList(),
+              items: _roles
+                  .map(
+                    (role) => DropdownMenuItem(
+                      value: role,
+                      child: Text(role.toUpperCase()),
+                    ),
+                  )
+                  .toList(),
               onChanged: (value) {
                 setState(() {
                   _selectedRole = value!;
                 });
               },
             ),
-            
+
             SizedBox(height: 30),
             ElevatedButton(
               onPressed: _handleRegister,
+              style: ElevatedButton.styleFrom(
+                minimumSize: Size(double.infinity, 50),
+              ),
               child: Text("Register"),
-              style: ElevatedButton.styleFrom(minimumSize: Size(double.infinity, 50)),
             ),
           ],
         ),

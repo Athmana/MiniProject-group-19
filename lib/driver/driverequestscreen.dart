@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/riderpickupscreen.dart';
+import 'package:gowayanad/services/ride_service.dart';
 
 class DriverRequestScreen extends StatefulWidget {
-  const DriverRequestScreen({super.key});
+  final String rideId;
+  final Map<String, dynamic> rideData;
+
+  const DriverRequestScreen({
+    super.key,
+    required this.rideId,
+    required this.rideData,
+  });
 
   @override
   State<DriverRequestScreen> createState() => _DriverRequestScreenState();
@@ -16,9 +24,11 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
       body: Stack(
         children: [
           Container(
-              color: const Color(0xFFE3EDFF),
-              child: const Center(
-                  child: Icon(Icons.map, size: 100, color: Colors.blueGrey))),
+            color: const Color(0xFFE3EDFF),
+            child: const Center(
+              child: Icon(Icons.map, size: 100, color: Colors.blueGrey),
+            ),
+          ),
 
           // The Request Popup
           Align(
@@ -31,7 +41,10 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black26, blurRadius: 20, spreadRadius: 2)
+                    color: Colors.black26,
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
                 ],
               ),
               child: Column(
@@ -43,31 +56,49 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(8)),
-                        child: const Text("🚨 EMERGENCY RIDE",
-                            style: TextStyle(
-                                color: Colors.red,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12)),
-                      ),
-                      const Text("₹599.00",
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          "🚨 EMERGENCY RIDE",
                           style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D62ED))),
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        "₹${widget.rideData['price'] ?? '599.00'}",
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2D62ED),
+                        ),
+                      ),
                     ],
                   ),
                   const Divider(height: 30),
 
                   // Pickup & Dropoff Timeline
-                  _buildRouteInfo(Icons.my_location, Colors.blue,
-                      "Pickup: Kalpetta Main Road", "2.5 km away (4 min)"),
+                  _buildRouteInfo(
+                    Icons.my_location,
+                    Colors.blue,
+                    "Pickup",
+                    widget.rideData['pickupLocation'] ?? "Kalpetta Main Road",
+                  ),
                   const SizedBox(height: 16),
-                  _buildRouteInfo(Icons.location_on, Colors.red,
-                      "Dropoff: Sulthan Bathery Hospital", "8.5 km trip"),
+                  _buildRouteInfo(
+                    Icons.location_on,
+                    Colors.red,
+                    "Dropoff",
+                    widget.rideData['destination'] ??
+                        "Sulthan Bathery Hospital",
+                  ),
 
                   const SizedBox(height: 24),
 
@@ -78,34 +109,60 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                         child: TextButton(
                           onPressed: () => Navigator.pop(context),
                           style: TextButton.styleFrom(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 16)),
-                          child: const Text("IGNORE",
-                              style: TextStyle(
-                                  color: Colors.grey,
-                                  fontWeight: FontWeight.bold)),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: const Text(
+                            "IGNORE",
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         flex: 2,
                         child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(context).push(MaterialPageRoute(
-                                builder: (context) => DriverToPickupScreen()));
-                            // Handle Accept Logic
+                          onPressed: () async {
+                            bool success = await RideService().acceptRide(
+                              widget.rideId,
+                            );
+                            if (success && context.mounted) {
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(
+                                  builder: (context) => DriverToPickupScreen(
+                                    rideId: widget.rideId,
+                                    rideData: widget.rideData,
+                                  ),
+                                ),
+                              );
+                            } else {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Failed to accept ride'),
+                                  ),
+                                );
+                              }
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF2D62ED),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             elevation: 0,
                           ),
-                          child: const Text("ACCEPT REQUEST",
-                              style: TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            "ACCEPT REQUEST",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -120,7 +177,11 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
   }
 
   Widget _buildRouteInfo(
-      IconData icon, Color color, String title, String subtitle) {
+    IconData icon,
+    Color color,
+    String title,
+    String subtitle,
+  ) {
     return Row(
       children: [
         Icon(icon, color: color, size: 24),
@@ -129,11 +190,17 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 15)),
-              Text(subtitle,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              ),
             ],
           ),
         ),

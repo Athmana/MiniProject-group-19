@@ -1,8 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/homescreen.dart';
-
 
 class EmergencyRideHome extends StatelessWidget {
   const EmergencyRideHome({super.key});
@@ -13,11 +11,13 @@ class EmergencyRideHome extends StatelessWidget {
       backgroundColor: Colors.white,
       appBar: AppBar(
         actions: [
-          IconButton( onPressed: () async {
-     await FirebaseAuth.instance.signOut();
-     Navigator.pushNamedAndRemoveUntil(context, '/', (route)=>false);
-        
-          }, icon:Icon(Icons.logout))
+          IconButton(
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+            },
+            icon: Icon(Icons.logout),
+          ),
         ],
         backgroundColor: Colors.white,
         elevation: 0,
@@ -59,8 +59,10 @@ class EmergencyRideHome extends StatelessWidget {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child:
-                        const Icon(Icons.location_on, color: Color(0xFF2D62ED)),
+                    child: const Icon(
+                      Icons.location_on,
+                      color: Color(0xFF2D62ED),
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Column(
@@ -69,17 +71,23 @@ class EmergencyRideHome extends StatelessWidget {
                       Text(
                         "Current Location",
                         style: TextStyle(
-                            color: Colors.grey.shade600, fontSize: 13),
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                        ),
                       ),
                       const Text(
                         "Kalpetta, Wayanad",
                         style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 18),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
                       Text(
                         "Kerala, India",
                         style: TextStyle(
-                            color: Colors.grey.shade600, fontSize: 13),
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ),
@@ -100,9 +108,11 @@ class EmergencyRideHome extends StatelessWidget {
               child: ElevatedButton.icon(
                 onPressed: () {
                   Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const CabBookingHome()));
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CabBookingHome(),
+                    ),
+                  );
                 },
                 icon: const Icon(Icons.bolt_rounded, color: Colors.white),
                 label: const Text(
@@ -113,7 +123,8 @@ class EmergencyRideHome extends StatelessWidget {
                   backgroundColor: const Color(0xFF2D62ED),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 0,
                 ),
               ),
@@ -148,7 +159,12 @@ class EmergencyRideHome extends StatelessWidget {
   }
 
   Widget _buildRecentRideCard(
-      String type, String location, String time, String rating, String price) {
+    String type,
+    String location,
+    String time,
+    String rating,
+    String price,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -174,12 +190,16 @@ class EmergencyRideHome extends StatelessWidget {
               Text(
                 type,
                 style: const TextStyle(
-                    color: Color(0xFF2D62ED), fontWeight: FontWeight.w600),
+                  color: Color(0xFF2D62ED),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               Text(
                 price,
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
               ),
             ],
           ),
@@ -193,13 +213,17 @@ class EmergencyRideHome extends StatelessWidget {
             children: [
               Icon(Icons.access_time, size: 14, color: Colors.grey.shade400),
               const SizedBox(width: 4),
-              Text(time,
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+              Text(
+                time,
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              ),
               const SizedBox(width: 12),
               const Icon(Icons.star, size: 14, color: Colors.orange),
               const SizedBox(width: 4),
-              Text(rating,
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+              Text(
+                rating,
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              ),
             ],
           ),
         ],

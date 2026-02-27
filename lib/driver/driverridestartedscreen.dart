@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/driverwaitingforpaymentscreen.dart';
+import 'package:gowayanad/services/ride_service.dart';
 
+class DriverRideStartedScreen extends StatefulWidget {
+  final String rideId;
+  final Map<String, dynamic> rideData;
 
-class DriverRideStartedScreen extends StatelessWidget {
-  const DriverRideStartedScreen({super.key});
+  const DriverRideStartedScreen({
+    super.key,
+    required this.rideId,
+    required this.rideData,
+  });
 
+  @override
+  State<DriverRideStartedScreen> createState() =>
+      _DriverRideStartedScreenState();
+}
+
+class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -14,8 +27,11 @@ class DriverRideStartedScreen extends StatelessWidget {
           Container(
             color: const Color(0xFFE8F0FF),
             child: const Center(
-              child: Icon(Icons.navigation_outlined,
-                  size: 100, color: Color(0xFF2D62ED)),
+              child: Icon(
+                Icons.navigation_outlined,
+                size: 100,
+                color: Color(0xFF2D62ED),
+              ),
             ),
           ),
 
@@ -29,24 +45,35 @@ class DriverRideStartedScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withOpacity(0.1), blurRadius: 10)
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                  ),
                 ],
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.turn_left,
-                      color: Color(0xFF2D62ED), size: 40),
+                  const Icon(
+                    Icons.turn_left,
+                    color: Color(0xFF2D62ED),
+                    size: 40,
+                  ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
-                        Text("800m - Turn Left",
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text("Towards Sulthan Bathery Hospital",
-                            style: TextStyle(color: Colors.grey, fontSize: 14)),
+                        Text(
+                          "800m - Turn Left",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          "Towards Sulthan Bathery Hospital",
+                          style: TextStyle(color: Colors.grey, fontSize: 14),
+                        ),
                       ],
                     ),
                   ),
@@ -74,7 +101,10 @@ class DriverRideStartedScreen extends StatelessWidget {
                     children: [
                       _buildInfoColumn("Distance Left", "5.2 km"),
                       _buildInfoColumn("ETA", "12 mins"),
-                      _buildInfoColumn("Fare", "₹599"),
+                      _buildInfoColumn(
+                        "Fare",
+                        "₹${widget.rideData['price'] ?? '599'}",
+                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -85,25 +115,45 @@ class DriverRideStartedScreen extends StatelessWidget {
                     width: double.infinity,
                     height: 60,
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).push(MaterialPageRoute(
-                            builder: (context) =>
-                                DriverWaitingPaymentScreen()));
-                        // Navigate to Driver Ride Completed Screen
+                      onPressed: () async {
+                        bool success = await RideService().updateRideStatus(
+                          widget.rideId,
+                          'completed',
+                        );
+                        if (success && mounted) {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  DriverWaitingPaymentScreen(),
+                            ),
+                          );
+                        } else {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Failed to update status to completed',
+                                ),
+                              ),
+                            );
+                          }
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor:
                             Colors.redAccent, // Red to signal 'Stop/Complete'
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         elevation: 0,
                       ),
                       child: const Text(
                         "COMPLETE RIDE",
                         style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16),
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ),
@@ -121,8 +171,10 @@ class DriverRideStartedScreen extends StatelessWidget {
       children: [
         Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
         const SizedBox(height: 4),
-        Text(value,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
       ],
     );
   }

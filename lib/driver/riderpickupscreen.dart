@@ -1,10 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/driverridestartedscreen.dart';
+import 'package:gowayanad/services/ride_service.dart';
 
+class DriverToPickupScreen extends StatefulWidget {
+  final String rideId;
+  final Map<String, dynamic> rideData;
 
-class DriverToPickupScreen extends StatelessWidget {
-  const DriverToPickupScreen({super.key});
+  const DriverToPickupScreen({
+    super.key,
+    required this.rideId,
+    required this.rideData,
+  });
 
+  @override
+  State<DriverToPickupScreen> createState() => _DriverToPickupScreenState();
+}
+
+class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -14,8 +26,11 @@ class DriverToPickupScreen extends StatelessWidget {
           Container(
             color: const Color(0xFFE3EDFF),
             child: const Center(
-              child:
-                  Icon(Icons.navigation_rounded, size: 80, color: Colors.blue),
+              child: Icon(
+                Icons.navigation_rounded,
+                size: 80,
+                color: Colors.blue,
+              ),
             ),
           ),
 
@@ -39,22 +54,32 @@ class DriverToPickupScreen extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: const [
-                          Text("400m - Turn Right",
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold)),
-                          Text("Towards Kalpetta Main Road",
-                              style: TextStyle(
-                                  color: Colors.white70, fontSize: 14)),
+                          Text(
+                            "400m - Turn Right",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            "Towards Kalpetta Main Road",
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    const Text("4 min",
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18)),
+                    const Text(
+                      "4 min",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -81,20 +106,32 @@ class DriverToPickupScreen extends StatelessWidget {
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text("sona",
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 18)),
-                            Text("Pickup: Kalpetta Main Road",
-                                style: TextStyle(
-                                    color: Colors.grey, fontSize: 14)),
+                          children: [
+                            const Text(
+                              "Rider",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                            Text(
+                              "Pickup: ${widget.rideData['pickupLocation'] ?? 'Destination'}",
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                              ),
+                            ),
                           ],
                         ),
                       ),
                       IconButton(
-                          onPressed: () {},
-                          icon: const Icon(Icons.call,
-                              color: Colors.green, size: 28)),
+                        onPressed: () {},
+                        icon: const Icon(
+                          Icons.call,
+                          color: Colors.green,
+                          size: 28,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -104,22 +141,46 @@ class DriverToPickupScreen extends StatelessWidget {
                     width: double.infinity,
                     height: 60,
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).push(MaterialPageRoute(
-                            builder: (context) => DriverRideStartedScreen()));
+                      onPressed: () async {
                         // Logic to notify user: "Driver has reached"
+                        bool success = await RideService().updateRideStatus(
+                          widget.rideId,
+                          'arrived',
+                        );
+                        if (success && mounted) {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => DriverRideStartedScreen(
+                                rideId: widget.rideId,
+                                rideData: widget.rideData,
+                              ),
+                            ),
+                          );
+                        } else {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Failed to update status to arrived',
+                                ),
+                              ),
+                            );
+                          }
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       child: const Text(
                         "REACHED PICKUP LOCATION",
                         style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16),
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ),
