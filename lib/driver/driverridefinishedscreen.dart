@@ -59,47 +59,6 @@ class DriverRideFinishedScreen extends StatelessWidget {
 
             const SizedBox(height: 32),
             const Divider(),
-            const SizedBox(height: 16),
-
-            // 3. Passenger Rating Section
-            const Text(
-              "Rate the Driver",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              "How was your experience with Sona?",
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                5,
-                (index) => const Icon(
-                  Icons.star_rounded,
-                  size: 45,
-                  color: Colors.orangeAccent,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 40),
-
-            // 4. Feedback Input
-            TextField(
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: "Add a comment (Optional)",
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-
             const SizedBox(height: 40),
 
             // 5. Back to Online Button
