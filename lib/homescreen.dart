@@ -1,9 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:gowayanad/waitingfordriverscreen.dart';
+import 'package:gowayanad/services/location_service.dart';
+import 'package:geolocator/geolocator.dart';
 
-class CabBookingHome extends StatelessWidget {
+class CabBookingHome extends StatefulWidget {
   const CabBookingHome({super.key});
+
+  @override
+  State<CabBookingHome> createState() => _CabBookingHomeState();
+}
+
+class _CabBookingHomeState extends State<CabBookingHome> {
+  Position? _currentPosition;
+  bool _isLoadingLocation = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLocation();
+  }
+
+  Future<void> _fetchLocation() async {
+    try {
+      Position position = await LocationService().getCurrentLocation();
+      if (mounted) {
+        setState(() {
+          _currentPosition = position;
+          _isLoadingLocation = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingLocation = false;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to get location: $e')));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +96,11 @@ class CabBookingHome extends StatelessWidget {
             TextField(
               readOnly: true,
               decoration: InputDecoration(
-                hintText: "Kalpetta, Wayanad, Kerala",
+                hintText: _isLoadingLocation
+                    ? "Fetching location..."
+                    : (_currentPosition != null
+                          ? "Lat: ${_currentPosition!.latitude.toStringAsFixed(4)}, Lng: ${_currentPosition!.longitude.toStringAsFixed(4)}"
+                          : "Location unavailable"),
                 prefixIcon: const Icon(
                   Icons.location_on_outlined,
                   color: Colors.blue,
@@ -182,30 +223,50 @@ class CabBookingHome extends StatelessWidget {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () async {
-                  // Show a quick loading state or just await the service
-                  final String? rideId = await RideService().requestRide(
-                    pickupLocation: "Kalpetta, Wayanad, Kerala",
-                    destination: "Emergency Destination", // static for now
-                    vehicleType: "Ambulance", // default choice for emergency
-                    price: "1200", // example static price
-                  );
+                onPressed: _isLoadingLocation
+                    ? null
+                    : () async {
+                        if (_currentPosition == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Location is required to book a ride',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
 
-                  if (rideId != null && context.mounted) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            WaitingForDriverScreen(rideId: rideId),
-                      ),
-                    );
-                  } else {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Failed to request ride')),
-                      );
-                    }
-                  }
-                },
+                        // Show a quick loading state or just await the service
+                        final String? rideId = await RideService().requestRide(
+                          pickupLocation:
+                              "Lat: ${_currentPosition!.latitude.toStringAsFixed(4)}, Lng: ${_currentPosition!.longitude.toStringAsFixed(4)}",
+                          pickupLat: _currentPosition!.latitude,
+                          pickupLng: _currentPosition!.longitude,
+                          destination:
+                              "Emergency Destination", // static for now
+                          vehicleType:
+                              "Ambulance", // default choice for emergency
+                          price: "1200", // example static price
+                        );
+
+                        if (rideId != null && context.mounted) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  WaitingForDriverScreen(rideId: rideId),
+                            ),
+                          );
+                        } else {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Failed to request ride'),
+                              ),
+                            );
+                          }
+                        }
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(
                     0xFF94B5F9,

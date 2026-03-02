@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/paymentscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
 
 class DriverReachedScreen extends StatefulWidget {
@@ -16,6 +17,7 @@ class DriverReachedScreen extends StatefulWidget {
 class _DriverReachedScreenState extends State<DriverReachedScreen> {
   final RideService _rideService = RideService();
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
+  Map<String, dynamic>? _rideData;
 
   @override
   void initState() {
@@ -57,13 +59,31 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
       body: Column(
         children: [
           // Top Map Area (Placeholder)
-          Container(
+          SizedBox(
             height: MediaQuery.of(context).size.height * 0.4,
             width: double.infinity,
-            color: const Color(0xFFE3EDFF),
-            child: const Center(
-              child: Icon(Icons.map_rounded, size: 100, color: Colors.blue),
-            ),
+            child: _rideData == null
+                ? const Center(child: CircularProgressIndicator())
+                : GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(
+                        _rideData!['pickupLat'] as double? ?? 11.6094,
+                        _rideData!['pickupLng'] as double? ?? 76.0828,
+                      ),
+                      zoom: 15,
+                    ),
+                    markers: {
+                      Marker(
+                        markerId: const MarkerId('pickup'),
+                        position: LatLng(
+                          _rideData!['pickupLat'] as double? ?? 11.6094,
+                          _rideData!['pickupLng'] as double? ?? 76.0828,
+                        ),
+                        infoWindow: const InfoWindow(title: 'Pickup Location'),
+                      ),
+                    },
+                    myLocationEnabled: true,
+                  ),
           ),
 
           Expanded(

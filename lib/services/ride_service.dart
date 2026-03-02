@@ -5,9 +5,10 @@ class RideService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // 1. Rider requests a ride
   Future<String?> requestRide({
     required String pickupLocation,
+    required double pickupLat,
+    required double pickupLng,
     required String destination,
     required String vehicleType,
     required String price,
@@ -19,6 +20,8 @@ class RideService {
       DocumentReference rideRef = await _firestore.collection('rides').add({
         'riderId': userId ?? 'anonymous_rider',
         'pickupLocation': pickupLocation,
+        'pickupLat': pickupLat,
+        'pickupLng': pickupLng,
         'destination': destination,
         'vehicleType': vehicleType,
         'price': price,
@@ -44,6 +47,17 @@ class RideService {
         .collection('rides')
         .where('status', isEqualTo: 'pending')
         .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  // 3b. Driver listens to their own completed rides for history/earnings
+  Stream<QuerySnapshot> getDriverCompletedRides(String driverId) {
+    return _firestore
+        .collection('rides')
+        .where('driverId', isEqualTo: driverId)
+        .where('status', isEqualTo: 'completed')
+        // Ideally we'd order by completedAt, but that requires a composite index
+        // .orderBy('completedAt', descending: true)
         .snapshots();
   }
 

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:gowayanad/driver/driverequestscreen.dart';
@@ -15,6 +16,49 @@ class _DriverHomePageState extends State<DriverHomePage> {
   bool _isOnline = false;
   final RideService _rideService = RideService();
   StreamSubscription<QuerySnapshot>? _pendingRidesSubscription;
+  StreamSubscription<QuerySnapshot>? _completedRidesSubscription;
+
+  double _totalEarnings = 0.0;
+  int _totalRides = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startListeningToEarnings();
+  }
+
+  void _startListeningToEarnings() {
+    final driverId =
+        FirebaseAuth.instance.currentUser?.uid ?? 'anonymous_driver';
+
+    _completedRidesSubscription = _rideService
+        .getDriverCompletedRides(driverId)
+        .listen((snapshot) {
+          double earnings = 0.0;
+
+          for (var doc in snapshot.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            // Try parsing the price (might be stored as String or number depending on request)
+            final priceRaw = data['price'];
+            if (priceRaw != null) {
+              if (priceRaw is num) {
+                earnings += priceRaw.toDouble();
+              } else if (priceRaw is String) {
+                // Handle prices like "$500" or "500"
+                String cleanPrice = priceRaw.replaceAll(RegExp(r'[^0-9.]'), '');
+                earnings += double.tryParse(cleanPrice) ?? 0.0;
+              }
+            }
+          }
+
+          if (mounted) {
+            setState(() {
+              _totalRides = snapshot.docs.length;
+              _totalEarnings = earnings;
+            });
+          }
+        });
+  }
 
   void _toggleOnlineStatus() {
     setState(() {
@@ -63,6 +107,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
   @override
   void dispose() {
     _stopListeningForRides();
+    _completedRidesSubscription?.cancel();
     super.dispose();
   }
 
@@ -111,9 +156,9 @@ class _DriverHomePageState extends State<DriverHomePage> {
                         BoxShadow(color: Colors.black12, blurRadius: 5),
                       ],
                     ),
-                    child: const Text(
-                      "Earnings: ₹940",
-                      style: TextStyle(
+                    child: Text(
+                      "Earnings: ₹${_totalEarnings.toStringAsFixed(0)}",
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -195,7 +240,11 @@ class _DriverHomePageState extends State<DriverHomePage> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _buildDriverStat("4.9", "Rating", Icons.star),
-                      _buildDriverStat("2", "Rides", Icons.directions_car),
+                      _buildDriverStat(
+                        _totalRides.toString(),
+                        "Rides",
+                        Icons.directions_car,
+                      ),
                       _buildDriverStat("2h 20m", "Online", Icons.access_time),
                     ],
                   ),

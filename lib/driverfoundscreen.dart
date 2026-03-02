@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/driverreachedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
 
 class DriverFoundScreen extends StatefulWidget {
@@ -70,24 +71,33 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
         child: Column(
           children: [
             // 1. Map / Header Section
-            Container(
+            SizedBox(
               height: 200,
               width: double.infinity,
-              color: const Color(0xFFE3EDFF),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.directions_car, size: 50, color: Colors.blue),
-                  SizedBox(height: 10),
-                  Text(
-                    "Driver Arriving in 4 min",
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold,
+              child: _rideData == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: LatLng(
+                          _rideData!['pickupLat'] as double? ?? 11.6094,
+                          _rideData!['pickupLng'] as double? ?? 76.0828,
+                        ),
+                        zoom: 15,
+                      ),
+                      markers: {
+                        Marker(
+                          markerId: const MarkerId('pickup'),
+                          position: LatLng(
+                            _rideData!['pickupLat'] as double? ?? 11.6094,
+                            _rideData!['pickupLng'] as double? ?? 76.0828,
+                          ),
+                          infoWindow: const InfoWindow(
+                            title: 'Pickup Location',
+                          ),
+                        ),
+                      },
+                      myLocationEnabled: true,
                     ),
-                  ),
-                ],
-              ),
             ),
 
             Padding(

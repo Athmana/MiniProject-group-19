@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/driverridestartedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class DriverToPickupScreen extends StatefulWidget {
   final String rideId;
@@ -23,14 +24,28 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
       body: Stack(
         children: [
           // 1. Map View (Full Screen)
-          Container(
-            color: const Color(0xFFE3EDFF),
-            child: const Center(
-              child: Icon(
-                Icons.navigation_rounded,
-                size: 80,
-                color: Colors.blue,
+          SizedBox(
+            height: MediaQuery.of(context).size.height,
+            width: MediaQuery.of(context).size.width,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: LatLng(
+                  widget.rideData['pickupLat'] as double? ?? 11.6094,
+                  widget.rideData['pickupLng'] as double? ?? 76.0828,
+                ),
+                zoom: 15,
               ),
+              markers: {
+                Marker(
+                  markerId: const MarkerId('pickup'),
+                  position: LatLng(
+                    widget.rideData['pickupLat'] as double? ?? 11.6094,
+                    widget.rideData['pickupLng'] as double? ?? 76.0828,
+                  ),
+                  infoWindow: const InfoWindow(title: 'Pickup Location'),
+                ),
+              },
+              myLocationEnabled: true,
             ),
           ),
 

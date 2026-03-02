@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/driverwaitingforpaymentscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class DriverRideStartedScreen extends StatefulWidget {
   final String rideId;
@@ -24,14 +25,29 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
       body: Stack(
         children: [
           // 1. Full Screen Navigation Map
-          Container(
-            color: const Color(0xFFE8F0FF),
-            child: const Center(
-              child: Icon(
-                Icons.navigation_outlined,
-                size: 100,
-                color: Color(0xFF2D62ED),
+          SizedBox(
+            height: MediaQuery.of(context).size.height,
+            width: MediaQuery.of(context).size.width,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: LatLng(
+                  widget.rideData['pickupLat'] as double? ?? 11.6094,
+                  widget.rideData['pickupLng'] as double? ?? 76.0828,
+                ),
+                zoom: 15,
               ),
+              markers: {
+                Marker(
+                  markerId: const MarkerId('destination'),
+                  position: LatLng(
+                    widget.rideData['pickupLat'] as double? ??
+                        11.6094, // Simulate destination nearby
+                    (widget.rideData['pickupLng'] as double? ?? 76.0828) + 0.05,
+                  ),
+                  infoWindow: const InfoWindow(title: 'Destination'),
+                ),
+              },
+              myLocationEnabled: true,
             ),
           ),
 
