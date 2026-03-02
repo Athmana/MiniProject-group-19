@@ -15,6 +15,10 @@ class _CabBookingHomeState extends State<CabBookingHome> {
   Position? _currentPosition;
   bool _isLoadingLocation = true;
 
+  final TextEditingController _destinationController = TextEditingController();
+  String? _selectedVehicleType;
+  String? _selectedVehiclePrice;
+
   @override
   void initState() {
     super.initState();
@@ -121,6 +125,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
             ),
             const SizedBox(height: 8),
             TextField(
+              controller: _destinationController,
               decoration: InputDecoration(
                 hintText: "Enter destination address",
                 prefixIcon: const Icon(
@@ -184,36 +189,36 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               childAspectRatio: 0.8,
               children: [
                 _buildVehicleCard(
-                  "Auto",
-                  "Quick emergency response",
-                  "₹299",
-                  "3 seats",
-                  "2-3 min",
-                  Icons.electric_rickshaw,
+                  title: "Auto",
+                  desc: "Quick emergency response",
+                  price: "299",
+                  seats: "3 seats",
+                  time: "2-3 min",
+                  icon: Icons.electric_rickshaw,
                 ),
                 _buildVehicleCard(
-                  "Car",
-                  "Comfortable emergency transport",
-                  "₹599",
-                  "4 seats",
-                  "3-4 min",
-                  Icons.directions_car,
+                  title: "Car",
+                  desc: "Comfortable emergency transport",
+                  price: "599",
+                  seats: "4 seats",
+                  time: "3-4 min",
+                  icon: Icons.directions_car,
                 ),
                 _buildVehicleCard(
-                  "Truck",
-                  "Heavy cargo emergency",
-                  "₹799",
-                  "2 seats",
-                  "4-5 min",
-                  Icons.local_shipping,
+                  title: "Truck",
+                  desc: "Heavy cargo emergency",
+                  price: "799",
+                  seats: "2 seats",
+                  time: "4-5 min",
+                  icon: Icons.local_shipping,
                 ),
                 _buildVehicleCard(
-                  "Ambulance",
-                  "Medical emergency response",
-                  "₹1,200",
-                  "2 seats",
-                  "1-2 min",
-                  Icons.medical_services,
+                  title: "Ambulance",
+                  desc: "Medical emergency response",
+                  price: "1200",
+                  seats: "2 seats",
+                  time: "1-2 min",
+                  icon: Icons.medical_services,
                 ),
               ],
             ),
@@ -237,17 +242,36 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                           return;
                         }
 
+                        if (_destinationController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please enter a destination address',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (_selectedVehicleType == null ||
+                            _selectedVehiclePrice == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select a vehicle type'),
+                            ),
+                          );
+                          return;
+                        }
+
                         // Show a quick loading state or just await the service
                         final String? rideId = await RideService().requestRide(
                           pickupLocation:
                               "Lat: ${_currentPosition!.latitude.toStringAsFixed(4)}, Lng: ${_currentPosition!.longitude.toStringAsFixed(4)}",
                           pickupLat: _currentPosition!.latitude,
                           pickupLng: _currentPosition!.longitude,
-                          destination:
-                              "Emergency Destination", // static for now
-                          vehicleType:
-                              "Ambulance", // default choice for emergency
-                          price: "1200", // example static price
+                          destination: _destinationController.text.trim(),
+                          vehicleType: _selectedVehicleType!,
+                          price: _selectedVehiclePrice!,
                         );
 
                         if (rideId != null && context.mounted) {
@@ -337,48 +361,63 @@ class _CabBookingHomeState extends State<CabBookingHome> {
     );
   }
 
-  Widget _buildVehicleCard(
-    String title,
-    String desc,
-    String price,
-    String seats,
-    String time,
-    IconData icon,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade200),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 32, color: Colors.blueGrey),
-          const SizedBox(height: 12),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-          Text(
-            desc,
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-            maxLines: 2,
+  Widget _buildVehicleCard({
+    required String title,
+    required String desc,
+    required String price,
+    required String seats,
+    required String time,
+    required IconData icon,
+  }) {
+    final bool isSelected = _selectedVehicleType == title;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedVehicleType = title;
+          _selectedVehiclePrice = price;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFE8F0FF) : Colors.white,
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey.shade200,
+            width: isSelected ? 2 : 1,
           ),
-          const Spacer(),
-          const Divider(),
-          Row(
-            children: [
-              const Icon(Icons.currency_rupee, size: 14, color: Colors.blue),
-              Text(
-                price.replaceAll('₹', ''),
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 32, color: Colors.blueGrey),
+            const SizedBox(height: 12),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              desc,
+              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+              maxLines: 2,
+            ),
+            const Spacer(),
+            const Divider(),
+            Row(
+              children: [
+                const Icon(Icons.currency_rupee, size: 14, color: Colors.blue),
+                Text(
+                  price.replaceAll('₹', ''),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          _buildInfoRow(Icons.people_outline, seats),
-          _buildInfoRow(Icons.access_time, time),
-        ],
+              ],
+            ),
+            _buildInfoRow(Icons.people_outline, seats),
+            _buildInfoRow(Icons.access_time, time),
+          ],
+        ),
       ),
     );
   }
