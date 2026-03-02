@@ -30,14 +30,17 @@ class DriverRideFinishedScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: const [
-                  Text("You Earned",
-                      style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text(
+                    "You Earned",
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
                   Text(
                     "₹510",
                     style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2D62ED)),
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2D62ED),
+                    ),
                   ),
                 ],
               ),
@@ -60,7 +63,7 @@ class DriverRideFinishedScreen extends StatelessWidget {
 
             // 3. Passenger Rating Section
             const Text(
-              "Rate the Passenger",
+              "Rate the Driver",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -72,9 +75,13 @@ class DriverRideFinishedScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
-                  5,
-                  (index) => const Icon(Icons.star_rounded,
-                      size: 45, color: Colors.orangeAccent)),
+                5,
+                (index) => const Icon(
+                  Icons.star_rounded,
+                  size: 45,
+                  color: Colors.orangeAccent,
+                ),
+              ),
             ),
 
             const SizedBox(height: 40),
@@ -107,14 +114,16 @@ class DriverRideFinishedScreen extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2D62ED),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: const Text(
                   "GO ONLINE",
                   style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16),
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ),
@@ -127,8 +136,10 @@ class DriverRideFinishedScreen extends StatelessWidget {
   Widget _buildTripDetail(String value, String label) {
     return Column(
       children: [
-        Text(value,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
         Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
       ],
     );

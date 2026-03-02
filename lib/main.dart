@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/homepage.dart';
@@ -14,7 +16,8 @@ void main() async {
       debugShowCheckedModeBanner: false,
       initialRoute: '/',
       routes: {
-        '/': (context) => LoginScreen(),
+        '/': (context) => const AuthWrapper(),
+        '/login': (context) => const LoginScreen(),
         '/userHome': (context) => EmergencyRideHome(),
         '/driverHome': (context) => DriverHomePage(),
       },
@@ -22,19 +25,52 @@ void main() async {
   );
 }
 
-// Dummy Screens
-class UserDashboard extends StatelessWidget {
-  const UserDashboard({super.key});
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
 
   @override
-  Widget build(BuildContext context) =>
-      Scaffold(appBar: AppBar(title: Text("User Area")));
-}
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-class DriverDashboard extends StatelessWidget {
-  const DriverDashboard({super.key});
+        if (snapshot.hasData && snapshot.data != null) {
+          // User is logged in, grab their role
+          return FutureBuilder<DocumentSnapshot>(
+            future: FirebaseFirestore.instance
+                .collection('users')
+                .doc(snapshot.data!.uid)
+                .get(),
+            builder: (context, roleSnapshot) {
+              if (roleSnapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
 
-  @override
-  Widget build(BuildContext context) =>
-      Scaffold(appBar: AppBar(title: Text("Driver Area")));
+              if (roleSnapshot.hasData && roleSnapshot.data!.exists) {
+                String role = roleSnapshot.data!.get('role') ?? 'rider';
+                if (role == 'driver') {
+                  return const DriverHomePage();
+                } else {
+                  return const EmergencyRideHome();
+                }
+              }
+
+              // Fallback if document doesn't exist
+              return const EmergencyRideHome();
+            },
+          );
+        }
+
+        // User is NOT logged in
+        return const LoginScreen();
+      },
+    );
+  }
 }

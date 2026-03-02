@@ -9,8 +9,10 @@ class AuthService {
   // Sign Up with Role
   Future<void> signUp(String email, String password, String role) async {
     UserCredential result = await _auth.createUserWithEmailAndPassword(
-        email: email, password: password);
-    
+      email: email,
+      password: password,
+    );
+
     // Save role to Firestore
     await _firestore.collection('users').doc(result.user!.uid).set({
       'email': email,
@@ -19,11 +21,17 @@ class AuthService {
   }
 
   // Login and Route
-  Future<void> loginAndRoute(String email, String password, BuildContext context) async {
+  Future<void> loginAndRoute(
+    String email,
+    String password,
+    BuildContext context,
+  ) async {
     try {
       UserCredential result = await _auth.signInWithEmailAndPassword(
-          email: email, password: password);
-          print("Tried login");
+        email: email,
+        password: password,
+      );
+      print("Tried login");
 
       // Fetch user role from Firestore
       DocumentSnapshot userDoc = await _firestore
@@ -34,13 +42,19 @@ class AuthService {
       String role = userDoc['role'];
 
       if (role == 'driver') {
-        print("reached here");
+        print("routed to driver");
         Navigator.pushReplacementNamed(context, '/driverHome');
       } else {
+        print("routed to rider");
         Navigator.pushReplacementNamed(context, '/userHome');
       }
     } catch (e) {
       print("Login Error: $e");
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login Failed: ${e.toString()}')),
+        );
+      }
     }
   }
 }

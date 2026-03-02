@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/services/auth_services.dart';
-import 'package:gowayanad/services/user_add.dart';
+import 'package:gowayanad/registerscreen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -39,7 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 40),
               TextField(
                 controller: emailController,
-                keyboardType: TextInputType.phone,
+                keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   labelText: "Email",
                   prefixIcon: const Icon(Icons.email),
@@ -52,10 +52,10 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
               TextField(
                 controller: passwordController,
-                keyboardType: TextInputType.phone,
+                obscureText: true,
                 decoration: InputDecoration(
                   labelText: "Password",
-                  prefixIcon: const Icon(Icons.email),
+                  prefixIcon: const Icon(Icons.lock_outline),
 
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -98,8 +98,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => RegisterScreen()),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const RegisterScreen(),
+                      ),
                     );
                   },
                   child: const Text(

@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class RideService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   Future<String?> requestRide({
     required String pickupLocation,
@@ -14,22 +13,23 @@ class RideService {
     required String price,
   }) async {
     try {
-      final String? userId = _auth.currentUser?.uid;
+      final String? riderId = FirebaseAuth.instance.currentUser?.uid;
+      if (riderId == null) throw Exception("User not logged in");
 
-      // We proceed even if userId is null for testing, but in production we'd require it.
-      DocumentReference rideRef = await _firestore.collection('rides').add({
-        'riderId': userId ?? 'anonymous_rider',
+      DocumentReference docRef = await _firestore.collection('rides').add({
+        'riderId': riderId,
+        'driverId': null,
+        'status':
+            'pending', // 'pending', 'accepted', 'arrived', 'started', 'completed'
         'pickupLocation': pickupLocation,
         'pickupLat': pickupLat,
         'pickupLng': pickupLng,
         'destination': destination,
         'vehicleType': vehicleType,
         'price': price,
-        'status': 'pending', // pending, accepted, completed, cancelled
-        'driverId': null,
         'createdAt': FieldValue.serverTimestamp(),
       });
-      return rideRef.id;
+      return docRef.id;
     } catch (e) {
       print("Error requesting ride: $e");
       return null;
@@ -73,11 +73,12 @@ class RideService {
   // 4. Driver accepts a ride
   Future<bool> acceptRide(String rideId) async {
     try {
-      final String? driverId = _auth.currentUser?.uid;
+      final String? driverId = FirebaseAuth.instance.currentUser?.uid;
+      if (driverId == null) throw Exception("Driver not logged in");
 
       await _firestore.collection('rides').doc(rideId).update({
+        'driverId': driverId,
         'status': 'accepted',
-        'driverId': driverId ?? 'anonymous_driver',
         'acceptedAt': FieldValue.serverTimestamp(),
       });
       return true;
