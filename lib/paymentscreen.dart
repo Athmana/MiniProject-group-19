@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/ridecompleted.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PaymentScreen extends StatelessWidget {
-  const PaymentScreen({super.key});
+  final String rideId;
+  const PaymentScreen({super.key, required this.rideId});
 
   @override
   Widget build(BuildContext context) {
@@ -20,13 +22,37 @@ class PaymentScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text("Amount to Pay", style: TextStyle(color: Colors.grey)),
-            const Text("₹599.00",
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('rides')
+                  .doc(rideId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                String price = "₹---";
+                if (snapshot.hasData && snapshot.data!.exists) {
+                  final data = snapshot.data!.data() as Map<String, dynamic>;
+                  price = "₹${data['price'] ?? '0'}";
+                }
+                return Text(
+                  price,
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 30),
             _paymentTile(
-                Icons.account_balance_wallet_rounded, "Google Pay / UPI", true),
+              Icons.account_balance_wallet_rounded,
+              "Google Pay / UPI",
+              true,
+            ),
             _paymentTile(
-                Icons.credit_card_rounded, "Credit / Debit Card", false),
+              Icons.credit_card_rounded,
+              "Credit / Debit Card",
+              false,
+            ),
             _paymentTile(Icons.money_rounded, "Cash on Arrival", false),
             const Spacer(),
             SizedBox(
@@ -34,18 +60,26 @@ class PaymentScreen extends StatelessWidget {
               height: 56,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.of(context).push(MaterialPageRoute(
-                      builder: (context) => RideCompletedScreen()));
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => RideCompletedScreen(rideId: rideId),
+                    ),
+                  );
                   // Navigate to Ride Completed after successful payment simulation
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2D62ED),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                child: const Text("PAY NOW",
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  "PAY NOW",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ],
@@ -60,12 +94,15 @@ class PaymentScreen extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-            color: isSelected ? const Color(0xFF2D62ED) : Colors.grey.shade200,
-            width: 2),
+          color: isSelected ? const Color(0xFF2D62ED) : Colors.grey.shade200,
+          width: 2,
+        ),
       ),
       child: ListTile(
-        leading: Icon(icon,
-            color: isSelected ? const Color(0xFF2D62ED) : Colors.black54),
+        leading: Icon(
+          icon,
+          color: isSelected ? const Color(0xFF2D62ED) : Colors.black54,
+        ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
         trailing: isSelected
             ? const Icon(Icons.check_circle, color: Color(0xFF2D62ED))

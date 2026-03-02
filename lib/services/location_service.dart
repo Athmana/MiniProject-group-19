@@ -1,4 +1,5 @@
 import 'package:geolocator/geolocator.dart';
+import 'dart:io' show Platform;
 
 class LocationService {
   /// Determine the current position of the device.
@@ -6,6 +7,22 @@ class LocationService {
   /// When the location services are not enabled or permissions
   /// are denied the `Future` will return an error.
   Future<Position> getCurrentLocation() async {
+    // 1. Windows Fallback for Emulator Testing
+    if (Platform.isWindows) {
+      return Position(
+        longitude: 76.0828,
+        latitude: 11.6094, // Wayanad coordinates
+        timestamp: DateTime.now(),
+        accuracy: 100,
+        altitude: 0,
+        altitudeAccuracy: 0,
+        heading: 0,
+        headingAccuracy: 0,
+        speed: 0,
+        speedAccuracy: 0,
+      );
+    }
+
     bool serviceEnabled;
     LocationPermission permission;
 

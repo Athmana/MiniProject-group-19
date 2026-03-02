@@ -46,10 +46,11 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
         });
       }
     } catch (e) {
+      print("Error fetching location: $e");
       if (mounted) {
         setState(() {
-          _currentCity = "Location unavailable";
-          _currentState = "Tap to retry";
+          _currentCity = "Sulthan Bathery";
+          _currentState = "Wayanad, Kerala (Mocked)";
           _isLoadingLocation = false;
         });
       }

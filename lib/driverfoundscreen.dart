@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gowayanad/driverreachedscreen.dart';
+import 'package:gowayanad/ridestartedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
@@ -33,14 +33,13 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
         setState(() {
           _rideData = snapshot.data() as Map<String, dynamic>;
         });
-        if (_rideData?['status'] == 'arrived') {
+        if (_rideData?['status'] == 'started') {
           if (mounted) {
             _rideSubscription?.cancel();
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) =>
-                    DriverReachedScreen(rideId: widget.rideId),
+                builder: (context) => RideStartedScreen(rideId: widget.rideId),
               ),
             );
           }
@@ -147,11 +146,15 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _buildTimelineItem("Driver Found", "Just now", isDone: true),
+                  _buildTimelineItem("Driver Found", "Completed", isDone: true),
                   _buildTimelineItem(
-                    "Driver is on the way",
-                    "4 min remaining",
-                    isDone: false,
+                    _rideData?['status'] == 'arrived'
+                        ? "Driver has arrived outside"
+                        : "Driver is on the way",
+                    _rideData?['status'] == 'arrived'
+                        ? "Waiting for you"
+                        : "4 min remaining",
+                    isDone: _rideData?['status'] == 'arrived',
                     isLast: true,
                   ),
                 ],
@@ -164,31 +167,44 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
   }
 
   Widget _buildSuccessBanner() {
+    bool isArrived = _rideData?['status'] == 'arrived';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8F5E9), // Light green
+        color: isArrived ? const Color(0xFFFFF7E6) : const Color(0xFFE8F5E9),
         borderRadius: BorderRadius.circular(12),
-        border: const Border(left: BorderSide(color: Colors.green, width: 4)),
+        border: Border(
+          left: BorderSide(
+            color: isArrived ? Colors.orange : Colors.green,
+            width: 4,
+          ),
+        ),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.check_circle, color: Colors.green, size: 20),
-          SizedBox(width: 12),
+          Icon(
+            isArrived ? Icons.info : Icons.check_circle,
+            color: isArrived ? Colors.orange : Colors.green,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Driver Found",
+                  isArrived ? "Driver Arrived" : "Driver Found",
                   style: TextStyle(
-                    color: Colors.green,
+                    color: isArrived ? Colors.orange : Colors.green,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  "Arjun Kumar is on the way with a White Maruti Swift",
-                  style: TextStyle(fontSize: 12),
+                  isArrived
+                      ? "Arjun Kumar is waiting outside for you."
+                      : "Arjun Kumar is on the way with a White Maruti Swift",
+                  style: const TextStyle(fontSize: 12),
                 ),
               ],
             ),

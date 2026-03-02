@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/paymentscreen.dart';
+import 'package:gowayanad/ridestartedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
@@ -38,7 +39,9 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
               context,
               // The next screen in Rider flow was RideStarted, but skipping straight to Payment
               // since our 'COMPLETE RIDE' triggers the 'completed' status.
-              MaterialPageRoute(builder: (context) => const PaymentScreen()),
+              MaterialPageRoute(
+                builder: (context) => PaymentScreen(rideId: widget.rideId),
+              ),
             );
           }
         }
@@ -164,8 +167,13 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                         child: ElevatedButton(
                           onPressed: () {
                             // Manual navigation if needed for UI testing
-                            // Navigator.of(context).push(MaterialPageRoute(
-                            //     builder: (context) => RideStartedScreen()));
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    RideStartedScreen(rideId: widget.rideId),
+                              ),
+                            );
                           },
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),

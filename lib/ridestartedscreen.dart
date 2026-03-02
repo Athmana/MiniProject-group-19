@@ -1,9 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/reachedlocationscreen.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:gowayanad/services/ride_service.dart';
+import 'dart:async';
 
-class RideStartedScreen extends StatelessWidget {
-  const RideStartedScreen({super.key});
+class RideStartedScreen extends StatefulWidget {
+  final String rideId;
+  const RideStartedScreen({super.key, required this.rideId});
+
+  @override
+  State<RideStartedScreen> createState() => _RideStartedScreenState();
+}
+
+class _RideStartedScreenState extends State<RideStartedScreen> {
+  final RideService _rideService = RideService();
+  StreamSubscription<DocumentSnapshot>? _rideSubscription;
+  Map<String, dynamic>? _rideData;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenToRideStatus();
+  }
+
+  void _listenToRideStatus() {
+    _rideSubscription = _rideService.listenToRide(widget.rideId).listen((
+      snapshot,
+    ) {
+      if (snapshot.exists) {
+        setState(() {
+          _rideData = snapshot.data() as Map<String, dynamic>;
+        });
+        if (_rideData?['status'] == 'completed') {
+          if (mounted) {
+            _rideSubscription?.cancel();
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    ReachedLocationScreen(rideId: widget.rideId),
+              ),
+            );
+          }
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _rideSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +73,7 @@ class RideStartedScreen extends StatelessWidget {
                 onPressed: () {},
               ),
             ),
-          )
+          ),
         ],
       ),
       body: Column(
@@ -49,23 +98,36 @@ class RideStartedScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: const [
                           Text("ETA", style: TextStyle(color: Colors.grey)),
-                          Text("12 Mins",
-                              style: TextStyle(
-                                  fontSize: 28, fontWeight: FontWeight.bold)),
+                          Text(
+                            "12 Mins",
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
-                      const Icon(Icons.navigation_outlined,
-                          size: 40, color: Colors.blue),
+                      const Icon(
+                        Icons.navigation_outlined,
+                        size: 40,
+                        color: Colors.blue,
+                      ),
                     ],
                   ),
 
                   const Divider(height: 40),
 
-                  const Text("Heading To",
-                      style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  const Text("Sulthan Bathery Hospital",
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  const Text(
+                    "Heading To",
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                  Text(
+                    _rideData?['destination'] ?? "Loading destination...",
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
 
                   const SizedBox(height: 24),
 
@@ -76,11 +138,13 @@ class RideStartedScreen extends StatelessWidget {
                     title: const Text("Arjun Kumar"),
                     subtitle: const Text("Driving you safely"),
                     trailing: IconButton(
-                      icon: const Icon(Icons.share_location,
-                          color: Color(0xFF2D62ED)),
+                      icon: const Icon(
+                        Icons.share_location,
+                        color: Color(0xFF2D62ED),
+                      ),
                       onPressed: () {
-                        Navigator.of(context).push(MaterialPageRoute(
-                            builder: (context) => ReachedLocationScreen()));
+                        // Normally shares location, disabled navigation here
+                        // as Stream handles it.
                       }, // Share trip status
                     ),
                   ),
@@ -96,16 +160,21 @@ class RideStartedScreen extends StatelessWidget {
                     ),
                     child: Row(
                       children: const [
-                        Icon(Icons.shield_outlined,
-                            size: 16, color: Colors.grey),
+                        Icon(
+                          Icons.shield_outlined,
+                          size: 16,
+                          color: Colors.grey,
+                        ),
                         SizedBox(width: 8),
                         Expanded(
-                            child: Text(
-                                "Your ride is protected by GoWayanad Safety",
-                                style: TextStyle(fontSize: 11))),
+                          child: Text(
+                            "Your ride is protected by GoWayanad Safety",
+                            style: TextStyle(fontSize: 11),
+                          ),
+                        ),
                       ],
                     ),
-                  )
+                  ),
                 ],
               ),
             ),

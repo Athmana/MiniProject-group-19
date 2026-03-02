@@ -104,7 +104,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                     ? "Fetching location..."
                     : (_currentPosition != null
                           ? "Lat: ${_currentPosition!.latitude.toStringAsFixed(4)}, Lng: ${_currentPosition!.longitude.toStringAsFixed(4)}"
-                          : "Location unavailable"),
+                          : "Sulthan Bathery, Wayanad (Mocked)"),
                 prefixIcon: const Icon(
                   Icons.location_on_outlined,
                   color: Colors.blue,
