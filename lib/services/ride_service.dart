@@ -61,6 +61,15 @@ class RideService {
         .snapshots();
   }
 
+  // 3c. Rider listens to their own completed rides for recent trips
+  Stream<QuerySnapshot> getRiderCompletedRides(String riderId) {
+    return _firestore
+        .collection('rides')
+        .where('riderId', isEqualTo: riderId)
+        .where('status', isEqualTo: 'completed')
+        .snapshots();
+  }
+
   // 4. Driver accepts a ride
   Future<bool> acceptRide(String rideId) async {
     try {

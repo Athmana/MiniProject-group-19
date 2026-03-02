@@ -1,9 +1,60 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/homescreen.dart';
+import 'package:gowayanad/services/location_service.dart';
+import 'package:gowayanad/services/ride_service.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
-class EmergencyRideHome extends StatelessWidget {
+class EmergencyRideHome extends StatefulWidget {
   const EmergencyRideHome({super.key});
+
+  @override
+  State<EmergencyRideHome> createState() => _EmergencyRideHomeState();
+}
+
+class _EmergencyRideHomeState extends State<EmergencyRideHome> {
+  String _currentCity = "Fetching...";
+  String _currentState = "Location";
+  bool _isLoadingLocation = true;
+  final RideService _rideService = RideService();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAddress();
+  }
+
+  Future<void> _fetchAddress() async {
+    try {
+      Position position = await LocationService().getCurrentLocation();
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty && mounted) {
+        Placemark place = placemarks[0];
+        setState(() {
+          _currentCity =
+              place.locality ?? place.subAdministrativeArea ?? "Unknown City";
+          _currentState =
+              "${place.administrativeArea ?? 'Unknown State'}, ${place.country ?? ''}";
+          _isLoadingLocation = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _currentCity = "Location unavailable";
+          _currentState = "Tap to retry";
+          _isLoadingLocation = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,15 +126,15 @@ class EmergencyRideHome extends StatelessWidget {
                           fontSize: 13,
                         ),
                       ),
-                      const Text(
-                        "Kalpetta, Wayanad",
-                        style: TextStyle(
+                      Text(
+                        _isLoadingLocation ? "Loading..." : _currentCity,
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
                         ),
                       ),
                       Text(
-                        "Kerala, India",
+                        _currentState,
                         style: TextStyle(
                           color: Colors.grey.shade600,
                           fontSize: 13,
@@ -138,19 +189,56 @@ class EmergencyRideHome extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             const SizedBox(height: 16),
-            _buildRecentRideCard(
-              "Car",
-              "Sulthan Bathery Hospital",
-              "2 hours ago",
-              "4.9",
-              "₹824",
-            ),
-            _buildRecentRideCard(
-              "Ambulance",
-              "Mananthavady Medical Center",
-              "5 hours ago",
-              "4.8",
-              "₹1,650",
+
+            StreamBuilder<QuerySnapshot>(
+              stream: _rideService.getRiderCompletedRides(
+                FirebaseAuth.instance.currentUser?.uid ?? 'anonymous_rider',
+              ),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Text(
+                    "You have no recent emergency rides.",
+                    style: TextStyle(color: Colors.grey),
+                  );
+                }
+
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: snapshot.data!.docs.length,
+                  itemBuilder: (context, index) {
+                    final doc = snapshot.data!.docs[index];
+                    final rideData = doc.data() as Map<String, dynamic>;
+
+                    // Safely extract price
+                    final rawPrice = rideData['price'];
+                    String displayPrice = "N/A";
+                    if (rawPrice != null) {
+                      displayPrice = "₹$rawPrice";
+                    }
+
+                    // Safely extract timestamp
+                    String displayTime = "Unknown time";
+                    if (rideData['completedAt'] != null) {
+                      DateTime date = (rideData['completedAt'] as Timestamp)
+                          .toDate();
+                      displayTime = timeago.format(date);
+                    }
+
+                    return _buildRecentRideCard(
+                      rideData['vehicleType'] ?? "Unknown",
+                      rideData['destination'] ?? "Unknown Destination",
+                      displayTime,
+                      "5.0", // Hardcoded rating for now
+                      displayPrice,
+                    );
+                  },
+                );
+              },
             ),
           ],
         ),
