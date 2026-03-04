@@ -159,8 +159,9 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
                         if (success && mounted) {
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  DriverWaitingPaymentScreen(),
+                              builder: (context) => DriverWaitingPaymentScreen(
+                                rideId: widget.rideId,
+                              ),
                             ),
                           );
                         } else {

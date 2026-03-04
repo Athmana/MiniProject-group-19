@@ -19,6 +19,7 @@ class DriverToPickupScreen extends StatefulWidget {
 
 class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
   String? _riderName;
+  @override
   void initState() {
     super.initState();
     _fetchRiderName();

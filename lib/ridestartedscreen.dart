@@ -46,8 +46,7 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
         if (_rideData?['status'] == 'completed') {
           if (mounted) {
             _rideSubscription?.cancel();
-            Navigator.pushReplacement(
-              context,
+            Navigator.of(context).pushReplacement(
               MaterialPageRoute(
                 builder: (context) =>
                     ReachedLocationScreen(rideId: widget.rideId),

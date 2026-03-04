@@ -18,6 +18,10 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
   String? _driverName;
   bool _isLoadingName = true;
 
+  int _rating = 5;
+  final TextEditingController _feedbackController = TextEditingController();
+  bool _isSubmitting = false;
+
   @override
   void initState() {
     super.initState();
@@ -114,11 +118,42 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
                 5,
-                (index) => const Icon(
-                  Icons.star_rounded,
-                  color: Colors.orange,
-                  size: 40,
+                (index) => IconButton(
+                  icon: Icon(
+                    index < _rating
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
+                    color: Colors.orange,
+                    size: 40,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _rating = index + 1;
+                    });
+                  },
                 ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: TextField(
+                controller: _feedbackController,
+                decoration: InputDecoration(
+                  hintText: "Leave feedback (optional)",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF2D62ED)),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                ),
+                maxLines: 2,
               ),
             ),
 
@@ -130,22 +165,48 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EmergencyRideHome(),
-                    ),
-                  ),
+                  onPressed: _isSubmitting
+                      ? null
+                      : () async {
+                          setState(() {
+                            _isSubmitting = true;
+                          });
+                          await _rideService.submitReview(
+                            widget.rideId,
+                            _rating.toDouble(),
+                            _feedbackController.text,
+                          );
+                          if (mounted) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EmergencyRideHome(),
+                              ),
+                            );
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    "BACK TO HOME",
-                    style: TextStyle(color: Colors.white),
-                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          "SUBMIT RATING",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
             ),

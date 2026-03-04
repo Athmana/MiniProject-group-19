@@ -115,6 +115,38 @@ class RideService {
     }
   }
 
+  // 7. Update payment status
+  Future<bool> updatePaymentStatus(String rideId, String paymentStatus) async {
+    try {
+      await _firestore.collection('rides').doc(rideId).update({
+        'paymentStatus': paymentStatus,
+        'paidAt': FieldValue.serverTimestamp(),
+      });
+      return true;
+    } catch (e) {
+      print("Error updating payment status: $e");
+      return false;
+    }
+  }
+
+  // 8. Submit review
+  Future<bool> submitReview(
+    String rideId,
+    double rating,
+    String feedback,
+  ) async {
+    try {
+      await _firestore.collection('rides').doc(rideId).update({
+        'rating': rating,
+        'feedback': feedback,
+      });
+      return true;
+    } catch (e) {
+      print("Error submitting review: $e");
+      return false;
+    }
+  }
+
   // 7. Get User Details
   Future<Map<String, dynamic>?> getUserDetails(String userId) async {
     try {

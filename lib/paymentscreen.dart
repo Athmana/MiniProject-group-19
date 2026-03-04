@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gowayanad/ridecompleted.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:gowayanad/services/ride_service.dart';
 
 class PaymentScreen extends StatelessWidget {
   final String rideId;
@@ -59,13 +60,20 @@ class PaymentScreen extends StatelessWidget {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => RideCompletedScreen(rideId: rideId),
-                    ),
+                onPressed: () async {
+                  // Simulate showing a dialog or loading...
+                  bool success = await RideService().updatePaymentStatus(
+                    rideId,
+                    'completed',
                   );
-                  // Navigate to Ride Completed after successful payment simulation
+                  if (success && context.mounted) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            RideCompletedScreen(rideId: rideId),
+                      ),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2D62ED),

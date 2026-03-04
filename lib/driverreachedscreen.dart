@@ -165,15 +165,20 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {
-                            // Manual navigation if needed for UI testing
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    RideStartedScreen(rideId: widget.rideId),
-                              ),
+                          onPressed: () async {
+                            bool success = await _rideService.updateRideStatus(
+                              widget.rideId,
+                              'started',
                             );
+                            if (success && mounted) {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      RideStartedScreen(rideId: widget.rideId),
+                                ),
+                              );
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
