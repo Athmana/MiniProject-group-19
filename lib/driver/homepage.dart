@@ -165,13 +165,17 @@ class _DriverHomePageState extends State<DriverHomePage> {
                     ),
                   ),
                   IconButton(
-                    onPressed: () {
-                      // Manual check for requests can still exist or be removed
+                    onPressed: () async {
+                      await FirebaseAuth.instance.signOut();
+                      if (context.mounted) {
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          '/',
+                          (route) => false,
+                        );
+                      }
                     },
-                    icon: const Icon(
-                      Icons.notifications_active,
-                      color: Colors.black87,
-                    ),
+                    icon: const Icon(Icons.logout, color: Colors.black87),
                   ),
                 ],
               ),
