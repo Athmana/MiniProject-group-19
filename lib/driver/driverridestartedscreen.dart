@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:gowayanad/driver/driverwaitingforpaymentscreen.dart';
+import 'package:gowayanad/driver/homepage.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -157,12 +157,11 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
                           'completed',
                         );
                         if (success && mounted) {
-                          Navigator.of(context).pushReplacement(
+                          Navigator.of(context).pushAndRemoveUntil(
                             MaterialPageRoute(
-                              builder: (context) => DriverWaitingPaymentScreen(
-                                rideId: widget.rideId,
-                              ),
+                              builder: (context) => const DriverHomePage(),
                             ),
+                            (route) => false,
                           );
                         } else {
                           if (mounted) {
