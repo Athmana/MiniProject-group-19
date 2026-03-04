@@ -19,6 +19,26 @@ class DriverRideStartedScreen extends StatefulWidget {
 }
 
 class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
+  String? _riderName;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRiderName();
+  }
+
+  void _fetchRiderName() async {
+    final String? riderId = widget.rideData['riderId'];
+    if (riderId != null) {
+      final user = await RideService().getUserDetails(riderId);
+      if (mounted && user != null) {
+        setState(() {
+          _riderName = user['fullName'];
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -78,10 +98,10 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text(
-                          "800m - Turn Left",
-                          style: TextStyle(
+                          _riderName ?? "Loading rider...",
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),

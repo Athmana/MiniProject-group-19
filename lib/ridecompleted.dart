@@ -3,9 +3,55 @@ import 'package:gowayanad/homepage.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class RideCompletedScreen extends StatelessWidget {
+import 'package:gowayanad/services/ride_service.dart';
+
+class RideCompletedScreen extends StatefulWidget {
   final String rideId;
   const RideCompletedScreen({super.key, required this.rideId});
+
+  @override
+  State<RideCompletedScreen> createState() => _RideCompletedScreenState();
+}
+
+class _RideCompletedScreenState extends State<RideCompletedScreen> {
+  final RideService _rideService = RideService();
+  String? _driverName;
+  bool _isLoadingName = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDriverName();
+  }
+
+  void _fetchDriverName() async {
+    // 1. First get the ride document to find the driverId
+    final rideDoc = await FirebaseFirestore.instance
+        .collection('rides')
+        .doc(widget.rideId)
+        .get();
+
+    if (rideDoc.exists) {
+      final driverId = rideDoc.data()?['driverId'];
+      if (driverId != null) {
+        // 2. Then get the driver's user document to find their true name
+        final userDoc = await _rideService.getUserDetails(driverId);
+        if (mounted) {
+          setState(() {
+            _driverName = userDoc?['fullName'];
+            _isLoadingName = false;
+          });
+        }
+        return;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingName = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +74,7 @@ class RideCompletedScreen extends StatelessWidget {
             StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('rides')
-                  .doc(rideId)
+                  .doc(widget.rideId)
                   .snapshots(),
               builder: (context, snapshot) {
                 String price = "₹---";
@@ -57,9 +103,11 @@ class RideCompletedScreen extends StatelessWidget {
             ),
 
             const SizedBox(height: 40),
-            const Text(
-              "Rate your driver, Arjun",
-              style: TextStyle(fontWeight: FontWeight.w600),
+            Text(
+              _isLoadingName
+                  ? "Loading driver info..."
+                  : "Rate your driver, ${_driverName ?? 'Unknown Driver'}",
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 10),
             Row(

@@ -17,6 +17,7 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
   final RideService _rideService = RideService();
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
+  String? _driverName;
 
   @override
   void initState() {
@@ -32,6 +33,16 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
         setState(() {
           _rideData = snapshot.data() as Map<String, dynamic>;
         });
+
+        if (_driverName == null && _rideData?['driverId'] != null) {
+          _rideService.getUserDetails(_rideData!['driverId']).then((user) {
+            if (mounted && user != null) {
+              setState(() {
+                _driverName = user['fullName'] ?? "Driver";
+              });
+            }
+          });
+        }
         if (_rideData?['status'] == 'completed') {
           if (mounted) {
             _rideSubscription?.cancel();
@@ -135,7 +146,7 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const CircleAvatar(child: Icon(Icons.person)),
-                    title: const Text("Arjun Kumar"),
+                    title: Text(_driverName ?? "Loading driver..."),
                     subtitle: const Text("Driving you safely"),
                     trailing: IconButton(
                       icon: const Icon(

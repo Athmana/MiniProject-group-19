@@ -20,6 +20,7 @@ class DriverRequestScreen extends StatefulWidget {
 class _DriverRequestScreenState extends State<DriverRequestScreen> {
   GoogleMapController? mapController;
   Set<Marker> markers = {};
+  String? _riderName;
 
   @override
   void initState() {
@@ -33,6 +34,20 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
         infoWindow: const InfoWindow(title: 'Pickup Location'),
       ),
     );
+
+    _fetchRiderName();
+  }
+
+  void _fetchRiderName() async {
+    final String? riderId = widget.rideData['riderId'];
+    if (riderId != null) {
+      final user = await RideService().getUserDetails(riderId);
+      if (mounted && user != null) {
+        setState(() {
+          _riderName = user['fullName'];
+        });
+      }
+    }
   }
 
   @override
@@ -100,13 +115,25 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                           ),
                         ),
                       ),
-                      Text(
-                        "₹${widget.rideData['price'] ?? '599.00'}",
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2D62ED),
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            "₹${widget.rideData['price'] ?? '599.00'}",
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2D62ED),
+                            ),
+                          ),
+                          Text(
+                            _riderName ?? "Unknown Rider",
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

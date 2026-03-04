@@ -6,7 +6,6 @@ import 'package:gowayanad/driver/homepage.dart';
 import 'package:gowayanad/firebase_options.dart';
 import 'package:gowayanad/homepage.dart';
 import 'package:gowayanad/loginscreen.dart';
-import 'package:gowayanad/splashscreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -18,6 +18,24 @@ class DriverToPickupScreen extends StatefulWidget {
 }
 
 class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
+  String? _riderName;
+  void initState() {
+    super.initState();
+    _fetchRiderName();
+  }
+
+  void _fetchRiderName() async {
+    final String? riderId = widget.rideData['riderId'];
+    if (riderId != null) {
+      final user = await RideService().getUserDetails(riderId);
+      if (mounted && user != null) {
+        setState(() {
+          _riderName = user['fullName'];
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,9 +140,9 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              "Rider",
-                              style: TextStyle(
+                            Text(
+                              _riderName ?? "Loading rider...",
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 18,
                               ),

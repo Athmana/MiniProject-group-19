@@ -114,4 +114,21 @@ class RideService {
       return false;
     }
   }
+
+  // 7. Get User Details
+  Future<Map<String, dynamic>?> getUserDetails(String userId) async {
+    try {
+      DocumentSnapshot doc = await _firestore
+          .collection('users')
+          .doc(userId)
+          .get();
+      if (doc.exists) {
+        return doc.data() as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      print("Error fetching user details: $e");
+      return null;
+    }
+  }
 }

@@ -18,6 +18,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
   final RideService _rideService = RideService();
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
+  String? _driverName;
 
   @override
   void initState() {
@@ -33,6 +34,16 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
         setState(() {
           _rideData = snapshot.data() as Map<String, dynamic>;
         });
+
+        if (_driverName == null && _rideData?['driverId'] != null) {
+          _rideService.getUserDetails(_rideData!['driverId']).then((user) {
+            if (mounted && user != null) {
+              setState(() {
+                _driverName = user['fullName'] ?? "Driver";
+              });
+            }
+          });
+        }
         if (_rideData?['status'] == 'started') {
           if (mounted) {
             _rideSubscription?.cancel();
@@ -202,8 +213,8 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                 ),
                 Text(
                   isArrived
-                      ? "Arjun Kumar is waiting outside for you."
-                      : "Arjun Kumar is on the way with a White Maruti Swift",
+                      ? "${_driverName ?? 'Driver'} is waiting outside for you."
+                      : "${_driverName ?? 'Driver'} is on the way",
                   style: const TextStyle(fontSize: 12),
                 ),
               ],
@@ -234,26 +245,29 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
             child: Icon(Icons.person, color: Colors.white, size: 35),
           ),
           const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Arjun Kumar",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  _driverName ?? "Loading driver...",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 Row(
                   children: [
-                    Icon(Icons.star, color: Colors.orange, size: 16),
-                    Text(
+                    const Icon(Icons.star, color: Colors.orange, size: 16),
+                    const Text(
                       " 4.9",
                       style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ],
                 ),
                 Text(
-                  "White Maruti Swift • KL-07-XY-5678",
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  _rideData?['vehicleType'] ?? "Vehicle",
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
             ),
