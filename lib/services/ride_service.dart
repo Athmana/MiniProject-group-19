@@ -46,7 +46,6 @@ class RideService {
     return _firestore
         .collection('rides')
         .where('status', isEqualTo: 'pending')
-        .orderBy('createdAt', descending: true)
         .snapshots();
   }
 

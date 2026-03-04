@@ -313,7 +313,9 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               width: double.infinity,
               height: 56,
               child: OutlinedButton(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.pop(context);
+                },
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: Colors.grey.shade300),
                   shape: RoundedRectangleBorder(
