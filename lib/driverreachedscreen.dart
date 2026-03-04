@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gowayanad/paymentscreen.dart';
-import 'package:gowayanad/ridestartedscreen.dart';
-import 'package:gowayanad/services/ride_service.dart';
+import 'paymentscreen.dart';
+import 'ridestartedscreen.dart';
+import 'services/ride_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
 
@@ -170,7 +170,8 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                               widget.rideId,
                               'started',
                             );
-                            if (success && mounted) {
+                            if (!context.mounted) return;
+                            if (success) {
                               Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
