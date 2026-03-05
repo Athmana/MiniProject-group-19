@@ -11,7 +11,7 @@ plugins {
 android {
     namespace = "com.example.gowayanad"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
