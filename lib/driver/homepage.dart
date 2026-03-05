@@ -84,17 +84,19 @@ class _DriverHomePageState extends State<DriverHomePage> {
         // Prevent showing multiple dialogues for the same or older rides
         _stopListeningForRides();
 
-        Navigator.of(context)
-            .push(
-              MaterialPageRoute(
-                builder: (context) =>
-                    DriverRequestScreen(rideId: doc.id, rideData: data),
-              ),
-            )
-            .then((_) {
-              // Restart listening when returned, if still online
-              if (_isOnline) _startListeningForRides();
-            });
+        if (mounted) {
+          Navigator.of(context)
+              .push(
+                MaterialPageRoute(
+                  builder: (context) =>
+                      DriverRequestScreen(rideId: doc.id, rideData: data),
+                ),
+              )
+              .then((_) {
+                // Restart listening when returned, if still online
+                if (_isOnline) _startListeningForRides();
+              });
+        }
       }
     });
   }

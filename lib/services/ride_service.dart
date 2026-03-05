@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:math';
 
 class RideService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -9,12 +10,22 @@ class RideService {
     required double pickupLat,
     required double pickupLng,
     required String destination,
+    required double destLat,
+    required double destLng,
     required String vehicleType,
-    required String price,
   }) async {
     try {
       final String? riderId = FirebaseAuth.instance.currentUser?.uid;
       if (riderId == null) throw Exception("User not logged in");
+
+      double distance = calculateDistance(
+        pickupLat,
+        pickupLng,
+        destLat,
+        destLng,
+      );
+      double price = 50 + (distance * 12);
+      price = double.parse(price.toStringAsFixed(2));
 
       DocumentReference docRef = await _firestore.collection('rides').add({
         'riderId': riderId,
@@ -25,15 +36,27 @@ class RideService {
         'pickupLat': pickupLat,
         'pickupLng': pickupLng,
         'destination': destination,
+        'destLat': destLat,
+        'destLng': destLng,
         'vehicleType': vehicleType,
+        'distance': distance,
         'price': price,
         'createdAt': FieldValue.serverTimestamp(),
       });
       return docRef.id;
     } catch (e) {
-      print("Error requesting ride: $e");
       return null;
     }
+  }
+
+  double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    var p = 0.017453292519943295;
+    var c = cos;
+    var a =
+        0.5 -
+        c((lat2 - lat1) * p) / 2 +
+        c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p)) / 2;
+    return 12742 * asin(sqrt(a)); // distance in KM
   }
 
   // 2. Rider or Driver listens to a specific ride's status updates
@@ -82,7 +105,6 @@ class RideService {
       });
       return true;
     } catch (e) {
-      print("Error accepting ride: $e");
       return false;
     }
   }
@@ -95,7 +117,6 @@ class RideService {
       });
       return true;
     } catch (e) {
-      print("Error cancelling ride: $e");
       return false;
     }
   }
@@ -110,7 +131,6 @@ class RideService {
       });
       return true;
     } catch (e) {
-      print("Error updating ride status to $newStatus: $e");
       return false;
     }
   }
@@ -124,7 +144,6 @@ class RideService {
       });
       return true;
     } catch (e) {
-      print("Error updating payment status: $e");
       return false;
     }
   }
@@ -142,7 +161,6 @@ class RideService {
       });
       return true;
     } catch (e) {
-      print("Error submitting review: $e");
       return false;
     }
   }
@@ -159,7 +177,6 @@ class RideService {
       }
       return null;
     } catch (e) {
-      print("Error fetching user details: $e");
       return null;
     }
   }
