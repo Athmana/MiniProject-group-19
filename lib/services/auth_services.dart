@@ -6,7 +6,7 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Sign Up with Role
+  // Sign Up with Role (Email/Password)
   Future<void> signUp(String email, String password, String role) async {
     UserCredential result = await _auth.createUserWithEmailAndPassword(
       email: email,
@@ -20,17 +20,53 @@ class AuthService {
     });
   }
 
+  // Sign Up with Phone and Password (Used by Admin Panel CSV Upload)
+  Future<void> signUpWithPhone(
+    String name,
+    String phone,
+    String password,
+    String role,
+  ) async {
+    // Generate a pseudo-email for Firebase Auth since it requires an email for password login
+    String pseudoEmail = "$phone@gowayanad.app";
+
+    // Check if user already exists (optional, createUserWithEmailAndPassword handles it)
+    UserCredential result = await _auth.createUserWithEmailAndPassword(
+      email: pseudoEmail,
+      password: password,
+    );
+
+    // Save role and details to Firestore
+    await _firestore.collection('users').doc(result.user!.uid).set({
+      'name': name,
+      'phone': phone,
+      'password':
+          password, // Storing plain text password as requested (Note: Not secure for production)
+      'role': role, // 'rider' or 'driver'
+    });
+  }
+
   // Login and Route
   Future<void> loginAndRoute(
-    String email,
+    String identifier, // Can be email or phone
     String password,
     BuildContext context,
   ) async {
     try {
+      // Determine if identifier is a phone number (just numbers, or numbers with '+')
+      bool isProbablyPhone = RegExp(r'^\+?[0-9]+$').hasMatch(identifier);
+      String loginEmail = isProbablyPhone
+          ? "$identifier@gowayanad.app"
+          : identifier;
+
       UserCredential result = await _auth.signInWithEmailAndPassword(
-        email: email,
+        email: loginEmail,
         password: password,
       );
+fair-calculation
+
+      print("Tried login with $loginEmail");
+main
 
       // Fetch user role from Firestore
       DocumentSnapshot userDoc = await _firestore
