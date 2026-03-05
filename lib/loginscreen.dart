@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/services/auth_services.dart';
+import 'package:gowayanad/admin_panel.dart';
 import 'package:gowayanad/registerscreen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -10,7 +11,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final emailController = TextEditingController();
+  final phoneController = TextEditingController();
   final passwordController = TextEditingController();
 
   @override
@@ -31,18 +32,18 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                "Enter your Email to sign in",
+                "Enter your Phone Number to sign in",
                 style: Theme.of(
                   context,
                 ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
               ),
               const SizedBox(height: 40),
               TextField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
-                  labelText: "Email",
-                  prefixIcon: const Icon(Icons.email),
+                  labelText: "Phone Number",
+                  prefixIcon: const Icon(Icons.phone),
 
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -76,8 +77,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   onPressed: () => AuthService().loginAndRoute(
-                    emailController.text,
-                    passwordController.text,
+                    phoneController.text.trim(),
+                    passwordController.text.trim(),
                     context,
                   ),
 
@@ -108,6 +109,62 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: const Text(
                     "ADD USER/DRIVER",
                     style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Secret or dedicated Admin Panel Button
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    final passController = TextEditingController();
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text("Admin Access"),
+                        content: TextField(
+                          controller: passController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            hintText: "Enter secret passcode",
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text("Cancel"),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              if (passController.text == "112233") {
+                                Navigator.pop(context); // close dialog
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const AdminPanel(),
+                                  ),
+                                );
+                              } else {
+                                Navigator.pop(context); // close dialog
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Access Denied"),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Text("Submit"),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    "Admin Dashboard",
+                    style: TextStyle(color: Colors.grey),
                   ),
                 ),
               ),
