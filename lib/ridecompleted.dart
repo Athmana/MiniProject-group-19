@@ -176,14 +176,13 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
                             _rating.toDouble(),
                             _feedbackController.text,
                           );
-                          if (mounted) {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => EmergencyRideHome(),
-                              ),
-                            );
-                          }
+                          if (!context.mounted) return;
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => EmergencyRideHome(),
+                            ),
+                          );
                         },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
