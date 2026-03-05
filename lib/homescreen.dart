@@ -3,6 +3,7 @@ import 'package:gowayanad/services/ride_service.dart';
 import 'package:gowayanad/waitingfordriverscreen.dart';
 import 'package:gowayanad/services/location_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 class CabBookingHome extends StatefulWidget {
   const CabBookingHome({super.key});
@@ -264,14 +265,38 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                         }
 
                         // Show a quick loading state or just await the service
+                        double destLat = 0.0;
+                        double destLng = 0.0;
+                        try {
+                          List<Location> locations = await locationFromAddress(
+                            _destinationController.text.trim(),
+                          );
+                          if (locations.isNotEmpty) {
+                            destLat = locations.first.latitude;
+                            destLng = locations.first.longitude;
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Could not find destination location: $e',
+                                ),
+                              ),
+                            );
+                          }
+                          return;
+                        }
+
                         final String? rideId = await RideService().requestRide(
                           pickupLocation:
                               "Lat: ${_currentPosition!.latitude.toStringAsFixed(4)}, Lng: ${_currentPosition!.longitude.toStringAsFixed(4)}",
                           pickupLat: _currentPosition!.latitude,
                           pickupLng: _currentPosition!.longitude,
                           destination: _destinationController.text.trim(),
+                          destLat: destLat,
+                          destLng: destLng,
                           vehicleType: _selectedVehicleType!,
-                          price: _selectedVehiclePrice!,
                         );
 
                         if (rideId != null && context.mounted) {

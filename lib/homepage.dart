@@ -46,7 +46,6 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
         });
       }
     } catch (e) {
-      print("Error fetching location: $e");
       if (mounted) {
         setState(() {
           _currentCity = "Sulthan Bathery";
@@ -66,9 +65,15 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
           IconButton(
             onPressed: () async {
               await FirebaseAuth.instance.signOut();
-              Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+              if (context.mounted) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/',
+                  (route) => false,
+                );
+              }
             },
-            icon: Icon(Icons.logout),
+            icon: const Icon(Icons.logout),
           ),
         ],
         backgroundColor: Colors.white,
