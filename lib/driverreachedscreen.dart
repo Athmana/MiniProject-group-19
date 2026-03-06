@@ -31,6 +31,11 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
       snapshot,
     ) {
       if (snapshot.exists) {
+        if (mounted) {
+          setState(() {
+            _rideData = snapshot.data() as Map<String, dynamic>;
+          });
+        }
         final data = snapshot.data() as Map<String, dynamic>;
         if (data['status'] == 'completed') {
           if (mounted) {
@@ -135,9 +140,11 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                       color: const Color(0xFFF1F5FE),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
-                      "4 8 2 1",
-                      style: TextStyle(
+                    child: Text(
+                      (_rideData?['ridePin']?.toString() ?? "4821")
+                          .split('')
+                          .join(' '),
+                      style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 8,
