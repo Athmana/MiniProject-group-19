@@ -141,7 +141,7 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      (_rideData?['ridePin']?.toString() ?? "4821")
+                      (_rideData?['otp']?.toString() ?? "4821")
                           .split('')
                           .join(' '),
                       style: const TextStyle(

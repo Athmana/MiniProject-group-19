@@ -111,7 +111,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                   ElevatedButton(
                     onPressed: () async {
                       final correctPin =
-                          widget.rideData['ridePin']?.toString() ?? "4821";
+                          widget.rideData['otp']?.toString() ?? "4821";
 
                       if (pinController.text.trim() == correctPin) {
                         setDialogState(() {
