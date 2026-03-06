@@ -176,6 +176,56 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                     height: 60,
                     child: ElevatedButton(
                       onPressed: () async {
+                        // Prompt driver for PIN
+                        final _pinController = TextEditingController();
+                        bool? pinValid = await showDialog<bool>(
+                          context: context,
+                          builder: (context) {
+                            return AlertDialog(
+                              title: const Text("Enter Rider PIN"),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text("Ask the rider for their 4-digit PIN to start the ride."),
+                                  const SizedBox(height: 16),
+                                  TextField(
+                                    controller: _pinController,
+                                    keyboardType: TextInputType.number,
+                                    textAlign: TextAlign.center,
+                                    decoration: const InputDecoration(
+                                      hintText: "Enter 4-digit PIN",
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: const Text("Cancel"),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    if (_pinController.text.trim() == "4821") {
+                                      Navigator.pop(context, true);
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text("Incorrect PIN"),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  child: const Text("Confirm"),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+
+                        if (pinValid != true) return;
+
                         // Logic to notify user: "Driver has reached"
                         bool success = await RideService().updateRideStatus(
                           widget.rideId,
