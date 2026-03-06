@@ -76,7 +76,7 @@ class _AdminPanelState extends State<AdminPanel> {
                 );
                 successCount++;
               } catch (e) {
-                print("Error adding $phone: $e");
+                debugPrint("Error adding $phone: $e");
                 failCount++;
               }
             } else {
