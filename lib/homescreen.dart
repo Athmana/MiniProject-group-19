@@ -229,7 +229,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: _isLoadingLocation
+                onPressed: (_isLoadingLocation || _selectedVehicleType == null)
                     ? null
                     : () async {
                         if (_currentPosition == null) {
@@ -317,10 +317,12 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(
-                    0xFF94B5F9,
-                  ), // Light blue from image
+                  backgroundColor: _selectedVehicleType != null
+                      ? const Color(0xFF2855D3) // Dark Blue when selected
+                      : const Color(0xFF94B5F9), // Light blue when disabled
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor: const Color(0xFF94B5F9),
+                  disabledForegroundColor: Colors.white70,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -428,36 +430,11 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               maxLines: 2,
             ),
             const Spacer(),
-            const Divider(),
-            Row(
-              children: [
-                const Icon(Icons.currency_rupee, size: 14, color: Colors.blue),
-                Text(
-                  price.replaceAll('₹', ''),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ],
-            ),
-            _buildInfoRow(Icons.people_outline, seats),
-            _buildInfoRow(Icons.access_time, time),
+            // Replaced price and seat info with just seats as requested
+            // (Wait, the user said "Keep only the vehicle icon, vehicle name, and description."
+            // So I will remove seats too just to be safe, or keep it if it looks better but they said "Keep ONLY")
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 12, color: Colors.grey),
-          const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        ],
       ),
     );
   }

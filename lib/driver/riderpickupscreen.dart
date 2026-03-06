@@ -177,7 +177,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                     child: ElevatedButton(
                       onPressed: () async {
                         // Prompt driver for PIN
-                        final _pinController = TextEditingController();
+                        final pinController = TextEditingController();
                         bool? pinValid = await showDialog<bool>(
                           context: context,
                           builder: (context) {
@@ -186,10 +186,12 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                               content: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Text("Ask the rider for their 4-digit PIN to start the ride."),
+                                  const Text(
+                                    "Ask the rider for their 4-digit PIN to start the ride.",
+                                  ),
                                   const SizedBox(height: 16),
                                   TextField(
-                                    controller: _pinController,
+                                    controller: pinController,
                                     keyboardType: TextInputType.number,
                                     textAlign: TextAlign.center,
                                     decoration: const InputDecoration(
@@ -201,15 +203,18 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                               ),
                               actions: [
                                 TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
                                   child: const Text("Cancel"),
                                 ),
                                 ElevatedButton(
                                   onPressed: () {
-                                    if (_pinController.text.trim() == "4821") {
+                                    if (pinController.text.trim() == "4821") {
                                       Navigator.pop(context, true);
                                     } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         const SnackBar(
                                           content: Text("Incorrect PIN"),
                                           backgroundColor: Colors.red,
