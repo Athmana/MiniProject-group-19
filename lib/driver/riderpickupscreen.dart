@@ -181,25 +181,23 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                           widget.rideId,
                           'arrived',
                         );
-                        if (success && mounted) {
+                        if (!context.mounted) return;
+                        if (success) {
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
                               builder: (context) => DriverRideStartedScreen(
                                 rideId: widget.rideId,
-                                rideData: widget.rideData,
                               ),
                             ),
                           );
                         } else {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Failed to update status to arrived',
-                                ),
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Failed to update status to arrived',
                               ),
-                            );
-                          }
+                            ),
+                          );
                         }
                       },
                       style: ElevatedButton.styleFrom(

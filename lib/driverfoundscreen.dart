@@ -238,7 +238,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
   }
 
   // ignore: strict_top_level_inference
-  Widget _buildDriverCard(context) {
+  Widget _buildDriverCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
