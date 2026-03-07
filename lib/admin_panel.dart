@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:gowayanad/services/auth_services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});
@@ -104,72 +105,304 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Admin Panel"),
-        backgroundColor: const Color(0xFF2D62ED),
-        foregroundColor: Colors.white,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.admin_panel_settings,
-                size: 100,
-                color: Color(0xFF2D62ED),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                "Bulk User Upload",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                "Upload a CSV file with the following columns:\nName, Phone, Password, Role (rider/driver)",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 32),
+  Future<void> _deleteUser(String docId) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(docId).delete();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User deleted successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete user: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
-              if (_isLoading)
-                const CircularProgressIndicator()
-              else
-                ElevatedButton.icon(
-                  onPressed: _pickAndProcessCSV,
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text("Select CSV File"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2D62ED),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
+  void _showAddUserDialog(String role) {
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+    final passwordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        bool isAdding = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Add New ${role == 'rider' ? 'Rider' : 'Driver'}'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Full Name'),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    TextField(
+                      controller: phoneController,
+                      decoration: const InputDecoration(
+                        labelText: 'Phone Number',
+                        prefixText: '+91 ',
+                      ),
+                      keyboardType: TextInputType.phone,
                     ),
-                  ),
+                    TextField(
+                      controller: passwordController,
+                      decoration: const InputDecoration(labelText: 'Password'),
+                      obscureText: true,
+                    ),
+                  ],
                 ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isAdding ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isAdding
+                      ? null
+                      : () async {
+                          final name = nameController.text.trim();
+                          final phone =
+                              '+91${phoneController.text.trim()}'; // Enforcing standard format, adjust if needed
+                          final password = passwordController.text.trim();
 
-              const SizedBox(height: 32),
-              Text(
-                _statusMessage,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: _statusMessage.contains("Error")
-                      ? Colors.red
-                      : Colors.black87,
+                          if (name.isEmpty ||
+                              phone.length < 10 ||
+                              password.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Please fill all fields correctly',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => isAdding = true);
+
+                          try {
+                            // Using the existing AuthService method
+                            await AuthService().signUpWithPhone(
+                              name,
+                              phone,
+                              password,
+                              role,
+                            );
+                            if (mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('User added successfully!'),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            setDialogState(() => isAdding = false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error adding user: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: isAdding
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Add User'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildUserList(String role) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ElevatedButton.icon(
+                onPressed: _pickAndProcessCSV,
+                icon: const Icon(Icons.upload_file),
+                label: const Text("Upload CSV"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2D62ED),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => _showAddUserDialog(role),
+                icon: const Icon(Icons.person_add),
+                label: Text("Add ${role == 'rider' ? 'Rider' : 'Driver'}"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
                 ),
               ),
             ],
           ),
         ),
+        if (_statusMessage != "Please select a CSV file to upload users." &&
+            _statusMessage != "No file selected.")
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              _statusMessage,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: _statusMessage.contains("Error")
+                    ? Colors.red
+                    : Colors.black87,
+              ),
+            ),
+          ),
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .where('role', isEqualTo: role)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text("Error fetching data: ${snapshot.error}"),
+                );
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return Center(child: Text("No ${role}s found."));
+              }
+
+              final users = snapshot.data!.docs;
+
+              return ListView.builder(
+                itemCount: users.length,
+                itemBuilder: (context, index) {
+                  final user = users[index].data() as Map<String, dynamic>;
+                  final docId = users[index].id;
+
+                  return Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: role == 'rider'
+                            ? Colors.blue.shade100
+                            : Colors.orange.shade100,
+                        child: Icon(
+                          role == 'rider'
+                              ? Icons.person
+                              : Icons.electric_rickshaw,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      title: Text(
+                        user['name'] ?? 'Unknown',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text("Phone: ${user['phone'] ?? 'N/A'}"),
+                      isThreeLine: false,
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text("Confirm Delete"),
+                              content: Text(
+                                "Are you sure you want to delete ${user['name']}?",
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text("Cancel"),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    _deleteUser(docId);
+                                  },
+                                  child: const Text(
+                                    "Delete",
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("Admin Panel"),
+          backgroundColor: const Color(0xFF2D62ED),
+          foregroundColor: Colors.white,
+          bottom: const TabBar(
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicatorColor: Colors.white,
+            tabs: [
+              Tab(icon: Icon(Icons.person), text: "Riders"),
+              Tab(icon: Icon(Icons.drive_eta), text: "Drivers"),
+            ],
+          ),
+        ),
+        body: _isLoading
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(_statusMessage),
+                  ],
+                ),
+              )
+            : TabBarView(
+                children: [_buildUserList('rider'), _buildUserList('driver')],
+              ),
       ),
     );
   }
