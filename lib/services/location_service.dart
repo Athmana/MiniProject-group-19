@@ -54,4 +54,14 @@ class LocationService {
       ),
     );
   }
+
+  /// Get a stream of position updates.
+  Stream<Position> getPositionStream() {
+    return Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 10, // Update every 10 meters
+      ),
+    );
+  }
 }

@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:gowayanad/driver/driverequestscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
+import 'package:gowayanad/services/location_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 
 class DriverHomePage extends StatefulWidget {
   const DriverHomePage({super.key});
@@ -15,16 +18,34 @@ class DriverHomePage extends StatefulWidget {
 class _DriverHomePageState extends State<DriverHomePage> {
   bool _isOnline = false;
   final RideService _rideService = RideService();
+  final LocationService _locationService = LocationService();
   StreamSubscription<QuerySnapshot>? _pendingRidesSubscription;
   StreamSubscription<QuerySnapshot>? _completedRidesSubscription;
+  StreamSubscription<Position>? _locationSubscription;
 
   double _totalEarnings = 0.0;
   int _totalRides = 0;
+  GoogleMapController? _mapController;
+  LatLng? _currentLatLng;
 
   @override
   void initState() {
     super.initState();
     _startListeningToEarnings();
+    _fetchInitialLocation();
+  }
+
+  Future<void> _fetchInitialLocation() async {
+    try {
+      Position pos = await _locationService.getCurrentLocation();
+      if (mounted) {
+        setState(() {
+          _currentLatLng = LatLng(pos.latitude, pos.longitude);
+        });
+      }
+    } catch (e) {
+      debugPrint("Error getting initial location: $e");
+    }
   }
 
   void _startListeningToEarnings() {
@@ -38,13 +59,11 @@ class _DriverHomePageState extends State<DriverHomePage> {
 
           for (var doc in snapshot.docs) {
             final data = doc.data() as Map<String, dynamic>;
-            // Try parsing the price (might be stored as String or number depending on request)
             final priceRaw = data['price'];
             if (priceRaw != null) {
               if (priceRaw is num) {
                 earnings += priceRaw.toDouble();
               } else if (priceRaw is String) {
-                // Handle prices like "$500" or "500"
                 String cleanPrice = priceRaw.replaceAll(RegExp(r'[^0-9.]'), '');
                 earnings += double.tryParse(cleanPrice) ?? 0.0;
               }
@@ -67,8 +86,41 @@ class _DriverHomePageState extends State<DriverHomePage> {
 
     if (_isOnline) {
       _startListeningForRides();
+      _startLocationUpdates();
     } else {
       _stopListeningForRides();
+      _stopLocationUpdates();
+    }
+  }
+
+  void _startLocationUpdates() {
+    final driverId = FirebaseAuth.instance.currentUser?.uid;
+    if (driverId == null) return;
+
+    _locationSubscription = _locationService.getPositionStream().listen((pos) {
+      final latLng = LatLng(pos.latitude, pos.longitude);
+      if (mounted) {
+        setState(() => _currentLatLng = latLng);
+        _mapController?.animateCamera(CameraUpdate.newLatLng(latLng));
+      }
+
+      // Update Firestore with throttling handled by distanceFilter in LocationService
+      FirebaseFirestore.instance.collection('drivers').doc(driverId).set({
+        'lat': pos.latitude,
+        'lng': pos.longitude,
+        'lastUpdated': FieldValue.serverTimestamp(),
+        'isOnline': true,
+      }, SetOptions(merge: true));
+    });
+  }
+
+  void _stopLocationUpdates() {
+    _locationSubscription?.cancel();
+    final driverId = FirebaseAuth.instance.currentUser?.uid;
+    if (driverId != null) {
+      FirebaseFirestore.instance.collection('drivers').doc(driverId).update({
+        'isOnline': false,
+      });
     }
   }
 
@@ -77,11 +129,8 @@ class _DriverHomePageState extends State<DriverHomePage> {
       snapshot,
     ) {
       if (snapshot.docs.isNotEmpty) {
-        // For simplicity, grab the first pending ride
         final doc = snapshot.docs.first;
         final data = doc.data() as Map<String, dynamic>;
-
-        // Prevent showing multiple dialogues for the same or older rides
         _stopListeningForRides();
 
         if (mounted) {
@@ -93,7 +142,6 @@ class _DriverHomePageState extends State<DriverHomePage> {
                 ),
               )
               .then((_) {
-                // Restart listening when returned, if still online
                 if (_isOnline) _startListeningForRides();
               });
         }
@@ -109,6 +157,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
   @override
   void dispose() {
     _stopListeningForRides();
+    _stopLocationUpdates();
     _completedRidesSubscription?.cancel();
     super.dispose();
   }
@@ -116,22 +165,19 @@ class _DriverHomePageState extends State<DriverHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // The background would typically be a Google Map
       backgroundColor: const Color(0xFFF5F7FA),
       body: Stack(
         children: [
-          // 1. Map Placeholder
-          Container(
-            width: double.infinity,
-            height: double.infinity,
-            color: const Color(0xFFE3EDFF),
-            child: const Center(
-              child: Icon(
-                Icons.map_rounded,
-                size: 100,
-                color: Colors.blueAccent,
-              ),
+          // 1. Live Google Map
+          GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: _currentLatLng ?? const LatLng(11.6094, 76.0828),
+              zoom: 15,
             ),
+            onMapCreated: (controller) => _mapController = controller,
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
           ),
 
           // 2. Top Header - Profile & Earnings
@@ -154,7 +200,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(25),
-                      boxShadow: [
+                      boxShadow: const [
                         BoxShadow(color: Colors.black12, blurRadius: 5),
                       ],
                     ),
@@ -201,7 +247,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
                   decoration: BoxDecoration(
                     color: _isOnline ? Colors.green : Colors.redAccent,
                     borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(color: Colors.black26, blurRadius: 8),
                     ],
                   ),
@@ -238,7 +284,9 @@ class _DriverHomePageState extends State<DriverHomePage> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 15)],
+                boxShadow: const [
+                  BoxShadow(color: Colors.black12, blurRadius: 15),
+                ],
               ),
               child: Column(
                 children: [
@@ -255,9 +303,11 @@ class _DriverHomePageState extends State<DriverHomePage> {
                     ],
                   ),
                   const Divider(height: 30),
-                  const Text(
-                    "Waiting for emergency requests...",
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  Text(
+                    _isOnline
+                        ? "Waiting for emergency requests..."
+                        : "Go online to start receiving requests",
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
                   ),
                 ],
               ),

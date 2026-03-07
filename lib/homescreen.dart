@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:gowayanad/waitingfordriverscreen.dart';
 import 'package:gowayanad/services/location_service.dart';
+import 'package:gowayanad/services/map_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class CabBookingHome extends StatefulWidget {
   const CabBookingHome({super.key});
@@ -13,12 +15,18 @@ class CabBookingHome extends StatefulWidget {
 }
 
 class _CabBookingHomeState extends State<CabBookingHome> {
-  Position? _currentPosition;
   bool _isLoadingLocation = true;
 
   final TextEditingController _destinationController = TextEditingController();
   String? _selectedVehicleType;
-  String? _selectedVehiclePrice;
+
+  GoogleMapController? _mapController;
+  LatLng? _pickupLatLng;
+  LatLng? _destinationLatLng;
+  Set<Marker> _markers = {};
+  Set<Polyline> _polylines = {};
+  String? _distance;
+  String? _duration;
 
   @override
   void initState() {
@@ -31,8 +39,9 @@ class _CabBookingHomeState extends State<CabBookingHome> {
       Position position = await LocationService().getCurrentLocation();
       if (mounted) {
         setState(() {
-          _currentPosition = position;
+          _pickupLatLng = LatLng(position.latitude, position.longitude);
           _isLoadingLocation = false;
+          _addPickupMarker(_pickupLatLng!);
         });
       }
     } catch (e) {
@@ -44,6 +53,115 @@ class _CabBookingHomeState extends State<CabBookingHome> {
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to get location: $e')));
       }
+    }
+  }
+
+  void _addPickupMarker(LatLng pos) {
+    setState(() {
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('pickup'),
+          position: pos,
+          infoWindow: const InfoWindow(title: 'Pickup Location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        ),
+      );
+    });
+  }
+
+  void _onMapTapped(LatLng pos) async {
+    setState(() {
+      _destinationLatLng = pos;
+      _markers.removeWhere((m) => m.markerId.value == 'destination');
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('destination'),
+          position: pos,
+          infoWindow: const InfoWindow(title: 'Destination'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        ),
+      );
+    });
+
+    // Get address for the tapped location
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        pos.latitude,
+        pos.longitude,
+      );
+      if (placemarks.isNotEmpty) {
+        _destinationController.text = placemarks[0].name ?? "Selected Location";
+      }
+    } catch (e) {
+      _destinationController.text = "Selected Location";
+    }
+
+    _drawRoute();
+  }
+
+  Future<void> _drawRoute() async {
+    if (_pickupLatLng == null || _destinationLatLng == null) return;
+
+    final mapService = MapService();
+    final polylinePoints = await mapService.getRoutePolylines(
+      _pickupLatLng!,
+      _destinationLatLng!,
+    );
+    final details = await mapService.getDistanceAndETA(
+      _pickupLatLng!,
+      _destinationLatLng!,
+    );
+
+    if (mounted) {
+      setState(() {
+        _polylines.add(
+          Polyline(
+            polylineId: const PolylineId('route'),
+            points: polylinePoints,
+            color: Colors.blue,
+            width: 5,
+          ),
+        );
+        if (details != null) {
+          _distance = details['distance'];
+          _duration = details['duration'];
+        }
+      });
+
+      // Fit map to markers
+      LatLngBounds bounds;
+      if (_pickupLatLng!.latitude > _destinationLatLng!.latitude) {
+        bounds = LatLngBounds(
+          southwest: LatLng(
+            _destinationLatLng!.latitude,
+            _pickupLatLng!.longitude < _destinationLatLng!.longitude
+                ? _pickupLatLng!.longitude
+                : _destinationLatLng!.longitude,
+          ),
+          northeast: LatLng(
+            _pickupLatLng!.latitude,
+            _pickupLatLng!.longitude > _destinationLatLng!.longitude
+                ? _pickupLatLng!.longitude
+                : _destinationLatLng!.longitude,
+          ),
+        );
+      } else {
+        bounds = LatLngBounds(
+          southwest: LatLng(
+            _pickupLatLng!.latitude,
+            _pickupLatLng!.longitude < _destinationLatLng!.longitude
+                ? _pickupLatLng!.longitude
+                : _destinationLatLng!.longitude,
+          ),
+          northeast: LatLng(
+            _destinationLatLng!.latitude,
+            _pickupLatLng!.longitude > _destinationLatLng!.longitude
+                ? _pickupLatLng!.longitude
+                : _destinationLatLng!.longitude,
+          ),
+        );
+      }
+      _mapController?.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
     }
   }
 
@@ -87,352 +205,268 @@ class _CabBookingHomeState extends State<CabBookingHome> {
           ],
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Pickup Location Section
-            const Text(
-              "Pickup Location",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              readOnly: true,
-              decoration: InputDecoration(
-                hintText: _isLoadingLocation
-                    ? "Fetching location..."
-                    : (_currentPosition != null
-                          ? "Lat: ${_currentPosition!.latitude.toStringAsFixed(4)}, Lng: ${_currentPosition!.longitude.toStringAsFixed(4)}"
-                          : "Sulthan Bathery, Wayanad (Mocked)"),
-                prefixIcon: const Icon(
-                  Icons.location_on_outlined,
-                  color: Colors.blue,
+      body: Stack(
+        children: [
+          // Google Map
+          _isLoadingLocation
+              ? const Center(child: CircularProgressIndicator())
+              : GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _pickupLatLng ?? const LatLng(11.6094, 76.0828),
+                    zoom: 14,
+                  ),
+                  onMapCreated: (controller) => _mapController = controller,
+                  markers: _markers,
+                  polylines: _polylines,
+                  onTap: _onMapTapped,
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: true,
+                  padding: const EdgeInsets.only(bottom: 300),
                 ),
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+
+          // Bottom Sheet
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              height: 380,
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
                 ),
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
               ),
-            ),
-            const SizedBox(height: 24),
-            // Destination Section
-            const Text(
-              "Where are you going?",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _destinationController,
-              decoration: InputDecoration(
-                hintText: "Enter destination address",
-                prefixIcon: const Icon(
-                  Icons.near_me_outlined,
-                  color: Colors.cyan,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.blue, width: 2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Emergency Alert Banner
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEF4FF),
-                borderRadius: BorderRadius.circular(12),
-                border: const Border(
-                  left: BorderSide(color: Colors.blue, width: 4),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Text("🚨", style: TextStyle(fontSize: 16)),
-                      SizedBox(width: 8),
-                      Text(
-                        "Emergency Service Activated",
-                        style: TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Distance and ETA
+                    if (_distance != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Distance: $_distance",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              "ETA: $_duration",
+                              style: const TextStyle(
+                                color: Colors.blue,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Select your preferred vehicle type for immediate emergency response",
-                    style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            // Vehicle Selection Grid
-            const Text(
-              "Select Vehicle Type",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.8,
-              children: [
-                _buildVehicleCard(
-                  title: "Auto",
-                  desc: "Quick emergency response",
-                  price: "299",
-                  seats: "3 seats",
-                  time: "2-3 min",
-                  icon: Icons.electric_rickshaw,
-                ),
-                _buildVehicleCard(
-                  title: "Car",
-                  desc: "Comfortable emergency transport",
-                  price: "599",
-                  seats: "4 seats",
-                  time: "3-4 min",
-                  icon: Icons.directions_car,
-                ),
-                _buildVehicleCard(
-                  title: "Truck",
-                  desc: "Heavy cargo emergency",
-                  price: "799",
-                  seats: "2 seats",
-                  time: "4-5 min",
-                  icon: Icons.local_shipping,
-                ),
-                _buildVehicleCard(
-                  title: "Ambulance",
-                  desc: "Medical emergency response",
-                  price: "1200",
-                  seats: "2 seats",
-                  time: "1-2 min",
-                  icon: Icons.medical_services,
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
 
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: (_isLoadingLocation || _selectedVehicleType == null)
-                    ? null
-                    : () async {
-                        if (_currentPosition == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Location is required to book a ride',
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-
-                        if (_destinationController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Please enter a destination address',
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-
-                        if (_selectedVehicleType == null ||
-                            _selectedVehiclePrice == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please select a vehicle type'),
-                            ),
-                          );
-                          return;
-                        }
-
-                        // Show a quick loading state or just await the service
-                        double destLat = 0.0;
-                        double destLng = 0.0;
-                        try {
-                          List<Location> locations = await locationFromAddress(
-                            _destinationController.text.trim(),
-                          );
-                          if (locations.isNotEmpty) {
-                            destLat = locations.first.latitude;
-                            destLng = locations.first.longitude;
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Could not find destination location: $e',
-                                ),
-                              ),
-                            );
-                          }
-                          return;
-                        }
-
-                        final String? rideId = await RideService().requestRide(
-                          pickupLocation:
-                              "Lat: ${_currentPosition!.latitude.toStringAsFixed(4)}, Lng: ${_currentPosition!.longitude.toStringAsFixed(4)}",
-                          pickupLat: _currentPosition!.latitude,
-                          pickupLng: _currentPosition!.longitude,
-                          destination: _destinationController.text.trim(),
-                          destLat: destLat,
-                          destLng: destLng,
-                          vehicleType: _selectedVehicleType!,
-                        );
-
-                        if (rideId != null && context.mounted) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  WaitingForDriverScreen(rideId: rideId),
-                            ),
-                          );
-                        } else {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Failed to request ride'),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _selectedVehicleType != null
-                      ? const Color(0xFF2855D3) // Dark Blue when selected
-                      : const Color(0xFF94B5F9), // Light blue when disabled
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: const Color(0xFF94B5F9),
-                  disabledForegroundColor: Colors.white70,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  "Confirm Emergency Ride",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Cancel Button
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: OutlinedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: Colors.grey.shade300),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  "Cancel",
-                  style: TextStyle(color: Colors.black, fontSize: 16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Emergency Ride Protection Footer
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5FE),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: RichText(
-                text: TextSpan(
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                  children: [
-                    const TextSpan(
-                      text: "Emergency Ride Protection: ",
+                    // Pickup Location (Read-only)
+                    const Text(
+                      "Pickup Location",
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    TextSpan(
-                      text:
-                          "Your location is being shared with emergency services. Driver details will be sent to your emergency contacts.",
-                      style: TextStyle(color: Colors.grey.shade800),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_on, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _isLoadingLocation
+                                  ? "Fetching location..."
+                                  : "My Current Location",
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Destination
+                    const Text(
+                      "Destination",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _destinationController,
+                      decoration: InputDecoration(
+                        hintText: "Tap on map to select destination",
+                        prefixIcon: const Icon(
+                          Icons.near_me_outlined,
+                          color: Colors.cyan,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                      ),
+                      onSubmitted: (val) async {
+                        try {
+                          List<Location> locations = await locationFromAddress(
+                            val,
+                          );
+                          if (locations.isNotEmpty) {
+                            _onMapTapped(
+                              LatLng(
+                                locations.first.latitude,
+                                locations.first.longitude,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Could not find address"),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Vehicle Selection
+                    const Text(
+                      "Select Vehicle",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 100,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          _buildVehicleItem(
+                            "Auto",
+                            Icons.electric_rickshaw,
+                            "299",
+                          ),
+                          _buildVehicleItem("Car", Icons.directions_car, "599"),
+                          _buildVehicleItem(
+                            "Truck",
+                            Icons.local_shipping,
+                            "799",
+                          ),
+                          _buildVehicleItem(
+                            "Ambulance",
+                            Icons.medical_services,
+                            "1200",
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Confirm Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed:
+                            (_isLoadingLocation ||
+                                _selectedVehicleType == null ||
+                                _destinationLatLng == null)
+                            ? null
+                            : () async {
+                                final String? rideId = await RideService()
+                                    .requestRide(
+                                      pickupLocation: "My Location",
+                                      pickupLat: _pickupLatLng!.latitude,
+                                      pickupLng: _pickupLatLng!.longitude,
+                                      destination: _destinationController.text
+                                          .trim(),
+                                      destLat: _destinationLatLng!.latitude,
+                                      destLng: _destinationLatLng!.longitude,
+                                      vehicleType: _selectedVehicleType!,
+                                    );
+
+                                if (rideId != null && context.mounted) {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          WaitingForDriverScreen(
+                                            rideId: rideId,
+                                          ),
+                                    ),
+                                  );
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2855D3),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          "Confirm Emergency Ride",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildVehicleCard({
-    required String title,
-    required String desc,
-    required String price,
-    required String seats,
-    required String time,
-    required IconData icon,
-  }) {
+  Widget _buildVehicleItem(String title, IconData icon, String price) {
     final bool isSelected = _selectedVehicleType == title;
-
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedVehicleType = title;
-          _selectedVehiclePrice = price;
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(12),
+      onTap: () => setState(() => _selectedVehicleType = title),
+      child: Container(
+        width: 100,
+        margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFE8F0FF) : Colors.white,
           border: Border.all(
             color: isSelected ? Colors.blue : Colors.grey.shade200,
-            width: isSelected ? 2 : 1,
+            width: 2,
           ),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 32, color: Colors.blueGrey),
-            const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Icon(icon, color: isSelected ? Colors.blue : Colors.grey),
+            const SizedBox(height: 4),
             Text(
-              desc,
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-              maxLines: 2,
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isSelected ? Colors.blue : Colors.black,
+              ),
             ),
-            const Spacer(),
-            // Replaced price and seat info with just seats as requested
-            // (Wait, the user said "Keep only the vehicle icon, vehicle name, and description."
-            // So I will remove seats too just to be safe, or keep it if it looks better but they said "Keep ONLY")
+            Text(
+              "₹$price",
+              style: TextStyle(
+                fontSize: 12,
+                color: isSelected ? Colors.blue : Colors.grey,
+              ),
+            ),
           ],
         ),
       ),

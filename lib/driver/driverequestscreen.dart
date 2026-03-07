@@ -186,7 +186,7 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                             if (success && context.mounted) {
                               Navigator.of(context).pushReplacement(
                                 MaterialPageRoute(
-                                  builder: (context) => DriverToPickupScreen(
+                                  builder: (context) => RiderPickupScreen(
                                     rideId: widget.rideId,
                                     rideData: widget.rideData,
                                   ),

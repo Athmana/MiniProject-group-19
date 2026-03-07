@@ -2,39 +2,121 @@ import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/driverridestartedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:gowayanad/services/map_service.dart';
+import 'package:gowayanad/services/location_service.dart';
 
-class DriverToPickupScreen extends StatefulWidget {
+class RiderPickupScreen extends StatefulWidget {
   final String rideId;
   final Map<String, dynamic> rideData;
 
-  const DriverToPickupScreen({
+  const RiderPickupScreen({
     super.key,
     required this.rideId,
     required this.rideData,
   });
 
   @override
-  State<DriverToPickupScreen> createState() => _DriverToPickupScreenState();
+  State<RiderPickupScreen> createState() => _RiderPickupScreenState();
 }
 
-class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
+class _RiderPickupScreenState extends State<RiderPickupScreen> {
   String? _riderName;
+
+  final RideService _rideService = RideService();
+  final MapService _mapService = MapService();
+  final LocationService _locationService = LocationService();
+
+  Set<Marker> _markers = {};
+  Set<Polyline> _polylines = {};
+  LatLng? _driverLatLng;
+  GoogleMapController? _mapController;
 
   @override
   void initState() {
     super.initState();
     _fetchRiderName();
+    _loadNavigation();
   }
 
   void _fetchRiderName() async {
     final String? riderId = widget.rideData['riderId'];
     if (riderId != null) {
-      final user = await RideService().getUserDetails(riderId);
+      final user = await _rideService.getUserDetails(riderId);
       if (mounted && user != null) {
         setState(() {
-          _riderName = user['fullName'];
+          _riderName = user['fullName'] ?? user['name'] ?? "Rider";
         });
       }
+    }
+  }
+
+  Future<void> _loadNavigation() async {
+    try {
+      final pos = await _locationService.getCurrentLocation();
+      _driverLatLng = LatLng(pos.latitude, pos.longitude);
+      final pickupLatLng = LatLng(
+        (widget.rideData['pickupLat'] as num).toDouble(),
+        (widget.rideData['pickupLng'] as num).toDouble(),
+      );
+
+      final polylinePoints = await _mapService.getRoutePolylines(
+        _driverLatLng!,
+        pickupLatLng,
+      );
+
+      if (mounted) {
+        setState(() {
+          _markers.addAll([
+            Marker(
+              markerId: const MarkerId('driver'),
+              position: _driverLatLng!,
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueAzure,
+              ),
+              infoWindow: const InfoWindow(title: 'Your Location'),
+            ),
+            Marker(
+              markerId: const MarkerId('pickup'),
+              position: pickupLatLng,
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueRed,
+              ),
+              infoWindow: const InfoWindow(title: 'Rider Pickup'),
+            ),
+          ]);
+          _polylines.add(
+            Polyline(
+              polylineId: const PolylineId('nav'),
+              points: polylinePoints,
+              color: Colors.blue,
+              width: 5,
+            ),
+          );
+        });
+
+        // Fit map to markers
+        LatLngBounds bounds = LatLngBounds(
+          southwest: LatLng(
+            _driverLatLng!.latitude < pickupLatLng.latitude
+                ? _driverLatLng!.latitude
+                : pickupLatLng.latitude,
+            _driverLatLng!.longitude < pickupLatLng.longitude
+                ? _driverLatLng!.longitude
+                : pickupLatLng.longitude,
+          ),
+          northeast: LatLng(
+            _driverLatLng!.latitude > pickupLatLng.latitude
+                ? _driverLatLng!.latitude
+                : pickupLatLng.latitude,
+            _driverLatLng!.longitude > pickupLatLng.longitude
+                ? _driverLatLng!.longitude
+                : pickupLatLng.longitude,
+          ),
+        );
+        _mapController?.animateCamera(CameraUpdate.newLatLngBounds(bounds, 70));
+      }
+    } catch (e) {
+      debugPrint("Error loading navigation: $e");
     }
   }
 
@@ -153,22 +235,16 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
             child: GoogleMap(
               initialCameraPosition: CameraPosition(
                 target: LatLng(
-                  widget.rideData['pickupLat'] as double? ?? 11.6094,
-                  widget.rideData['pickupLng'] as double? ?? 76.0828,
+                  (widget.rideData['pickupLat'] as num? ?? 11.6094).toDouble(),
+                  (widget.rideData['pickupLng'] as num? ?? 76.0828).toDouble(),
                 ),
                 zoom: 15,
               ),
-              markers: {
-                Marker(
-                  markerId: const MarkerId('pickup'),
-                  position: LatLng(
-                    widget.rideData['pickupLat'] as double? ?? 11.6094,
-                    widget.rideData['pickupLng'] as double? ?? 76.0828,
-                  ),
-                  infoWindow: const InfoWindow(title: 'Pickup Location'),
-                ),
-              },
+              onMapCreated: (controller) => _mapController = controller,
+              markers: _markers,
+              polylines: _polylines,
               myLocationEnabled: true,
+              padding: const EdgeInsets.only(bottom: 250),
             ),
           ),
 
@@ -187,14 +263,14 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.turn_right, color: Colors.white, size: 40),
+                    Icon(Icons.navigation, color: Colors.white, size: 40),
                     SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "400m - Turn Right",
+                            "Navigating to Pickup",
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -202,18 +278,10 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                             ),
                           ),
                           Text(
-                            "Towards Kalpetta Main Road",
+                            "Follow the route on the map",
                             style: TextStyle(color: Colors.white70),
                           ),
                         ],
-                      ),
-                    ),
-                    Text(
-                      "4 min",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
                       ),
                     ),
                   ],
@@ -251,7 +319,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                               ),
                             ),
                             Text(
-                              "Pickup: ${widget.rideData['pickupLocation'] ?? 'Destination'}",
+                              "Pickup: ${widget.rideData['pickupLocation'] ?? 'Selected Location'}",
                               style: const TextStyle(color: Colors.grey),
                             ),
                           ],
@@ -276,7 +344,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                         bool? pinValid = await _showPinDialog();
                         if (pinValid != true) return;
 
-                        bool success = await RideService().updateRideStatus(
+                        bool success = await _rideService.updateRideStatus(
                           widget.rideId,
                           'started',
                         );
