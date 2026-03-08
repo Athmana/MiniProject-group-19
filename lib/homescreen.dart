@@ -192,33 +192,21 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                 _buildVehicleCard(
                   title: "Auto",
                   desc: "Quick emergency response",
-                  price: "299",
-                  seats: "3 seats",
-                  time: "2-3 min",
                   icon: Icons.electric_rickshaw,
                 ),
                 _buildVehicleCard(
                   title: "Car",
                   desc: "Comfortable emergency transport",
-                  price: "599",
-                  seats: "4 seats",
-                  time: "3-4 min",
                   icon: Icons.directions_car,
                 ),
                 _buildVehicleCard(
                   title: "Truck",
                   desc: "Heavy cargo emergency",
-                  price: "799",
-                  seats: "2 seats",
-                  time: "4-5 min",
                   icon: Icons.local_shipping,
                 ),
                 _buildVehicleCard(
                   title: "Ambulance",
                   desc: "Medical emergency response",
-                  price: "1200",
-                  seats: "2 seats",
-                  time: "1-2 min",
                   icon: Icons.medical_services,
                 ),
               ],
@@ -254,8 +242,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                           return;
                         }
 
-                        if (_selectedVehicleType == null ||
-                            _selectedVehiclePrice == null) {
+                        if (_selectedVehicleType == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Please select a vehicle type'),
@@ -317,9 +304,11 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(
-                    0xFF94B5F9,
-                  ), // Light blue from image
+                  backgroundColor:
+                      (_selectedVehicleType != null &&
+                          _destinationController.text.trim().isNotEmpty)
+                      ? const Color(0xFF2855D3) // Dark Blue when selected
+                      : const Color(0xFF94B5F9), // Light blue when disabled
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -391,9 +380,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
   Widget _buildVehicleCard({
     required String title,
     required String desc,
-    required String price,
-    required String seats,
-    required String time,
     required IconData icon,
   }) {
     final bool isSelected = _selectedVehicleType == title;
@@ -402,7 +388,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
       onTap: () {
         setState(() {
           _selectedVehicleType = title;
-          _selectedVehiclePrice = price;
         });
       },
       child: AnimatedContainer(
@@ -418,6 +403,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 32, color: Colors.blueGrey),
             const SizedBox(height: 12),
@@ -427,37 +413,8 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
               maxLines: 2,
             ),
-            const Spacer(),
-            const Divider(),
-            Row(
-              children: [
-                const Icon(Icons.currency_rupee, size: 14, color: Colors.blue),
-                Text(
-                  price.replaceAll('₹', ''),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ],
-            ),
-            _buildInfoRow(Icons.people_outline, seats),
-            _buildInfoRow(Icons.access_time, time),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 12, color: Colors.grey),
-          const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        ],
       ),
     );
   }
