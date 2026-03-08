@@ -63,6 +63,7 @@ class AuthService {
         email: loginEmail,
         password: password,
       );
+
       print("Tried login with $loginEmail");
 
       // Fetch user role from Firestore
@@ -73,15 +74,14 @@ class AuthService {
 
       String role = userDoc['role'];
 
-      if (role == 'driver') {
-        print("routed to driver");
-        Navigator.pushReplacementNamed(context, '/driverHome');
-      } else {
-        print("routed to rider");
-        Navigator.pushReplacementNamed(context, '/userHome');
+      if (context.mounted) {
+        if (role == 'driver') {
+          Navigator.pushReplacementNamed(context, '/driverHome');
+        } else {
+          Navigator.pushReplacementNamed(context, '/userHome');
+        }
       }
     } catch (e) {
-      print("Login Error: $e");
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Login Failed: ${e.toString()}')),

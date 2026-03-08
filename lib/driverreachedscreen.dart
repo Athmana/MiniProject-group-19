@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'paymentscreen.dart';
+
+import 'reachedlocationscreen.dart';
+import 'ridestartedscreen.dart';
 import 'services/ride_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
@@ -42,7 +45,8 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
               // The next screen in Rider flow was RideStarted, but skipping straight to Payment
               // since our 'COMPLETE RIDE' triggers the 'completed' status.
               MaterialPageRoute(
-                builder: (context) => PaymentScreen(rideId: widget.rideId),
+                builder: (context) =>
+                    ReachedLocationScreen(rideId: widget.rideId),
               ),
             );
           }

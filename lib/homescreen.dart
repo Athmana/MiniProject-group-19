@@ -332,13 +332,17 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                 _buildVehicleCard(
                   title: "Auto",
                   desc: "Quick emergency response",
+
                   price: _vehiclePrices["Auto"]!,
                   seats: "3 seats",
                   time: "2-4 min",
+
+
                   icon: Icons.electric_rickshaw,
                 ),
                 _buildVehicleCard(
                   title: "Car",
+
                   desc: "Comfortable transport",
                   price: _vehiclePrices["Car"]!,
                   seats: "4 seats",
@@ -351,6 +355,18 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                   price: _vehiclePrices["Ambulance"]!,
                   seats: "2 seats",
                   time: "1-2 min",
+                  desc: "Comfortable emergency transport",
+                  icon: Icons.directions_car,
+                ),
+                _buildVehicleCard(
+                  title: "Truck",
+                  desc: "Heavy cargo emergency",
+                  icon: Icons.local_shipping,
+                ),
+                _buildVehicleCard(
+                  title: "Ambulance",
+                  desc: "Medical emergency response",
+
                   icon: Icons.medical_services,
                 ),
               ],
@@ -361,6 +377,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
+
                 onPressed:
                     (_currentPosition != null &&
                         _destinationController.text.isNotEmpty &&
@@ -369,18 +386,81 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                         _selectedVehiclePrice != "..." &&
                         !_isCalculatingFare)
                     ? () async {
+                onPressed: _isLoadingLocation
+                    ? null
+                    : () async {
+                        if (_currentPosition == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Location is required to book a ride',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (_destinationController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please enter a destination address',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (_selectedVehicleType == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select a vehicle type'),
+                            ),
+                          );
+                          return;
+                        }
+
+                        // Show a quick loading state or just await the service
+                        double destLat = 0.0;
+                        double destLng = 0.0;
+                        try {
+                          List<Location> locations = await locationFromAddress(
+                            _destinationController.text.trim(),
+                          );
+                          if (locations.isNotEmpty) {
+                            destLat = locations.first.latitude;
+                            destLng = locations.first.longitude;
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Could not find destination location: $e',
+                                ),
+                              ),
+                            );
+                          }
+                          return;
+                        }
+
                         final String? rideId = await RideService().requestRide(
                           pickupLocation:
                               "Lat: ${_currentPosition!.latitude}, Lng: ${_currentPosition!.longitude}",
                           pickupLat: _currentPosition!.latitude,
                           pickupLng: _currentPosition!.longitude,
                           destination: _destinationController.text.trim(),
+
                           destinationLat: _destinationLocation?.latitude ?? 0.0,
                           destinationLng:
                               _destinationLocation?.longitude ?? 0.0,
                           vehicleType: _selectedVehicleType!,
                           price: _selectedVehiclePrice!,
                           distance: _calculatedDistance ?? 0.0,
+
+                          destLat: destLat,
+                          destLng: destLng,
+                          vehicleType: _selectedVehicleType!,
                         );
 
                         if (rideId != null && context.mounted) {
@@ -402,7 +482,14 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
+
                   backgroundColor: const Color(0xFF94B5F9),
+                  backgroundColor:
+                      (_selectedVehicleType != null &&
+                          _destinationController.text.trim().isNotEmpty)
+                      ? const Color(0xFF2855D3) // Dark Blue when selected
+                      : const Color(0xFF94B5F9), // Light blue when disabled
+
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -424,9 +511,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
   Widget _buildVehicleCard({
     required String title,
     required String desc,
-    required String price,
-    required String seats,
-    required String time,
     required IconData icon,
   }) {
     final bool isSelected = _selectedVehicleType == title;
@@ -435,9 +519,11 @@ class _CabBookingHomeState extends State<CabBookingHome> {
       onTap: () {
         setState(() {
           _selectedVehicleType = title;
+
           // Always grab the latest calculated price from _vehiclePrices
           // to avoid the card capturing the stale "..." before fares load
           _selectedVehiclePrice = _vehiclePrices[title] ?? price;
+
         });
       },
       child: AnimatedContainer(
@@ -453,6 +539,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 32, color: Colors.blueGrey),
             const SizedBox(height: 12),
@@ -462,6 +549,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
               maxLines: 2,
             ),
+
             const Spacer(),
             Row(
               children: [
@@ -477,21 +565,9 @@ class _CabBookingHomeState extends State<CabBookingHome> {
             ),
             _buildInfoRow(Icons.people_outline, seats),
             _buildInfoRow(Icons.access_time, time),
+
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 12, color: Colors.grey),
-          const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        ],
       ),
     );
   }
