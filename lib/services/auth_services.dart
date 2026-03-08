@@ -63,10 +63,8 @@ class AuthService {
         email: loginEmail,
         password: password,
       );
-fair-calculation
 
       print("Tried login with $loginEmail");
-main
 
       // Fetch user role from Firestore
       DocumentSnapshot userDoc = await _firestore
