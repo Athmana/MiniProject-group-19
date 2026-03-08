@@ -10,13 +10,24 @@ class RideService {
     required double pickupLat,
     required double pickupLng,
     required String destination,
+
+    required double destinationLat,
+    required double destinationLng,
+    required String vehicleType,
+    required String price,
+    required double distance,
     required double destLat,
     required double destLng,
     required String vehicleType,
+
   }) async {
     try {
       final String? riderId = FirebaseAuth.instance.currentUser?.uid;
       if (riderId == null) throw Exception("User not logged in");
+
+
+      // Generate a random 4-digit OTP
+      final String otp = (Random().nextInt(9000) + 1000).toString();
 
       double distance = calculateDistance(
         pickupLat,
@@ -27,20 +38,27 @@ class RideService {
       double price = 50 + (distance * 12);
       price = double.parse(price.toStringAsFixed(2));
 
+
       DocumentReference docRef = await _firestore.collection('rides').add({
         'riderId': riderId,
+        'otp': otp,
         'driverId': null,
-        'status':
-            'pending', // 'pending', 'accepted', 'arrived', 'started', 'completed'
+        'status': 'pending',
         'pickupLocation': pickupLocation,
         'pickupLat': pickupLat,
         'pickupLng': pickupLng,
         'destination': destination,
+
+        'destinationLat': destinationLat,
+        'destinationLng': destinationLng,
+
         'destLat': destLat,
         'destLng': destLng,
+
         'vehicleType': vehicleType,
         'distance': distance,
         'price': price,
+        'distance': distance,
         'createdAt': FieldValue.serverTimestamp(),
       });
       return docRef.id;
@@ -135,9 +153,30 @@ class RideService {
     }
   }
 
+  // 7a. Update driver location
+  Future<bool> updateDriverLocation(
+    String rideId,
+    double lat,
+    double lng,
+  ) async {
+    try {
+      await _firestore.collection('rides').doc(rideId).update({
+        'driverLat': lat,
+        'driverLng': lng,
+      });
+      return true;
+    } catch (e) {
+      print("Error updating driver location: $e");
+      return false;
+    }
+  }
+
   // 7. Update payment status
   Future<bool> updatePaymentStatus(String rideId, String paymentStatus) async {
     try {
+      // For demonstration of failure/retry, we can simulate a random failure
+      // if (Random().nextBool()) throw Exception("Payment Gateway Error");
+
       await _firestore.collection('rides').doc(rideId).update({
         'paymentStatus': paymentStatus,
         'paidAt': FieldValue.serverTimestamp(),

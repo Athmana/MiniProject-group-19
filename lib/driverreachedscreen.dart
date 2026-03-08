@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'paymentscreen.dart';
+
 import 'reachedlocationscreen.dart';
 import 'ridestartedscreen.dart';
 import 'services/ride_service.dart';
@@ -32,6 +34,9 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
     ) {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
+        setState(() {
+          _rideData = data;
+        });
         if (data['status'] == 'completed') {
           if (mounted) {
             _rideSubscription?.cancel();
@@ -135,9 +140,9 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                       color: const Color(0xFFF1F5FE),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
-                      "4 8 2 1",
-                      style: TextStyle(
+                    child: Text(
+                      _rideData?['otp']?.split('').join(' ') ?? "0 0 0 0",
+                      style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 8,
@@ -166,28 +171,14 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () async {
-                            bool success = await _rideService.updateRideStatus(
-                              widget.rideId,
-                              'started',
-                            );
-                            if (!context.mounted) return;
-                            if (success) {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      RideStartedScreen(rideId: widget.rideId),
-                                ),
-                              );
-                            }
-                          },
+                          onPressed:
+                              null, // Rider waits for Driver to enter OTP
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             backgroundColor: const Color(0xFF2D62ED),
                           ),
                           child: const Text(
-                            "I'm in the Car",
+                            "Waiting for Driver...",
                             style: TextStyle(color: Colors.white),
                           ),
                         ),
