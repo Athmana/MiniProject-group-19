@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:gowayanad/driver/driverridestartedscreen.dart';
+import 'package:gowayanad/driver/driverotpscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -185,8 +185,11 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                         if (success) {
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
-                              builder: (context) => DriverRideStartedScreen(
+                              builder: (context) => DriverOtpScreen(
                                 rideId: widget.rideId,
+                                correctOtp:
+                                    widget.rideData['otp'] ??
+                                    "0000", // Dynamic OTP
                               ),
                             ),
                           );

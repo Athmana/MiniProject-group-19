@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:gowayanad/services/location_service.dart';
+import 'package:gowayanad/services/map_service.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:gowayanad/waitingfordriverscreen.dart';
-import 'package:gowayanad/services/location_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geocoding/geocoding.dart';
 
 class CabBookingHome extends StatefulWidget {
   const CabBookingHome({super.key});
@@ -18,6 +22,20 @@ class _CabBookingHomeState extends State<CabBookingHome> {
   final TextEditingController _destinationController = TextEditingController();
   String? _selectedVehicleType;
   String? _selectedVehiclePrice;
+
+  GoogleMapController? _mapController;
+  List<LatLng> _routePoints = [];
+  LatLng? _destinationLocation;
+  Timer? _debounce;
+
+  double? _calculatedDistance;
+  final Map<String, String> _vehiclePrices = {
+    "Bike": "...",
+    "Auto": "...",
+    "Car": "...",
+    "Ambulance": "Free",
+  };
+  bool _isCalculatingFare = false;
 
   @override
   void initState() {
@@ -46,6 +64,102 @@ class _CabBookingHomeState extends State<CabBookingHome> {
     }
   }
 
+  Future<void> _calculateFares(String destination) async {
+    if (destination.isEmpty || _currentPosition == null) return;
+
+    setState(() {
+      _isCalculatingFare = true;
+    });
+
+    try {
+      final MapService mapService = MapService();
+      final pickup = LatLng(
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
+      );
+
+      // 1. Geocode destination ONCE
+      List<Location> locations = await locationFromAddress(destination);
+      if (locations.isEmpty || !mounted) {
+        if (mounted) setState(() => _isCalculatingFare = false);
+        return;
+      }
+
+      final dest = LatLng(locations[0].latitude, locations[0].longitude);
+      setState(() => _destinationLocation = dest);
+
+      // 2. Calculate straight-line distance locally (no second API call)
+      //    and fetch polyline IN PARALLEL for speed
+      final results = await Future.wait([
+        mapService.getPolylinePoints(pickup, dest),
+        Future.value(
+          Geolocator.distanceBetween(
+                pickup.latitude,
+                pickup.longitude,
+                dest.latitude,
+                dest.longitude,
+              ) /
+              1000, // metres → km
+        ),
+      ]);
+
+      if (!mounted) return;
+
+      final points = results[0] as List<LatLng>;
+      final double distanceInKm = results[1] as double;
+
+      // 3. Update map
+      setState(() => _routePoints = points);
+      if (_mapController != null && points.isNotEmpty) {
+        _mapController!.animateCamera(
+          CameraUpdate.newLatLngBounds(_getBounds(pickup, dest), 50),
+        );
+      }
+
+      // 4. Update fares
+      if (distanceInKm > 0 && mounted) {
+        setState(() {
+          _calculatedDistance = distanceInKm;
+          _vehiclePrices["Bike"] = (30 + (8 * distanceInKm)).toStringAsFixed(0);
+          _vehiclePrices["Auto"] = (50 + (12 * distanceInKm)).toStringAsFixed(
+            0,
+          );
+          _vehiclePrices["Car"] = (100 + (18 * distanceInKm)).toStringAsFixed(
+            0,
+          );
+          _vehiclePrices["Ambulance"] = "Free";
+          _isCalculatingFare = false;
+          if (_selectedVehicleType != null) {
+            _selectedVehiclePrice = _vehiclePrices[_selectedVehicleType];
+          }
+        });
+      } else {
+        if (mounted) setState(() => _isCalculatingFare = false);
+      }
+    } catch (e) {
+      print("Error calculating fares: $e");
+      if (mounted) setState(() => _isCalculatingFare = false);
+    }
+  }
+
+  LatLngBounds _getBounds(LatLng p1, LatLng p2) {
+    double south = p1.latitude < p2.latitude ? p1.latitude : p2.latitude;
+    double west = p1.longitude < p2.longitude ? p1.longitude : p2.longitude;
+    double north = p1.latitude > p2.latitude ? p1.latitude : p2.latitude;
+    double east = p1.longitude > p2.longitude ? p1.longitude : p2.longitude;
+    return LatLngBounds(
+      southwest: LatLng(south, west),
+      northeast: LatLng(north, east),
+    );
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _destinationController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -62,16 +176,14 @@ class _CabBookingHomeState extends State<CabBookingHome> {
             ),
             child: IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
-              onPressed: () {
-                Navigator.pop(context);
-              },
+              onPressed: () => Navigator.pop(context),
             ),
           ),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
+          children: const [
+            Text(
               "Book Your Ride",
               style: TextStyle(
                 color: Colors.black,
@@ -81,7 +193,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
             ),
             Text(
               "Emergency Service",
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ],
         ),
@@ -91,43 +203,99 @@ class _CabBookingHomeState extends State<CabBookingHome> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Pickup Location Section
-            const Text(
-              "Pickup Location",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              readOnly: true,
-              decoration: InputDecoration(
-                hintText: _isLoadingLocation
-                    ? "Fetching location..."
-                    : (_currentPosition != null
-                          ? "Lat: ${_currentPosition!.latitude.toStringAsFixed(4)}, Lng: ${_currentPosition!.longitude.toStringAsFixed(4)}"
-                          : "Sulthan Bathery, Wayanad (Mocked)"),
-                prefixIcon: const Icon(
-                  Icons.location_on_outlined,
-                  color: Colors.blue,
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
+            // 1. Map Preview
+            SizedBox(
+              height: 250,
+              width: double.infinity,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: _currentPosition == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : GoogleMap(
+                        initialCameraPosition: CameraPosition(
+                          target: LatLng(
+                            _currentPosition!.latitude,
+                            _currentPosition!.longitude,
+                          ),
+                          zoom: 14,
+                        ),
+                        markers: {
+                          if (_currentPosition != null)
+                            Marker(
+                              markerId: const MarkerId('pickup'),
+                              position: LatLng(
+                                _currentPosition!.latitude,
+                                _currentPosition!.longitude,
+                              ),
+                              infoWindow: const InfoWindow(
+                                title: 'Pickup Location',
+                              ),
+                              icon: BitmapDescriptor.defaultMarkerWithHue(
+                                BitmapDescriptor.hueAzure,
+                              ),
+                            ),
+                          if (_destinationLocation != null)
+                            Marker(
+                              markerId: const MarkerId('destination'),
+                              position: _destinationLocation!,
+                              infoWindow: const InfoWindow(
+                                title: 'Destination',
+                              ),
+                              icon: BitmapDescriptor.defaultMarkerWithHue(
+                                BitmapDescriptor.hueRed,
+                              ),
+                            ),
+                        },
+                        polylines: {
+                          if (_routePoints.isNotEmpty)
+                            Polyline(
+                              polylineId: const PolylineId('route'),
+                              points: _routePoints,
+                              color: const Color(0xFF2D62ED),
+                              width: 5,
+                            ),
+                        },
+                        myLocationEnabled: true,
+                        zoomControlsEnabled: false,
+                        mapToolbarEnabled: false,
+                        onMapCreated: (controller) =>
+                            _mapController = controller,
+                      ),
               ),
             ),
+
             const SizedBox(height: 24),
-            // Destination Section
-            const Text(
-              "Where are you going?",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
+            // Destination Input
             TextField(
               controller: _destinationController,
+              onChanged: (value) {
+                // Debounce: wait 800ms after user stops typing before calling API
+                _debounce?.cancel();
+                if (value.length > 3) {
+                  _debounce = Timer(const Duration(milliseconds: 800), () {
+                    _calculateFares(value);
+                  });
+                }
+              },
               decoration: InputDecoration(
                 hintText: "Enter destination address",
+                suffixIcon: _isCalculatingFare
+                    ? const Padding(
+                        padding: EdgeInsets.all(12.0),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : (_calculatedDistance != null
+                          ? Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Text(
+                                "${_calculatedDistance!.toStringAsFixed(1)} km",
+                                style: const TextStyle(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                          : null),
                 prefixIcon: const Icon(
                   Icons.near_me_outlined,
                   color: Colors.cyan,
@@ -139,41 +307,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               ),
             ),
             const SizedBox(height: 24),
-            // Emergency Alert Banner
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEF4FF),
-                borderRadius: BorderRadius.circular(12),
-                border: const Border(
-                  left: BorderSide(color: Colors.blue, width: 4),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Text("🚨", style: TextStyle(fontSize: 16)),
-                      SizedBox(width: 8),
-                      Text(
-                        "Emergency Service Activated",
-                        style: TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Select your preferred vehicle type for immediate emergency response",
-                    style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
             // Vehicle Selection Grid
             const Text(
               "Select Vehicle Type",
@@ -189,33 +322,33 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               childAspectRatio: 0.8,
               children: [
                 _buildVehicleCard(
+                  title: "Bike",
+                  desc: "Quick emergency response",
+                  price: _vehiclePrices["Bike"]!,
+                  seats: "1 seat",
+                  time: "1-2 min",
+                  icon: Icons.directions_bike,
+                ),
+                _buildVehicleCard(
                   title: "Auto",
                   desc: "Quick emergency response",
-                  price: "299",
+                  price: _vehiclePrices["Auto"]!,
                   seats: "3 seats",
-                  time: "2-3 min",
+                  time: "2-4 min",
                   icon: Icons.electric_rickshaw,
                 ),
                 _buildVehicleCard(
                   title: "Car",
-                  desc: "Comfortable emergency transport",
-                  price: "599",
+                  desc: "Comfortable transport",
+                  price: _vehiclePrices["Car"]!,
                   seats: "4 seats",
-                  time: "3-4 min",
+                  time: "3-5 min",
                   icon: Icons.directions_car,
                 ),
                 _buildVehicleCard(
-                  title: "Truck",
-                  desc: "Heavy cargo emergency",
-                  price: "799",
-                  seats: "2 seats",
-                  time: "4-5 min",
-                  icon: Icons.local_shipping,
-                ),
-                _buildVehicleCard(
                   title: "Ambulance",
-                  desc: "Medical emergency response",
-                  price: "1200",
+                  desc: "Medical emergency",
+                  price: _vehiclePrices["Ambulance"]!,
                   seats: "2 seats",
                   time: "1-2 min",
                   icon: Icons.medical_services,
@@ -223,55 +356,31 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               ],
             ),
             const SizedBox(height: 32),
-
+            // Confirm Ride Button
             SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: _isLoadingLocation
-                    ? null
-                    : () async {
-                        if (_currentPosition == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Location is required to book a ride',
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-
-                        if (_destinationController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Please enter a destination address',
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-
-                        if (_selectedVehicleType == null ||
-                            _selectedVehiclePrice == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please select a vehicle type'),
-                            ),
-                          );
-                          return;
-                        }
-
-                        // Show a quick loading state or just await the service
+                onPressed:
+                    (_currentPosition != null &&
+                        _destinationController.text.isNotEmpty &&
+                        _selectedVehicleType != null &&
+                        _selectedVehiclePrice != null &&
+                        _selectedVehiclePrice != "..." &&
+                        !_isCalculatingFare)
+                    ? () async {
                         final String? rideId = await RideService().requestRide(
                           pickupLocation:
-                              "Lat: ${_currentPosition!.latitude.toStringAsFixed(4)}, Lng: ${_currentPosition!.longitude.toStringAsFixed(4)}",
+                              "Lat: ${_currentPosition!.latitude}, Lng: ${_currentPosition!.longitude}",
                           pickupLat: _currentPosition!.latitude,
                           pickupLng: _currentPosition!.longitude,
                           destination: _destinationController.text.trim(),
+                          destinationLat: _destinationLocation?.latitude ?? 0.0,
+                          destinationLng:
+                              _destinationLocation?.longitude ?? 0.0,
                           vehicleType: _selectedVehicleType!,
                           price: _selectedVehiclePrice!,
+                          distance: _calculatedDistance ?? 0.0,
                         );
 
                         if (rideId != null && context.mounted) {
@@ -290,11 +399,10 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                             );
                           }
                         }
-                      },
+                      }
+                    : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(
-                    0xFF94B5F9,
-                  ), // Light blue from image
+                  backgroundColor: const Color(0xFF94B5F9),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -304,56 +412,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                 child: const Text(
                   "Confirm Emergency Ride",
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Cancel Button
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: OutlinedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: Colors.grey.shade300),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  "Cancel",
-                  style: TextStyle(color: Colors.black, fontSize: 16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Emergency Ride Protection Footer
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5FE),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: RichText(
-                text: TextSpan(
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                  children: [
-                    const TextSpan(
-                      text: "Emergency Ride Protection: ",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    TextSpan(
-                      text:
-                          "Your location is being shared with emergency services. Driver details will be sent to your emergency contacts.",
-                      style: TextStyle(color: Colors.grey.shade800),
-                    ),
-                  ],
                 ),
               ),
             ),
@@ -377,7 +435,9 @@ class _CabBookingHomeState extends State<CabBookingHome> {
       onTap: () {
         setState(() {
           _selectedVehicleType = title;
-          _selectedVehiclePrice = price;
+          // Always grab the latest calculated price from _vehiclePrices
+          // to avoid the card capturing the stale "..." before fares load
+          _selectedVehiclePrice = _vehiclePrices[title] ?? price;
         });
       },
       child: AnimatedContainer(
@@ -403,7 +463,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               maxLines: 2,
             ),
             const Spacer(),
-            const Divider(),
             Row(
               children: [
                 const Icon(Icons.currency_rupee, size: 14, color: Colors.blue),

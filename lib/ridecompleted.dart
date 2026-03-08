@@ -29,7 +29,6 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
   }
 
   void _fetchDriverName() async {
-    // 1. First get the ride document to find the driverId
     final rideDoc = await FirebaseFirestore.instance
         .collection('rides')
         .doc(widget.rideId)
@@ -38,7 +37,6 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
     if (rideDoc.exists) {
       final driverId = rideDoc.data()?['driverId'];
       if (driverId != null) {
-        // 2. Then get the driver's user document to find their true name
         final userDoc = await _rideService.getUserDetails(driverId);
         if (mounted) {
           setState(() {
@@ -60,183 +58,289 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 50),
-            const Icon(Icons.check_circle, size: 100, color: Colors.green),
-            const SizedBox(height: 20),
-            const Text(
-              "Ride Completed!",
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-            ),
-            const Text("You've arrived at your destination"),
-
-            const SizedBox(height: 40),
-
-            // Trip Details Card
-            StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('rides')
-                  .doc(widget.rideId)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                String price = "₹---";
-                if (snapshot.hasData && snapshot.data!.exists) {
-                  final data = snapshot.data!.data() as Map<String, dynamic>;
-                  price = "₹${data['price'] ?? '0'}";
-                }
-
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 24),
+      backgroundColor: Colors.white,
+      body: SingleChildScrollView(
+        child: SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 40),
+              // Success Header
+              Center(
+                child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(16),
+                    color: Colors.green.shade50,
+                    shape: BoxShape.circle,
                   ),
-                  child: Column(
-                    children: [
-                      _summaryRow("Base Fare", price),
-                      _summaryRow("Taxes", "₹0.00"),
-                      const Divider(height: 30),
-                      _summaryRow("Total Paid", price, isBold: true),
-                    ],
+                  child: const Icon(
+                    Icons.check_circle_rounded,
+                    size: 80,
+                    color: Colors.green,
                   ),
-                );
-              },
-            ),
-
-            const SizedBox(height: 40),
-            Text(
-              _isLoadingName
-                  ? "Loading driver info..."
-                  : "Rate your driver, ${_driverName ?? 'Unknown Driver'}",
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                5,
-                (index) => IconButton(
-                  icon: Icon(
-                    index < _rating
-                        ? Icons.star_rounded
-                        : Icons.star_outline_rounded,
-                    color: Colors.orange,
-                    size: 40,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _rating = index + 1;
-                    });
-                  },
                 ),
               ),
-            ),
-
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: TextField(
-                controller: _feedbackController,
-                decoration: InputDecoration(
-                  hintText: "Leave feedback (optional)",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF2D62ED)),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                ),
-                maxLines: 2,
+              const SizedBox(height: 20),
+              const Text(
+                "Arrived Safely!",
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
-            ),
+              const Text(
+                "Hope you had a great ride with GoWayanad",
+                style: TextStyle(color: Colors.grey),
+              ),
 
-            const Spacer(),
+              const SizedBox(height: 32),
 
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _isSubmitting
-                      ? null
-                      : () async {
-                          setState(() {
-                            _isSubmitting = true;
-                          });
-                          await _rideService.submitReview(
-                            widget.rideId,
-                            _rating.toDouble(),
-                            _feedbackController.text,
-                          );
-                          if (!context.mounted) return;
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => EmergencyRideHome(),
-                            ),
-                          );
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          "SUBMIT RATING",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
+              // Detailed Ride Card
+              StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('rides')
+                    .doc(widget.rideId)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData || !snapshot.data!.exists) {
+                    return const CircularProgressIndicator();
+                  }
+
+                  final data = snapshot.data!.data() as Map<String, dynamic>;
+                  final String price = "₹${data['price'] ?? '0'}";
+                  final String vehicle = data['vehicleType'] ?? "Ride";
+                  final String pickup = data['pickupLocation'] ?? "Unknown";
+                  final String destination =
+                      data['destination'] ?? "Destination";
+
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
                         ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2D62ED).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                vehicle.toLowerCase() == 'bike'
+                                    ? Icons.pedal_bike_rounded
+                                    : vehicle.toLowerCase() == 'auto'
+                                    ? Icons.electric_rickshaw_rounded
+                                    : Icons.directions_car_filled_rounded,
+                                color: const Color(0xFF2D62ED),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    vehicle.toUpperCase(),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                  Text(
+                                    "Total Fare: $price",
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 40),
+                        _buildLocationRow(
+                          Icons.radio_button_checked,
+                          Colors.blue,
+                          pickup,
+                          "Pickup Location",
+                        ),
+                        const SizedBox(height: 20),
+                        _buildLocationRow(
+                          Icons.location_on_rounded,
+                          Colors.red,
+                          destination,
+                          "Destination",
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 40),
+
+              // Rating Section
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Column(
+                  children: [
+                    Text(
+                      _isLoadingName
+                          ? "Loading driver info..."
+                          : "How was your driver, ${_driverName ?? 'the driver'}?",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(5, (index) {
+                        bool isSelected = index < _rating;
+                        return GestureDetector(
+                          onTap: () => setState(() => _rating = index + 1),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Icon(
+                              Icons.star_rounded,
+                              size: 48,
+                              color: isSelected
+                                  ? Colors.orange
+                                  : Colors.grey.shade300,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 32),
+                    TextField(
+                      controller: _feedbackController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: "Anything else you'd like to share?",
+                        hintStyle: TextStyle(color: Colors.grey.shade400),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.all(20),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+
+              const SizedBox(height: 40),
+
+              // Submit Button
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 20,
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 60,
+                  child: ElevatedButton(
+                    onPressed: _isSubmitting ? null : _submitFeedback,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            "SUBMIT FEEDBACK",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _summaryRow(String label, String value, {bool isBold = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: isBold ? Colors.black : Colors.grey.shade700,
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-            ),
+  void _submitFeedback() async {
+    setState(() => _isSubmitting = true);
+
+    await _rideService.submitReview(
+      widget.rideId,
+      _rating.toDouble(),
+      _feedbackController.text.trim(),
+    );
+
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const EmergencyRideHome()),
+      );
+    }
+  }
+
+  Widget _buildLocationRow(
+    IconData icon,
+    Color color,
+    String address,
+    String label,
+  ) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(color: Colors.grey, fontSize: 11),
+              ),
+              Text(
+                address,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+            ],
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-              fontSize: isBold ? 18 : 14,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
