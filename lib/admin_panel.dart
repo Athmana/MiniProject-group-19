@@ -92,7 +92,6 @@ class _AdminPanelState extends State<AdminPanel> {
               "Upload complete.\nSuccessfully added: $successCount\nFailed/Skipped: $failCount";
         });
       } else {
-        // User canceled the picker
         setState(() {
           _statusMessage = "No file selected.";
         });
@@ -132,10 +131,10 @@ class _AdminPanelState extends State<AdminPanel> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         bool isAdding = false;
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (builderContext, setDialogState) {
             return AlertDialog(
               title: Text('Add New ${role == 'rider' ? 'Rider' : 'Driver'}'),
               content: SingleChildScrollView(
@@ -199,9 +198,9 @@ class _AdminPanelState extends State<AdminPanel> {
                               password,
                               role,
                             );
-                            if (mounted) {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
+                            if (builderContext.mounted) {
+                              Navigator.pop(builderContext);
+                              ScaffoldMessenger.of(builderContext).showSnackBar(
                                 const SnackBar(
                                   content: Text('User added successfully!'),
                                 ),
@@ -209,8 +208,8 @@ class _AdminPanelState extends State<AdminPanel> {
                             }
                           } catch (e) {
                             setDialogState(() => isAdding = false);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                            if (builderContext.mounted) {
+                              ScaffoldMessenger.of(builderContext).showSnackBar(
                                 SnackBar(
                                   content: Text('Error adding user: $e'),
                                   backgroundColor: Colors.red,

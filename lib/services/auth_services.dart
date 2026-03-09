@@ -64,14 +64,7 @@ class AuthService {
         password: password,
       );
 
-
-
-      print("Tried login with $loginEmail");
-
-
-
       debugPrint("Tried login with $loginEmail");
-
 
       // Fetch user role from Firestore
       DocumentSnapshot userDoc = await _firestore

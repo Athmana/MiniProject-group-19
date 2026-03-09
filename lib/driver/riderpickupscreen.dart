@@ -176,20 +176,17 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                     height: 60,
                     child: ElevatedButton(
                       onPressed: () async {
-
                         // Final verification and start ride
                         if (!mounted) return;
                         // Prompt driver for PIN
-                        final pinController = TextEditingController();
 
                         bool? pinValid = await showDialog<bool>(
                           context: context,
                           barrierDismissible: false,
                           builder: (context) {
-
                             String? errorText;
                             bool isVerified = false;
-                            final _pinController = TextEditingController();
+                            final ridePinController = TextEditingController();
 
                             return StatefulBuilder(
                               builder: (context, setDialogState) {
@@ -243,7 +240,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                                           ),
                                         const SizedBox(height: 20),
                                         TextField(
-                                          controller: _pinController,
+                                          controller: ridePinController,
                                           keyboardType: TextInputType.number,
                                           textAlign: TextAlign.center,
                                           maxLength: 4,
@@ -263,45 +260,6 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                                               borderSide: BorderSide.none,
                                             ),
                                           ),
-
-                            return AlertDialog(
-                              title: const Text("Enter Rider PIN"),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                    "Ask the rider for their 4-digit PIN to start the ride.",
-                                  ),
-                                  const SizedBox(height: 16),
-                                  TextField(
-                                    controller: pinController,
-                                    keyboardType: TextInputType.number,
-                                    textAlign: TextAlign.center,
-                                    decoration: const InputDecoration(
-                                      hintText: "Enter 4-digit PIN",
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, false),
-                                  child: const Text("Cancel"),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    if (pinController.text.trim() == "4821") {
-                                      Navigator.pop(context, true);
-                                    } else {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text("Incorrect PIN"),
-                                          backgroundColor: Colors.red,
-
                                         ),
                                       ],
                                     ],
@@ -323,7 +281,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                                               widget.rideData['ridePin']
                                                   ?.toString() ??
                                               "4821";
-                                          if (_pinController.text.trim() ==
+                                          if (ridePinController.text.trim() ==
                                               correctPin) {
                                             setDialogState(() {
                                               isVerified = true;
@@ -340,7 +298,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                                             setDialogState(() {
                                               errorText =
                                                   "The PIN entered does not match the rider’s ride PIN.\nPlease confirm the PIN with the rider and try again.";
-                                              _pinController.clear();
+                                              ridePinController.clear();
                                             });
                                           }
                                         },
