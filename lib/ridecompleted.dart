@@ -117,7 +117,7 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         ),
@@ -130,7 +130,9 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF2D62ED).withOpacity(0.1),
+                                color: const Color(
+                                  0xFF2D62ED,
+                                ).withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(

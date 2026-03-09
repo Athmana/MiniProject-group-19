@@ -3,7 +3,6 @@ import 'package:gowayanad/reachedlocationscreen.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/services/ride_service.dart';
-import 'package:gowayanad/services/map_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
 
@@ -17,13 +16,10 @@ class RideStartedScreen extends StatefulWidget {
 
 class _RideStartedScreenState extends State<RideStartedScreen> {
   final RideService _rideService = RideService();
-  final MapService _mapService = MapService();
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
   String? _driverName;
 
-  GoogleMapController? _mapController;
-  List<LatLng> _routePoints = [];
   LatLng? _driverLocation;
 
   @override
@@ -145,7 +141,6 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
                     },
                     myLocationEnabled: true,
                     zoomControlsEnabled: false,
-                    onMapCreated: (controller) => _mapController = controller,
                   ),
           ),
 

@@ -2,6 +2,7 @@ import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:flutter/foundation.dart';
 
 class MapService {
   final String _googleApiKey = "AIzaSyDVkYPkZmZ59cV--yFQ1ysmAYOALBfMXaY";
@@ -27,7 +28,7 @@ class MapService {
         polylineCoordinates.add(LatLng(point.latitude, point.longitude));
       }
     } else {
-      print("Polyline Error: ${result.errorMessage}");
+      debugPrint("Polyline Error: ${result.errorMessage}");
     }
     return polylineCoordinates;
   }
@@ -49,7 +50,7 @@ class MapService {
       }
       return -1;
     } catch (e) {
-      print("Error calculating distance: $e");
+      debugPrint("Error calculating distance: $e");
       return -1;
     }
   }

@@ -10,34 +10,27 @@ class RideService {
     required double pickupLat,
     required double pickupLng,
     required String destination,
-
     required double destinationLat,
     required double destinationLng,
     required String vehicleType,
     required String price,
     required double distance,
-    required double destLat,
-    required double destLng,
-    required String vehicleType,
-
   }) async {
     try {
       final String? riderId = FirebaseAuth.instance.currentUser?.uid;
       if (riderId == null) throw Exception("User not logged in");
 
-
       // Generate a random 4-digit OTP
       final String otp = (Random().nextInt(9000) + 1000).toString();
 
-      double distance = calculateDistance(
+      double calculatedDistance = calculateDistance(
         pickupLat,
         pickupLng,
-        destLat,
-        destLng,
+        destinationLat,
+        destinationLng,
       );
-      double price = 50 + (distance * 12);
-      price = double.parse(price.toStringAsFixed(2));
-
+      double computedPrice = 50 + (calculatedDistance * 12);
+      computedPrice = double.parse(computedPrice.toStringAsFixed(2));
 
       DocumentReference docRef = await _firestore.collection('rides').add({
         'riderId': riderId,
@@ -48,17 +41,11 @@ class RideService {
         'pickupLat': pickupLat,
         'pickupLng': pickupLng,
         'destination': destination,
-
         'destinationLat': destinationLat,
         'destinationLng': destinationLng,
-
-        'destLat': destLat,
-        'destLng': destLng,
-
         'vehicleType': vehicleType,
-        'distance': distance,
+        'distance': distance > 0 ? distance : calculatedDistance,
         'price': price,
-        'distance': distance,
         'createdAt': FieldValue.serverTimestamp(),
       });
       return docRef.id;
@@ -166,7 +153,7 @@ class RideService {
       });
       return true;
     } catch (e) {
-      print("Error updating driver location: $e");
+      // debugPrint("Error updating driver location: $e");
       return false;
     }
   }

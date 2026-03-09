@@ -137,7 +137,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
         if (mounted) setState(() => _isCalculatingFare = false);
       }
     } catch (e) {
-      print("Error calculating fares: $e");
+      debugPrint("Error calculating fares: $e");
       if (mounted) setState(() => _isCalculatingFare = false);
     }
   }
@@ -324,7 +324,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                 _buildVehicleCard(
                   title: "Bike",
                   desc: "Quick emergency response",
-                  price: _vehiclePrices["Bike"]!,
+                  price: _vehiclePrices["Bike"] ?? "...",
                   seats: "1 seat",
                   time: "1-2 min",
                   icon: Icons.directions_bike,
@@ -332,19 +332,15 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                 _buildVehicleCard(
                   title: "Auto",
                   desc: "Quick emergency response",
-
-                  price: _vehiclePrices["Auto"]!,
+                  price: _vehiclePrices["Auto"] ?? "...",
                   seats: "3 seats",
                   time: "2-4 min",
-
-
                   icon: Icons.electric_rickshaw,
                 ),
                 _buildVehicleCard(
                   title: "Car",
-
                   desc: "Comfortable transport",
-                  price: _vehiclePrices["Car"]!,
+                  price: _vehiclePrices["Car"] ?? "...",
                   seats: "4 seats",
                   time: "3-5 min",
                   icon: Icons.directions_car,
@@ -352,21 +348,9 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                 _buildVehicleCard(
                   title: "Ambulance",
                   desc: "Medical emergency",
-                  price: _vehiclePrices["Ambulance"]!,
+                  price: _vehiclePrices["Ambulance"] ?? "Free",
                   seats: "2 seats",
                   time: "1-2 min",
-                  desc: "Comfortable emergency transport",
-                  icon: Icons.directions_car,
-                ),
-                _buildVehicleCard(
-                  title: "Truck",
-                  desc: "Heavy cargo emergency",
-                  icon: Icons.local_shipping,
-                ),
-                _buildVehicleCard(
-                  title: "Ambulance",
-                  desc: "Medical emergency response",
-
                   icon: Icons.medical_services,
                 ),
               ],
@@ -377,18 +361,15 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-
                 onPressed:
                     (_currentPosition != null &&
                         _destinationController.text.isNotEmpty &&
                         _selectedVehicleType != null &&
                         _selectedVehiclePrice != null &&
                         _selectedVehiclePrice != "..." &&
-                        !_isCalculatingFare)
+                        !_isCalculatingFare &&
+                        !_isLoadingLocation)
                     ? () async {
-                onPressed: _isLoadingLocation
-                    ? null
-                    : () async {
                         if (_currentPosition == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -420,7 +401,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                           return;
                         }
 
-                        // Show a quick loading state or just await the service
                         double destLat = 0.0;
                         double destLng = 0.0;
                         try {
@@ -450,17 +430,13 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                           pickupLat: _currentPosition!.latitude,
                           pickupLng: _currentPosition!.longitude,
                           destination: _destinationController.text.trim(),
-
-                          destinationLat: _destinationLocation?.latitude ?? 0.0,
+                          destinationLat:
+                              _destinationLocation?.latitude ?? destLat,
                           destinationLng:
-                              _destinationLocation?.longitude ?? 0.0,
+                              _destinationLocation?.longitude ?? destLng,
                           vehicleType: _selectedVehicleType!,
                           price: _selectedVehiclePrice!,
                           distance: _calculatedDistance ?? 0.0,
-
-                          destLat: destLat,
-                          destLng: destLng,
-                          vehicleType: _selectedVehicleType!,
                         );
 
                         if (rideId != null && context.mounted) {
@@ -482,14 +458,11 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
-
-                  backgroundColor: const Color(0xFF94B5F9),
                   backgroundColor:
                       (_selectedVehicleType != null &&
                           _destinationController.text.trim().isNotEmpty)
-                      ? const Color(0xFF2855D3) // Dark Blue when selected
-                      : const Color(0xFF94B5F9), // Light blue when disabled
-
+                      ? const Color(0xFF2855D3)
+                      : const Color(0xFF94B5F9),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -511,6 +484,9 @@ class _CabBookingHomeState extends State<CabBookingHome> {
   Widget _buildVehicleCard({
     required String title,
     required String desc,
+    required String price,
+    required String seats,
+    required String time,
     required IconData icon,
   }) {
     final bool isSelected = _selectedVehicleType == title;
@@ -519,11 +495,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
       onTap: () {
         setState(() {
           _selectedVehicleType = title;
-
-          // Always grab the latest calculated price from _vehiclePrices
-          // to avoid the card capturing the stale "..." before fares load
           _selectedVehiclePrice = _vehiclePrices[title] ?? price;
-
         });
       },
       child: AnimatedContainer(
@@ -549,7 +521,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
               maxLines: 2,
             ),
-
             const Spacer(),
             Row(
               children: [
@@ -565,9 +536,21 @@ class _CabBookingHomeState extends State<CabBookingHome> {
             ),
             _buildInfoRow(Icons.people_outline, seats),
             _buildInfoRow(Icons.access_time, time),
-
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 12, color: Colors.grey),
+          const SizedBox(width: 4),
+          Text(text, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        ],
       ),
     );
   }
