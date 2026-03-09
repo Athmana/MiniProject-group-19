@@ -32,6 +32,8 @@ class RideService {
       double computedPrice = 50 + (calculatedDistance * 12);
       computedPrice = double.parse(computedPrice.toStringAsFixed(2));
 
+      String ridePin = (1000 + Random().nextInt(9000)).toString();
+
       DocumentReference docRef = await _firestore.collection('rides').add({
         'riderId': riderId,
         'otp': otp,
@@ -46,6 +48,7 @@ class RideService {
         'vehicleType': vehicleType,
         'distance': distance > 0 ? distance : calculatedDistance,
         'price': price,
+        'ridePin': ridePin,
         'createdAt': FieldValue.serverTimestamp(),
       });
       return docRef.id;

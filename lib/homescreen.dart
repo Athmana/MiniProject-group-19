@@ -361,6 +361,11 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
+admin-panel
+                onPressed: (_isLoadingLocation || _selectedVehicleType == null)
+                    ? null
+                    : () async {
+
                 onPressed:
                     (_currentPosition != null &&
                         _destinationController.text.isNotEmpty &&
@@ -370,6 +375,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                         !_isCalculatingFare &&
                         !_isLoadingLocation)
                     ? () async {
+ main
                         if (_currentPosition == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -458,12 +464,20 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
+ admin-panel
+                  backgroundColor: _selectedVehicleType != null
+                      ? const Color(0xFF2855D3) // Dark Blue when selected
+                      : const Color(0xFF94B5F9), // Light blue when disabled
+
                   backgroundColor:
                       (_selectedVehicleType != null &&
                           _destinationController.text.trim().isNotEmpty)
                       ? const Color(0xFF2855D3)
                       : const Color(0xFF94B5F9),
+ main
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor: const Color(0xFF94B5F9),
+                  disabledForegroundColor: Colors.white70,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -522,6 +536,16 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               maxLines: 2,
             ),
             const Spacer(),
+ admin-panel
+            // Replaced price and seat info with just seats as requested
+            // (Wait, the user said "Keep only the vehicle icon, vehicle name, and description."
+            // So I will remove seats too just to be safe, or keep it if it looks better but they said "Keep ONLY")
+          ],
+        ),
+      ),
+    );
+  }
+
             Row(
               children: [
                 const Icon(Icons.currency_rupee, size: 14, color: Colors.blue),
@@ -554,4 +578,5 @@ class _CabBookingHomeState extends State<CabBookingHome> {
       ),
     );
   }
+ main
 }
