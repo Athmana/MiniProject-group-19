@@ -179,16 +179,10 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                         // Final verification and start ride
                         if (!mounted) return;
                         // Prompt driver for PIN
-admin-panel
-
-
-                        final pinController = TextEditingController();
- main
                         bool? pinValid = await showDialog<bool>(
                           context: context,
                           barrierDismissible: false,
                           builder: (context) {
- admin-panel
                             String? errorText;
                             bool isVerified = false;
                             final ridePinController = TextEditingController();
@@ -235,45 +229,6 @@ admin-panel
                                               "To start the ride, please ask the rider for their 4-digit ride PIN shown in the rider’s app.",
                                           textAlign: TextAlign.center,
                                           style: const TextStyle(fontSize: 14),
-
-                            return AlertDialog(
-                              title: const Text("Enter Rider PIN"),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                    "Ask the rider for their 4-digit PIN to start the ride.",
-                                  ),
-                                  const SizedBox(height: 16),
-                                  TextField(
-                                    controller: pinController,
-                                    keyboardType: TextInputType.number,
-                                    textAlign: TextAlign.center,
-                                    decoration: const InputDecoration(
-                                      hintText: "Enter 4-digit PIN",
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, false),
-                                  child: const Text("Cancel"),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    if (pinController.text.trim() == "4821") {
-                                      Navigator.pop(context, true);
-                                    } else {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text("Incorrect PIN"),
-                                          backgroundColor: Colors.red,
- main
                                         ),
                                         const SizedBox(height: 8),
                                         if (errorText == null)

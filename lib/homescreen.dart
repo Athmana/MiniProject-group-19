@@ -361,11 +361,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-admin-panel
-                onPressed: (_isLoadingLocation || _selectedVehicleType == null)
-                    ? null
-                    : () async {
-
                 onPressed:
                     (_currentPosition != null &&
                         _destinationController.text.isNotEmpty &&
@@ -375,7 +370,6 @@ admin-panel
                         !_isCalculatingFare &&
                         !_isLoadingLocation)
                     ? () async {
- main
                         if (_currentPosition == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -464,17 +458,11 @@ admin-panel
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
- admin-panel
-                  backgroundColor: _selectedVehicleType != null
-                      ? const Color(0xFF2855D3) // Dark Blue when selected
-                      : const Color(0xFF94B5F9), // Light blue when disabled
-
                   backgroundColor:
                       (_selectedVehicleType != null &&
                           _destinationController.text.trim().isNotEmpty)
                       ? const Color(0xFF2855D3)
                       : const Color(0xFF94B5F9),
- main
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: const Color(0xFF94B5F9),
                   disabledForegroundColor: Colors.white70,
@@ -536,30 +524,7 @@ admin-panel
               maxLines: 2,
             ),
             const Spacer(),
- admin-panel
-            // Replaced price and seat info with just seats as requested
-            // (Wait, the user said "Keep only the vehicle icon, vehicle name, and description."
-            // So I will remove seats too just to be safe, or keep it if it looks better but they said "Keep ONLY")
-          ],
-        ),
-      ),
-    );
-  }
-
-            Row(
-              children: [
-                const Icon(Icons.currency_rupee, size: 14, color: Colors.blue),
-                Text(
-                  price.replaceAll('₹', ''),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ],
-            ),
-            _buildInfoRow(Icons.people_outline, seats),
-            _buildInfoRow(Icons.access_time, time),
+            // Remove extra pricing info rows explicitly
           ],
         ),
       ),
@@ -578,5 +543,4 @@ admin-panel
       ),
     );
   }
- main
 }

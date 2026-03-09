@@ -222,15 +222,9 @@ class _AdminPanelState extends State<AdminPanel> {
                               password,
                               role,
                             );
- admin-panel
                             if (builderContext.mounted) {
                               Navigator.pop(builderContext);
                               ScaffoldMessenger.of(builderContext).showSnackBar(
-
-                            if (dialogContext.mounted) {
-                              Navigator.pop(dialogContext);
-                              ScaffoldMessenger.of(dialogContext).showSnackBar(
- main
                                 const SnackBar(
                                   content: Text('User added successfully!'),
                                 ),
@@ -238,13 +232,8 @@ class _AdminPanelState extends State<AdminPanel> {
                             }
                           } catch (e) {
                             setDialogState(() => isAdding = false);
- admin-panel
                             if (builderContext.mounted) {
                               ScaffoldMessenger.of(builderContext).showSnackBar(
-                                
-                            if (dialogContext.mounted) {
-                              ScaffoldMessenger.of(dialogContext).showSnackBar(
-main
                                 SnackBar(
                                   content: Text('Error adding user: $e'),
                                   backgroundColor: Colors.red,
@@ -274,13 +263,6 @@ main
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
- admin-panel
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton.icon(
-                onPressed: _pickAndProcessCSV,
-
           child: Wrap(
             spacing: 12,
             runSpacing: 12,
@@ -288,7 +270,6 @@ main
             children: [
               ElevatedButton.icon(
                 onPressed: () => _pickAndProcessCSV(role),
- main
                 icon: const Icon(Icons.upload_file),
                 label: const Text("Upload CSV"),
                 style: ElevatedButton.styleFrom(
@@ -297,32 +278,6 @@ main
                 ),
               ),
               ElevatedButton.icon(
- admin-panel
-                onPressed: () => _showAddUserDialog(role),
-                icon: const Icon(Icons.person_add),
-                label: Text("Add ${role == 'rider' ? 'Rider' : 'Driver'}"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (_statusMessage != "Please select a CSV file to upload users." &&
-            _statusMessage != "No file selected.")
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              _statusMessage,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: _statusMessage.contains("Error")
-                    ? Colors.red
-                    : Colors.black87,
-              ),
-
                 onPressed: _downloadTemplate,
                 icon: const Icon(Icons.download),
                 label: const Text("Download Template"),
@@ -356,7 +311,6 @@ main
                     ? Colors.red
                     : Colors.black87,
               ),
- main
             ),
           ),
         Expanded(
