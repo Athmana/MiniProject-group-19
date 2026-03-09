@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:math';
 
 class RideService {
@@ -208,5 +209,38 @@ class RideService {
     } catch (e) {
       return null;
     }
+  }
+
+  // 8. Update Global Driver Status for real-time tracking on map
+  Future<void> updateGlobalDriverStatus({
+    required String driverId,
+    required double lat,
+    required double lng,
+    required bool isOnline,
+  }) async {
+    try {
+      await _firestore.collection('driver_status').doc(driverId).set({
+        'driverId': driverId,
+        'lat': lat,
+        'lng': lng,
+        'isOnline': isOnline,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint("Error updating global driver status: $e");
+    }
+  }
+
+  // 9. Stream all online drivers for the rider map
+  Stream<QuerySnapshot> getOnlineDriversStream() {
+    return _firestore
+        .collection('driver_status')
+        .where('isOnline', isEqualTo: true)
+        // Only show drivers updated in the last 5 minutes to avoid stale markers
+        .where(
+          'lastUpdated',
+          isGreaterThan: DateTime.now().subtract(const Duration(minutes: 5)),
+        )
+        .snapshots();
   }
 }

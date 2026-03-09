@@ -7,6 +7,7 @@ import 'package:gowayanad/waitingfordriverscreen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CabBookingHome extends StatefulWidget {
   const CabBookingHome({super.key});
@@ -36,11 +37,62 @@ class _CabBookingHomeState extends State<CabBookingHome> {
     "Ambulance": "Free",
   };
   bool _isCalculatingFare = false;
+  MapType _currentMapType = MapType.normal;
+  final Set<Marker> _driverMarkers = {};
+  StreamSubscription<QuerySnapshot>? _driverSubscription;
+  BitmapDescriptor? _carIcon;
 
   @override
   void initState() {
     super.initState();
     _fetchLocation();
+    _loadMarkerIcons();
+    _startListeningToDrivers();
+  }
+
+  Future<void> _loadMarkerIcons() async {
+    _carIcon =
+        await BitmapDescriptor.asset(
+          const ImageConfiguration(size: Size(30, 30)),
+          'assets/car_icon.png',
+        ).catchError(
+          (_) =>
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        );
+    if (mounted) setState(() {});
+  }
+
+  void _startListeningToDrivers() {
+    _driverSubscription = RideService().getOnlineDriversStream().listen((
+      snapshot,
+    ) {
+      if (!mounted) return;
+
+      setState(() {
+        _driverMarkers.clear();
+        for (var doc in snapshot.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final String id = data['driverId'] ?? '';
+          final double lat = data['lat'] ?? 0.0;
+          final double lng = data['lng'] ?? 0.0;
+
+          if (lat != 0 && lng != 0) {
+            _driverMarkers.add(
+              Marker(
+                markerId: MarkerId('driver_$id'),
+                position: LatLng(lat, lng),
+                icon:
+                    _carIcon ??
+                    BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueAzure,
+                    ),
+                infoWindow: const InfoWindow(title: 'Driver'),
+              ),
+            );
+          }
+        }
+      });
+    });
   }
 
   Future<void> _fetchLocation() async {
@@ -78,7 +130,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
         _currentPosition!.longitude,
       );
 
-      // 1. Geocode destination ONCE
       List<Location> locations = await locationFromAddress(destination);
       if (locations.isEmpty || !mounted) {
         if (mounted) setState(() => _isCalculatingFare = false);
@@ -88,8 +139,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
       final dest = LatLng(locations[0].latitude, locations[0].longitude);
       setState(() => _destinationLocation = dest);
 
-      // 2. Calculate straight-line distance locally (no second API call)
-      //    and fetch polyline IN PARALLEL for speed
       final results = await Future.wait([
         mapService.getPolylinePoints(pickup, dest),
         Future.value(
@@ -99,7 +148,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                 dest.latitude,
                 dest.longitude,
               ) /
-              1000, // metres → km
+              1000,
         ),
       ]);
 
@@ -108,7 +157,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
       final points = results[0] as List<LatLng>;
       final double distanceInKm = results[1] as double;
 
-      // 3. Update map
       setState(() => _routePoints = points);
       if (_mapController != null && points.isNotEmpty) {
         _mapController!.animateCamera(
@@ -116,7 +164,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
         );
       }
 
-      // 4. Update fares
       if (distanceInKm > 0 && mounted) {
         setState(() {
           _calculatedDistance = distanceInKm;
@@ -156,6 +203,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _driverSubscription?.cancel();
     _destinationController.dispose();
     super.dispose();
   }
@@ -203,73 +251,127 @@ class _CabBookingHomeState extends State<CabBookingHome> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Map Preview
             SizedBox(
               height: 250,
               width: double.infinity,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: _currentPosition == null
-                    ? const Center(child: CircularProgressIndicator())
-                    : GoogleMap(
-                        initialCameraPosition: CameraPosition(
-                          target: LatLng(
-                            _currentPosition!.latitude,
-                            _currentPosition!.longitude,
-                          ),
-                          zoom: 14,
-                        ),
-                        markers: {
-                          if (_currentPosition != null)
-                            Marker(
-                              markerId: const MarkerId('pickup'),
-                              position: LatLng(
+                child: Stack(
+                  children: [
+                    _currentPosition == null
+                        ? const Center(child: CircularProgressIndicator())
+                        : GoogleMap(
+                            initialCameraPosition: CameraPosition(
+                              target: LatLng(
                                 _currentPosition!.latitude,
                                 _currentPosition!.longitude,
                               ),
-                              infoWindow: const InfoWindow(
-                                title: 'Pickup Location',
-                              ),
-                              icon: BitmapDescriptor.defaultMarkerWithHue(
-                                BitmapDescriptor.hueAzure,
-                              ),
+                              zoom: 14,
                             ),
-                          if (_destinationLocation != null)
-                            Marker(
-                              markerId: const MarkerId('destination'),
-                              position: _destinationLocation!,
-                              infoWindow: const InfoWindow(
-                                title: 'Destination',
-                              ),
-                              icon: BitmapDescriptor.defaultMarkerWithHue(
-                                BitmapDescriptor.hueRed,
-                              ),
+                            mapType: _currentMapType,
+                            markers: {
+                              if (_currentPosition != null)
+                                Marker(
+                                  markerId: const MarkerId('pickup'),
+                                  position: LatLng(
+                                    _currentPosition!.latitude,
+                                    _currentPosition!.longitude,
+                                  ),
+                                  infoWindow: const InfoWindow(
+                                    title: 'Pickup Location',
+                                  ),
+                                  icon: BitmapDescriptor.defaultMarkerWithHue(
+                                    BitmapDescriptor.hueAzure,
+                                  ),
+                                ),
+                              if (_destinationLocation != null)
+                                Marker(
+                                  markerId: const MarkerId('destination'),
+                                  position: _destinationLocation!,
+                                  infoWindow: const InfoWindow(
+                                    title: 'Destination',
+                                  ),
+                                  icon: BitmapDescriptor.defaultMarkerWithHue(
+                                    BitmapDescriptor.hueRed,
+                                  ),
+                                ),
+                              ..._driverMarkers,
+                            },
+                            polylines: {
+                              if (_routePoints.isNotEmpty)
+                                Polyline(
+                                  polylineId: const PolylineId('route'),
+                                  points: _routePoints,
+                                  color: const Color(0xFF2D62ED),
+                                  width: 5,
+                                ),
+                            },
+                            myLocationEnabled: true,
+                            myLocationButtonEnabled: false,
+                            zoomControlsEnabled: false,
+                            mapToolbarEnabled: false,
+                            onMapCreated: (controller) =>
+                                _mapController = controller,
+                          ),
+                    Positioned(
+                      right: 10,
+                      bottom: 10,
+                      child: Column(
+                        children: [
+                          _buildMapControlButton(
+                            icon: Icons.layers_outlined,
+                            onPressed: () {
+                              setState(() {
+                                _currentMapType =
+                                    _currentMapType == MapType.normal
+                                    ? MapType.satellite
+                                    : MapType.normal;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          _buildMapControlButton(
+                            icon: Icons.my_location,
+                            onPressed: () {
+                              if (_currentPosition != null &&
+                                  _mapController != null) {
+                                _mapController!.animateCamera(
+                                  CameraUpdate.newLatLngZoom(
+                                    LatLng(
+                                      _currentPosition!.latitude,
+                                      _currentPosition!.longitude,
+                                    ),
+                                    15,
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          _buildMapControlButton(
+                            icon: Icons.add,
+                            onPressed: () => _mapController?.animateCamera(
+                              CameraUpdate.zoomIn(),
                             ),
-                        },
-                        polylines: {
-                          if (_routePoints.isNotEmpty)
-                            Polyline(
-                              polylineId: const PolylineId('route'),
-                              points: _routePoints,
-                              color: const Color(0xFF2D62ED),
-                              width: 5,
+                          ),
+                          const SizedBox(height: 4),
+                          _buildMapControlButton(
+                            icon: Icons.remove,
+                            onPressed: () => _mapController?.animateCamera(
+                              CameraUpdate.zoomOut(),
                             ),
-                        },
-                        myLocationEnabled: true,
-                        zoomControlsEnabled: false,
-                        mapToolbarEnabled: false,
-                        onMapCreated: (controller) =>
-                            _mapController = controller,
+                          ),
+                        ],
                       ),
+                    ),
+                  ],
+                ),
               ),
             ),
-
             const SizedBox(height: 24),
-            // Destination Input
             TextField(
               controller: _destinationController,
               onChanged: (value) {
-                // Debounce: wait 800ms after user stops typing before calling API
                 _debounce?.cancel();
                 if (value.length > 3) {
                   _debounce = Timer(const Duration(milliseconds: 800), () {
@@ -307,7 +409,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               ),
             ),
             const SizedBox(height: 24),
-            // Vehicle Selection Grid
             const Text(
               "Select Vehicle Type",
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -356,7 +457,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               ],
             ),
             const SizedBox(height: 32),
-            // Confirm Ride Button
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -373,29 +473,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                         if (_currentPosition == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text(
-                                'Location is required to book a ride',
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-
-                        if (_destinationController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Please enter a destination address',
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-
-                        if (_selectedVehicleType == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please select a vehicle type'),
+                              content: Text('Location is required'),
                             ),
                           );
                           return;
@@ -412,12 +490,10 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                             destLng = locations.first.longitude;
                           }
                         } catch (e) {
-                          if (context.mounted) {
+                          if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(
-                                  'Could not find destination location: $e',
-                                ),
+                                content: Text('Destination not found: $e'),
                               ),
                             );
                           }
@@ -439,7 +515,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                           distance: _calculatedDistance ?? 0.0,
                         );
 
-                        if (rideId != null && context.mounted) {
+                        if (rideId != null && mounted) {
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (context) =>
@@ -447,7 +523,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                             ),
                           );
                         } else {
-                          if (context.mounted) {
+                          if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text('Failed to request ride'),
@@ -469,7 +545,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  elevation: 0,
                 ),
                 child: const Text(
                   "Confirm Emergency Ride",
@@ -524,22 +599,34 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               maxLines: 2,
             ),
             const Spacer(),
-            // Remove extra pricing info rows explicitly
+            Text(
+              price == "Free" ? "Free" : "₹$price",
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4.0),
-      child: Row(
-        children: [
-          Icon(icon, size: 12, color: Colors.grey),
-          const SizedBox(width: 4),
-          Text(text, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        ],
+  Widget _buildMapControlButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+      ),
+      child: IconButton(
+        icon: Icon(icon, color: Colors.blueAccent, size: 20),
+        onPressed: onPressed,
+        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+        padding: EdgeInsets.zero,
       ),
     );
   }

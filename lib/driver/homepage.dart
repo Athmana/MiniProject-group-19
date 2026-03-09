@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:gowayanad/driver/driverequestscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
+import 'package:gowayanad/services/location_service.dart';
+import 'package:geolocator/geolocator.dart';
 
 class DriverHomePage extends StatefulWidget {
   const DriverHomePage({super.key});
@@ -17,6 +19,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
   final RideService _rideService = RideService();
   StreamSubscription<QuerySnapshot>? _pendingRidesSubscription;
   StreamSubscription<QuerySnapshot>? _completedRidesSubscription;
+  Timer? _locationTimer;
 
   double _totalEarnings = 0.0;
   int _totalRides = 0;
@@ -67,8 +70,53 @@ class _DriverHomePageState extends State<DriverHomePage> {
 
     if (_isOnline) {
       _startListeningForRides();
+      _startLocationUpdates();
     } else {
       _stopListeningForRides();
+      _stopLocationUpdates();
+    }
+  }
+
+  void _startLocationUpdates() {
+    _locationTimer?.cancel();
+    _updateLocation(); // Initial update
+    _locationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _updateLocation();
+    });
+  }
+
+  void _stopLocationUpdates() {
+    _locationTimer?.cancel();
+    _locationTimer = null;
+
+    // Mark as offline in Firestore
+    final driverId = FirebaseAuth.instance.currentUser?.uid;
+    if (driverId != null) {
+      _rideService.updateGlobalDriverStatus(
+        driverId: driverId,
+        lat: 0,
+        lng: 0,
+        isOnline: false,
+      );
+    }
+  }
+
+  Future<void> _updateLocation() async {
+    if (!_isOnline) return;
+
+    try {
+      Position position = await LocationService().getCurrentLocation();
+      final driverId = FirebaseAuth.instance.currentUser?.uid;
+      if (driverId != null) {
+        await _rideService.updateGlobalDriverStatus(
+          driverId: driverId,
+          lat: position.latitude,
+          lng: position.longitude,
+          isOnline: true,
+        );
+      }
+    } catch (e) {
+      debugPrint("Error updating driver location: $e");
     }
   }
 
@@ -109,6 +157,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
   @override
   void dispose() {
     _stopListeningForRides();
+    _stopLocationUpdates();
     _completedRidesSubscription?.cancel();
     super.dispose();
   }
