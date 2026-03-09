@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:gowayanad/services/auth_services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -15,7 +17,33 @@ class _AdminPanelState extends State<AdminPanel> {
   bool _isLoading = false;
   String _statusMessage = "Please select a CSV file to upload users.";
 
-  Future<void> _pickAndProcessCSV() async {
+  Future<void> _downloadTemplate() async {
+    try {
+      final Directory tempDir = await getTemporaryDirectory();
+      final String tempPath = tempDir.path;
+      final File file = File('$tempPath/user_template.csv');
+
+      String csvContent =
+          "name,phoneNumber,password\nJohn Doe,1234567890,password123";
+      await file.writeAsString(csvContent);
+
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: 'CSV Template for Users');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to download template: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickAndProcessCSV(String role) async {
     try {
       // 1. Pick the file
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -51,21 +79,17 @@ class _AdminPanelState extends State<AdminPanel> {
           return;
         }
 
-        // We assume Row 0 is the header: Name, Phone, Password, Role
+        // We assume Row 0 is the header: Name, Phone, Password
         int successCount = 0;
         int failCount = 0;
 
         for (int i = 1; i < fields.length; i++) {
           final row = fields[i];
 
-          if (row.length >= 4) {
+          if (row.length >= 3) {
             String name = row[0].toString().trim();
             String phone = row[1].toString().trim();
             String password = row[2].toString().trim();
-            String role = row[3]
-                .toString()
-                .trim()
-                .toLowerCase(); // 'rider' or 'driver'
 
             if (phone.isNotEmpty && password.isNotEmpty && name.isNotEmpty) {
               try {
@@ -198,9 +222,15 @@ class _AdminPanelState extends State<AdminPanel> {
                               password,
                               role,
                             );
+ admin-panel
                             if (builderContext.mounted) {
                               Navigator.pop(builderContext);
                               ScaffoldMessenger.of(builderContext).showSnackBar(
+
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+ main
                                 const SnackBar(
                                   content: Text('User added successfully!'),
                                 ),
@@ -208,8 +238,13 @@ class _AdminPanelState extends State<AdminPanel> {
                             }
                           } catch (e) {
                             setDialogState(() => isAdding = false);
+ admin-panel
                             if (builderContext.mounted) {
                               ScaffoldMessenger.of(builderContext).showSnackBar(
+                                
+                            if (dialogContext.mounted) {
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+main
                                 SnackBar(
                                   content: Text('Error adding user: $e'),
                                   backgroundColor: Colors.red,
@@ -239,15 +274,60 @@ class _AdminPanelState extends State<AdminPanel> {
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
+ admin-panel
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               ElevatedButton.icon(
                 onPressed: _pickAndProcessCSV,
+
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () => _pickAndProcessCSV(role),
+ main
                 icon: const Icon(Icons.upload_file),
                 label: const Text("Upload CSV"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2D62ED),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+              ElevatedButton.icon(
+ admin-panel
+                onPressed: () => _showAddUserDialog(role),
+                icon: const Icon(Icons.person_add),
+                label: Text("Add ${role == 'rider' ? 'Rider' : 'Driver'}"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_statusMessage != "Please select a CSV file to upload users." &&
+            _statusMessage != "No file selected.")
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              _statusMessage,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: _statusMessage.contains("Error")
+                    ? Colors.red
+                    : Colors.black87,
+              ),
+
+                onPressed: _downloadTemplate,
+                icon: const Icon(Icons.download),
+                label: const Text("Download Template"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -276,6 +356,7 @@ class _AdminPanelState extends State<AdminPanel> {
                     ? Colors.red
                     : Colors.black87,
               ),
+ main
             ),
           ),
         Expanded(

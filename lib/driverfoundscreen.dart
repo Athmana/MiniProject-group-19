@@ -4,6 +4,7 @@ import 'package:gowayanad/ridestartedscreen.dart';
 import 'package:gowayanad/driverreachedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:gowayanad/services/map_service.dart';
 import 'dart:async';
 
 class DriverFoundScreen extends StatefulWidget {
@@ -17,9 +18,14 @@ class DriverFoundScreen extends StatefulWidget {
 
 class _DriverFoundScreenState extends State<DriverFoundScreen> {
   final RideService _rideService = RideService();
+  final MapService _mapService = MapService();
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
   String? _driverName;
+
+  GoogleMapController? _mapController;
+  List<LatLng> _routePoints = [];
+  LatLng? _driverLocation;
 
   @override
   void initState() {
@@ -30,10 +36,14 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
   void _listenToRideStatus() {
     _rideSubscription = _rideService.listenToRide(widget.rideId).listen((
       snapshot,
-    ) {
+    ) async {
       if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
+        final prevDriverLat = _rideData?['driverLat'];
+        final prevDriverLng = _rideData?['driverLng'];
+
         setState(() {
-          _rideData = snapshot.data() as Map<String, dynamic>;
+          _rideData = data;
         });
 
         if (_driverName == null && _rideData?['driverId'] != null) {
@@ -45,6 +55,49 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
             }
           });
         }
+
+        // Handle Driver Location and Polylines
+        final currentDriverLat = data['driverLat'];
+        final currentDriverLng = data['driverLng'];
+
+        if (currentDriverLat != null && currentDriverLng != null) {
+          final newLoc = LatLng(currentDriverLat, currentDriverLng);
+
+          if (_driverLocation == null ||
+              currentDriverLat != prevDriverLat ||
+              currentDriverLng != prevDriverLng) {
+            setState(() {
+              _driverLocation = newLoc;
+            });
+
+            // Fetch Route from Driver to Pickup
+            final pickupLoc = LatLng(
+              data['pickupLat'] as double? ?? 11.6094,
+              data['pickupLng'] as double? ?? 76.0828,
+            );
+
+            final points = await _mapService.getPolylinePoints(
+              newLoc,
+              pickupLoc,
+            );
+            if (mounted) {
+              setState(() {
+                _routePoints = points;
+              });
+
+              // Adjust camera to show both
+              if (_mapController != null) {
+                _mapController!.animateCamera(
+                  CameraUpdate.newLatLngBounds(
+                    _getBounds(newLoc, pickupLoc),
+                    50,
+                  ),
+                );
+              }
+            }
+          }
+        }
+
         if (_rideData?['status'] == 'arrived') {
           if (mounted) {
             _rideSubscription?.cancel();
@@ -69,6 +122,17 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
         }
       }
     });
+  }
+
+  LatLngBounds _getBounds(LatLng p1, LatLng p2) {
+    double south = p1.latitude < p2.latitude ? p1.latitude : p2.latitude;
+    double west = p1.longitude < p2.longitude ? p1.longitude : p2.longitude;
+    double north = p1.latitude > p2.latitude ? p1.latitude : p2.latitude;
+    double east = p1.longitude > p2.longitude ? p1.longitude : p2.longitude;
+    return LatLngBounds(
+      southwest: LatLng(south, west),
+      northeast: LatLng(north, east),
+    );
   }
 
   @override
@@ -116,9 +180,35 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                           infoWindow: const InfoWindow(
                             title: 'Pickup Location',
                           ),
+                          icon: BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueRed,
+                          ),
                         ),
+                        if (_driverLocation != null)
+                          Marker(
+                            markerId: const MarkerId('driver'),
+                            position: _driverLocation!,
+                            infoWindow: const InfoWindow(
+                              title: 'Driver Location',
+                            ),
+                            icon: BitmapDescriptor.defaultMarkerWithHue(
+                              BitmapDescriptor.hueAzure,
+                            ),
+                          ),
+                      },
+                      polylines: {
+                        if (_routePoints.isNotEmpty)
+                          Polyline(
+                            polylineId: const PolylineId('route'),
+                            points: _routePoints,
+                            color: const Color(0xFF2D62ED),
+                            width: 5,
+                          ),
                       },
                       myLocationEnabled: true,
+                      zoomControlsEnabled: false,
+                      mapToolbarEnabled: false,
+                      onMapCreated: (controller) => _mapController = controller,
                     ),
             ),
 
