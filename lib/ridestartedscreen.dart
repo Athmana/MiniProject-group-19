@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/reachedlocationscreen.dart';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/services/ride_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
 
 class RideStartedScreen extends StatefulWidget {
@@ -20,8 +18,6 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
   Map<String, dynamic>? _rideData;
   String? _driverName;
 
-  LatLng? _driverLocation;
-
   @override
   void initState() {
     super.initState();
@@ -34,8 +30,6 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
     ) async {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
-        final prevDriverLat = _rideData?['driverLat'];
-        final prevDriverLng = _rideData?['driverLng'];
 
         setState(() {
           _rideData = data;
@@ -49,34 +43,6 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
               });
             }
           });
-        }
-
-        // Handle Driver Location and Polylines (Trip to Destination)
-        final currentDriverLat = data['driverLat'];
-        final currentDriverLng = data['driverLng'];
-
-        if (currentDriverLat != null && currentDriverLng != null) {
-          final newLoc = LatLng(currentDriverLat, currentDriverLng);
-
-          if (_driverLocation == null ||
-              currentDriverLat != prevDriverLat ||
-              currentDriverLng != prevDriverLng) {
-            setState(() {
-              _driverLocation = newLoc;
-            });
-
-            // Fetch Route from CURRENT (Driver) to DESTINATION
-            // In a real app we might geocode the destination once, but here it's in rideData
-            // Actually, we need destination Lat/Lng in rideData.
-            // Looking at CabBookingHome, it doesn't store destination Lat/Lng yet!
-            // I should have added that in CabBookingHome.
-
-            // For now, let's use the pickup and destination names if we had to,
-            // but it's better to store Lat/Lng in Firestore.
-
-            // Wait, I'll use the pickup as a fallback for now if destination lat/lng is missing,
-            // but I should fix RideService/CabBookingHome to store destination coordinates.
-          }
         }
 
         if (_rideData?['status'] == 'completed') {
@@ -105,43 +71,37 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Full Screen Map Tracking
+          // 1. Background Status Area (Replacing Map)
           Positioned.fill(
-            child: _rideData == null
-                ? const Center(child: CircularProgressIndicator())
-                : GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: LatLng(
-                        _rideData!['pickupLat'] as double? ?? 11.6094,
-                        _rideData!['pickupLng'] as double? ?? 76.0828,
-                      ),
-                      zoom: 15,
+            child: Container(
+              color: const Color(0xFFF1F5FE),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.local_taxi,
+                      size: 80,
+                      color: Color(0xFF2D62ED),
                     ),
-                    markers: {
-                      if (_driverLocation != null)
-                        Marker(
-                          markerId: const MarkerId('driver'),
-                          position: _driverLocation!,
-                          icon: BitmapDescriptor.defaultMarkerWithHue(
-                            BitmapDescriptor.hueAzure,
-                          ),
-                          infoWindow: const InfoWindow(title: "Your Ride"),
-                        ),
-                      Marker(
-                        markerId: const MarkerId('pickup'),
-                        position: LatLng(
-                          _rideData!['pickupLat'] as double? ?? 11.6094,
-                          _rideData!['pickupLng'] as double? ?? 76.0828,
-                        ),
-                        icon: BitmapDescriptor.defaultMarkerWithHue(
-                          BitmapDescriptor.hueGreen,
-                        ),
-                        infoWindow: const InfoWindow(title: "Pickup Point"),
+                    const SizedBox(height: 16),
+                    Text(
+                      _rideData != null ? "Trip in Progress" : "Connecting...",
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black54,
                       ),
-                    },
-                    myLocationEnabled: true,
-                    zoomControlsEnabled: false,
-                  ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "Please stay safe during the ride",
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
 
           // 2. Top Info Bar (Floating)

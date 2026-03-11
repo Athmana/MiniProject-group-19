@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:gowayanad/driver/driverequestscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
-import 'package:gowayanad/services/location_service.dart';
 import 'package:geolocator/geolocator.dart';
 
 class DriverHomePage extends StatefulWidget {
@@ -17,9 +16,10 @@ class DriverHomePage extends StatefulWidget {
 class _DriverHomePageState extends State<DriverHomePage> {
   bool _isOnline = false;
   final RideService _rideService = RideService();
-  StreamSubscription<QuerySnapshot>? _pendingRidesSubscription;
+  StreamSubscription<QuerySnapshot>?
+  _rideSubscription; // Changed from _pendingRidesSubscription
   StreamSubscription<QuerySnapshot>? _completedRidesSubscription;
-  Timer? _locationTimer;
+  StreamSubscription<Position>? _positionSubscription; // Added
 
   double _totalEarnings = 0.0;
   int _totalRides = 0;
@@ -64,66 +64,22 @@ class _DriverHomePageState extends State<DriverHomePage> {
   }
 
   void _toggleOnlineStatus() {
+    final newStatus = !_isOnline;
+
+    // Update local state first
     setState(() {
-      _isOnline = !_isOnline;
+      _isOnline = newStatus;
     });
 
-    if (_isOnline) {
+    if (newStatus) {
       _startListeningForRides();
-      _startLocationUpdates();
     } else {
       _stopListeningForRides();
-      _stopLocationUpdates();
-    }
-  }
-
-  void _startLocationUpdates() {
-    _locationTimer?.cancel();
-    _updateLocation(); // Initial update
-    _locationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      _updateLocation();
-    });
-  }
-
-  void _stopLocationUpdates() {
-    _locationTimer?.cancel();
-    _locationTimer = null;
-
-    // Mark as offline in Firestore
-    final driverId = FirebaseAuth.instance.currentUser?.uid;
-    if (driverId != null) {
-      _rideService.updateGlobalDriverStatus(
-        driverId: driverId,
-        lat: 0,
-        lng: 0,
-        isOnline: false,
-      );
-    }
-  }
-
-  Future<void> _updateLocation() async {
-    if (!_isOnline) return;
-
-    try {
-      Position position = await LocationService().getCurrentLocation();
-      final driverId = FirebaseAuth.instance.currentUser?.uid;
-      if (driverId != null) {
-        await _rideService.updateGlobalDriverStatus(
-          driverId: driverId,
-          lat: position.latitude,
-          lng: position.longitude,
-          isOnline: true,
-        );
-      }
-    } catch (e) {
-      debugPrint("Error updating driver location: $e");
     }
   }
 
   void _startListeningForRides() {
-    _pendingRidesSubscription = _rideService.getPendingRides().listen((
-      snapshot,
-    ) {
+    _rideSubscription = _rideService.getPendingRides().listen((snapshot) {
       if (snapshot.docs.isNotEmpty) {
         // For simplicity, grab the first pending ride
         final doc = snapshot.docs.first;
@@ -150,14 +106,14 @@ class _DriverHomePageState extends State<DriverHomePage> {
   }
 
   void _stopListeningForRides() {
-    _pendingRidesSubscription?.cancel();
-    _pendingRidesSubscription = null;
+    _rideSubscription?.cancel();
+    _rideSubscription = null;
   }
 
   @override
   void dispose() {
-    _stopListeningForRides();
-    _stopLocationUpdates();
+    _rideSubscription?.cancel();
+    _positionSubscription?.cancel();
     _completedRidesSubscription?.cancel();
     super.dispose();
   }

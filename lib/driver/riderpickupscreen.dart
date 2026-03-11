@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/driverotpscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class DriverToPickupScreen extends StatefulWidget {
   final String rideId;
@@ -42,29 +41,37 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Map View (Full Screen)
-          SizedBox(
-            height: MediaQuery.of(context).size.height,
-            width: MediaQuery.of(context).size.width,
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: LatLng(
-                  widget.rideData['pickupLat'] as double? ?? 11.6094,
-                  widget.rideData['pickupLng'] as double? ?? 76.0828,
+          // 1. Background Status Area (Replacing Map)
+          Positioned.fill(
+            child: Container(
+              color: const Color(0xFFE3F2FD),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.navigation,
+                      size: 100,
+                      color: Color(0xFF2D62ED),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      "On the way to Pickup",
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Pickup: ${widget.rideData['pickupLocation'] ?? 'Address'}",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
                 ),
-                zoom: 15,
               ),
-              markers: {
-                Marker(
-                  markerId: const MarkerId('pickup'),
-                  position: LatLng(
-                    widget.rideData['pickupLat'] as double? ?? 11.6094,
-                    widget.rideData['pickupLng'] as double? ?? 76.0828,
-                  ),
-                  infoWindow: const InfoWindow(title: 'Pickup Location'),
-                ),
-              },
-              myLocationEnabled: true,
             ),
           ),
 
@@ -81,15 +88,19 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.turn_right, color: Colors.white, size: 40),
+                    const Icon(
+                      Icons.location_on,
+                      color: Colors.white,
+                      size: 40,
+                    ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
-                            "400m - Turn Right",
+                        children: [
+                          const Text(
+                            "Arriving to Pickup",
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -97,21 +108,15 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                             ),
                           ),
                           Text(
-                            "Towards Kalpetta Main Road",
-                            style: TextStyle(
+                            widget.rideData['pickupLocation'] ?? "Kalpetta",
+                            style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 14,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
-                      ),
-                    ),
-                    const Text(
-                      "4 min",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
                       ),
                     ),
                   ],

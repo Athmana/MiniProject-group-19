@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'reachedlocationscreen.dart';
 import 'services/ride_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
 
 class DriverReachedScreen extends StatefulWidget {
@@ -44,8 +43,6 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
             _rideSubscription?.cancel();
             Navigator.pushReplacement(
               context,
-              // The next screen in Rider flow was RideStarted, but skipping straight to Payment
-              // since our 'COMPLETE RIDE' triggers the 'completed' status.
               MaterialPageRoute(
                 builder: (context) =>
                     ReachedLocationScreen(rideId: widget.rideId),
@@ -69,32 +66,34 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Top Map Area (Placeholder)
+          // Top Status Area (Replacing Map)
           SizedBox(
             height: MediaQuery.of(context).size.height * 0.4,
             width: double.infinity,
-            child: _rideData == null
-                ? const Center(child: CircularProgressIndicator())
-                : GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: LatLng(
-                        _rideData!['pickupLat'] as double? ?? 11.6094,
-                        _rideData!['pickupLng'] as double? ?? 76.0828,
-                      ),
-                      zoom: 15,
+            child: Container(
+              color: const Color(0xFFE8F5E9),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_outline,
+                      size: 100,
+                      color: Colors.green,
                     ),
-                    markers: {
-                      Marker(
-                        markerId: const MarkerId('pickup'),
-                        position: LatLng(
-                          _rideData!['pickupLat'] as double? ?? 11.6094,
-                          _rideData!['pickupLng'] as double? ?? 76.0828,
-                        ),
-                        infoWindow: const InfoWindow(title: 'Pickup Location'),
+                    const SizedBox(height: 16),
+                    Text(
+                      _rideData != null ? "Driver Arrived" : "Finalizing...",
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
                       ),
-                    },
-                    myLocationEnabled: true,
-                  ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
 
           Expanded(
@@ -117,7 +116,7 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    "Your White Maruti Swift is at the pickup point",
+                    "Your vehicle is at the pickup point",
                     style: TextStyle(color: Colors.grey),
                   ),
 

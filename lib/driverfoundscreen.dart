@@ -3,8 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/ridestartedscreen.dart';
 import 'package:gowayanad/driverreachedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:gowayanad/services/map_service.dart';
 import 'dart:async';
 
 class DriverFoundScreen extends StatefulWidget {
@@ -18,14 +16,9 @@ class DriverFoundScreen extends StatefulWidget {
 
 class _DriverFoundScreenState extends State<DriverFoundScreen> {
   final RideService _rideService = RideService();
-  final MapService _mapService = MapService();
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
   String? _driverName;
-
-  GoogleMapController? _mapController;
-  List<LatLng> _routePoints = [];
-  LatLng? _driverLocation;
 
   @override
   void initState() {
@@ -39,8 +32,6 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
     ) async {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
-        final prevDriverLat = _rideData?['driverLat'];
-        final prevDriverLng = _rideData?['driverLng'];
 
         setState(() {
           _rideData = data;
@@ -54,48 +45,6 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
               });
             }
           });
-        }
-
-        // Handle Driver Location and Polylines
-        final currentDriverLat = data['driverLat'];
-        final currentDriverLng = data['driverLng'];
-
-        if (currentDriverLat != null && currentDriverLng != null) {
-          final newLoc = LatLng(currentDriverLat, currentDriverLng);
-
-          if (_driverLocation == null ||
-              currentDriverLat != prevDriverLat ||
-              currentDriverLng != prevDriverLng) {
-            setState(() {
-              _driverLocation = newLoc;
-            });
-
-            // Fetch Route from Driver to Pickup
-            final pickupLoc = LatLng(
-              data['pickupLat'] as double? ?? 11.6094,
-              data['pickupLng'] as double? ?? 76.0828,
-            );
-
-            final points = await _mapService.getPolylinePoints(
-              newLoc,
-              pickupLoc,
-            );
-            if (mounted) {
-              setState(() {
-                _routePoints = points;
-              });
-
-              // Adjust camera to show both
-              if (_mapController != null) {
-                _mapController!.animateCamera(
-                  CameraUpdate.newLatLngBounds(
-                    _getBounds(newLoc, pickupLoc),
-                    50,
-                  ),
-                );
-              }
-            }
-          }
         }
 
         if (_rideData?['status'] == 'arrived') {
@@ -124,17 +73,6 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
     });
   }
 
-  LatLngBounds _getBounds(LatLng p1, LatLng p2) {
-    double south = p1.latitude < p2.latitude ? p1.latitude : p2.latitude;
-    double west = p1.longitude < p2.longitude ? p1.longitude : p2.longitude;
-    double north = p1.latitude > p2.latitude ? p1.latitude : p2.latitude;
-    double east = p1.longitude > p2.longitude ? p1.longitude : p2.longitude;
-    return LatLngBounds(
-      southwest: LatLng(south, west),
-      northeast: LatLng(north, east),
-    );
-  }
-
   @override
   void dispose() {
     _rideSubscription?.cancel();
@@ -144,7 +82,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFF), // Light blueish background
+      backgroundColor: const Color(0xFFF8FAFF),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -156,60 +94,39 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // 1. Map / Header Section
-            SizedBox(
+            // 1. Header Section (Replacing Map)
+            Container(
               height: 200,
               width: double.infinity,
-              child: _rideData == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : GoogleMap(
-                      initialCameraPosition: CameraPosition(
-                        target: LatLng(
-                          _rideData!['pickupLat'] as double? ?? 11.6094,
-                          _rideData!['pickupLng'] as double? ?? 76.0828,
-                        ),
-                        zoom: 15,
-                      ),
-                      markers: {
-                        Marker(
-                          markerId: const MarkerId('pickup'),
-                          position: LatLng(
-                            _rideData!['pickupLat'] as double? ?? 11.6094,
-                            _rideData!['pickupLng'] as double? ?? 76.0828,
-                          ),
-                          infoWindow: const InfoWindow(
-                            title: 'Pickup Location',
-                          ),
-                          icon: BitmapDescriptor.defaultMarkerWithHue(
-                            BitmapDescriptor.hueRed,
-                          ),
-                        ),
-                        if (_driverLocation != null)
-                          Marker(
-                            markerId: const MarkerId('driver'),
-                            position: _driverLocation!,
-                            infoWindow: const InfoWindow(
-                              title: 'Driver Location',
-                            ),
-                            icon: BitmapDescriptor.defaultMarkerWithHue(
-                              BitmapDescriptor.hueAzure,
-                            ),
-                          ),
-                      },
-                      polylines: {
-                        if (_routePoints.isNotEmpty)
-                          Polyline(
-                            polylineId: const PolylineId('route'),
-                            points: _routePoints,
-                            color: const Color(0xFF2D62ED),
-                            width: 5,
-                          ),
-                      },
-                      myLocationEnabled: true,
-                      zoomControlsEnabled: false,
-                      mapToolbarEnabled: false,
-                      onMapCreated: (controller) => _mapController = controller,
+              color: const Color(0xFFE3F2FD),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.local_taxi,
+                      size: 60,
+                      color: Color(0xFF2D62ED),
                     ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _driverName != null
+                          ? "$_driverName is on the way"
+                          : "Connecting with Driver...",
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      "Expected soon at your pickup location",
+                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
             ),
 
             Padding(
@@ -240,7 +157,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                           "Destination",
                           _rideData?['destination'] ??
                               "Sulthan Bathery Hospital",
-                          "8.5 km away",
+                          "Distance calculated",
                         ),
                       ),
                     ],
@@ -266,7 +183,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                         : "Driver is on the way",
                     _rideData?['status'] == 'arrived'
                         ? "Waiting for you"
-                        : "4 min remaining",
+                        : "Arriving shortly",
                     isDone: _rideData?['status'] == 'arrived',
                     isLast: true,
                   ),
@@ -327,7 +244,6 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
     );
   }
 
-  // ignore: strict_top_level_inference
   Widget _buildDriverCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -335,7 +251,6 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          // ignore: deprecated_member_use
           BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
         ],
       ),
@@ -375,11 +290,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
             ),
           ),
           ElevatedButton.icon(
-            onPressed: () {
-              // Manual Navigation for testing if needed, though replaced by stream listener
-              // Navigator.of(context).push(MaterialPageRoute(
-              //     builder: (context) => DriverReachedScreen(rideId: widget.rideId)));
-            },
+            onPressed: () {},
             icon: const Icon(Icons.call, size: 18),
             label: const Text("Call"),
             style: ElevatedButton.styleFrom(
