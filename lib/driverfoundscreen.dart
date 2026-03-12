@@ -19,6 +19,9 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
   String? _driverName;
+  bool _isPinVisible = false;
+  Timer? _countdownTimer;
+  String _timeLeft = "15:00";
 
   @override
   void initState() {
@@ -37,6 +40,8 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
           _rideData = data;
         });
 
+        _startCountdown();
+
         if (_driverName == null && _rideData?['driverId'] != null) {
           _rideService.getUserDetails(_rideData!['driverId']).then((user) {
             if (mounted && user != null) {
@@ -50,6 +55,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
         if (_rideData?['status'] == 'arrived') {
           if (mounted) {
             _rideSubscription?.cancel();
+            _countdownTimer?.cancel();
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -61,6 +67,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
         } else if (_rideData?['status'] == 'started') {
           if (mounted) {
             _rideSubscription?.cancel();
+            _countdownTimer?.cancel();
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -73,9 +80,40 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
     });
   }
 
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    final expiry = _rideData?['pinExpiryAt'] as Timestamp?;
+    if (expiry == null) return;
+
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      final now = DateTime.now();
+      final difference = expiry.toDate().difference(now);
+
+      if (difference.isNegative) {
+        timer.cancel();
+        if (mounted) {
+          setState(() {
+            _timeLeft = "Expired";
+          });
+          _rideService.regenerateRidePin(widget.rideId);
+        }
+      } else {
+        final minutes = difference.inMinutes;
+        final seconds = difference.inSeconds % 60;
+        if (mounted) {
+          setState(() {
+            _timeLeft =
+                "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
+          });
+        }
+      }
+    });
+  }
+
   @override
   void dispose() {
     _rideSubscription?.cancel();
+    _countdownTimer?.cancel();
     super.dispose();
   }
 
@@ -139,6 +177,10 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
 
                   // 3. Driver Profile Card
                   _buildDriverCard(context),
+                  const SizedBox(height: 16),
+
+                  // 3b. Dynamic PIN Section
+                  _buildPinSection(),
                   const SizedBox(height: 16),
 
                   // 4. Pickup & Destination Cards
@@ -237,6 +279,112 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                   style: const TextStyle(fontSize: 12),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPinSection() {
+    bool isExpired = _timeLeft == "Expired";
+    String ridePin = _rideData?['ridePin']?.toString() ?? "------";
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Ride PIN",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.black87,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isExpired ? Colors.red.shade50 : Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.timer_outlined,
+                      size: 14,
+                      color: isExpired ? Colors.red : Colors.blue,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isExpired ? "PIN Expired" : "Expires in: $_timeLeft",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: isExpired ? Colors.red : Colors.blue,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isPinVisible = !_isPinVisible;
+              });
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5FE),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF2D62ED).withOpacity(0.1)),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    _isPinVisible ? ridePin.split('').join(' ') : "• • • • • •",
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 8,
+                      color: Color(0xFF2D62ED),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _isPinVisible ? "Tap to hide" : "Tap to reveal",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "Share this PIN with the driver to start your ride.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade600,
             ),
           ),
         ],

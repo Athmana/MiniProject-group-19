@@ -305,9 +305,15 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
     );
 
     if (mounted) {
-      Navigator.pushReplacement(
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Thank you for your feedback!')),
+      );
+      
+      Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const EmergencyRideHome()),
+        (route) => false,
       );
     }
   }

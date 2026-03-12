@@ -17,6 +17,9 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
   final RideService _rideService = RideService();
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
+  bool _isPinVisible = false;
+  Timer? _countdownTimer;
+  String _timeLeft = "15:00";
 
   @override
   void initState() {
@@ -29,18 +32,17 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
       snapshot,
     ) {
       if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
         if (mounted) {
           setState(() {
-            _rideData = snapshot.data() as Map<String, dynamic>;
+            _rideData = data;
           });
+          _startCountdown();
         }
-        final data = snapshot.data() as Map<String, dynamic>;
-        setState(() {
-          _rideData = data;
-        });
         if (data['status'] == 'completed') {
           if (mounted) {
             _rideSubscription?.cancel();
+            _countdownTimer?.cancel();
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -54,9 +56,40 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
     });
   }
 
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    final expiry = _rideData?['pinExpiryAt'] as Timestamp?;
+    if (expiry == null) return;
+
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      final now = DateTime.now();
+      final difference = expiry.toDate().difference(now);
+
+      if (difference.isNegative) {
+        timer.cancel();
+        if (mounted) {
+          setState(() {
+            _timeLeft = "Expired";
+          });
+          _rideService.regenerateRidePin(widget.rideId);
+        }
+      } else {
+        final minutes = difference.inMinutes;
+        final seconds = difference.inSeconds % 60;
+        if (mounted) {
+          setState(() {
+            _timeLeft =
+                "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
+          });
+        }
+      }
+    });
+  }
+
   @override
   void dispose() {
     _rideSubscription?.cancel();
+    _countdownTimer?.cancel();
     super.dispose();
   }
 
@@ -123,34 +156,70 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                   const SizedBox(height: 30),
 
                   // Security PIN Section
-                  const Text(
-                    "SHARE THIS PIN WITH DRIVER",
-                    style: TextStyle(
-                      letterSpacing: 1.2,
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "SHARE THIS PIN WITH DRIVER",
+                        style: TextStyle(
+                          letterSpacing: 1.2,
+                          fontSize: 10,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        _timeLeft == "Expired" ? "PIN Expired" : "Expires: $_timeLeft",
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: _timeLeft == "Expired" ? Colors.red : Colors.blue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5FE),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      (_rideData?['ridePin']?.toString() ??
-                              _rideData?['otp']?.toString() ??
-                              "4821")
-                          .split('')
-                          .join(' '),
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 8,
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _isPinVisible = !_isPinVisible;
+                      });
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5FE),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF2D62ED).withOpacity(0.1)),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            _isPinVisible
+                                ? (_rideData?['ridePin']?.toString() ?? "------")
+                                    .split('')
+                                    .join(' ')
+                                : "• • • • • •",
+                            style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 8,
+                              color: Color(0xFF2D62ED),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _isPinVisible ? "Tap to hide" : "Tap to reveal",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

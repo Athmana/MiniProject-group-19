@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:gowayanad/driver/driverotpscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
 
 class DriverToPickupScreen extends StatefulWidget {
@@ -247,14 +246,14 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                                           controller: ridePinController,
                                           keyboardType: TextInputType.number,
                                           textAlign: TextAlign.center,
-                                          maxLength: 4,
+                                          maxLength: 6,
                                           style: const TextStyle(
                                             fontSize: 24,
                                             letterSpacing: 8,
                                             fontWeight: FontWeight.bold,
                                           ),
                                           decoration: InputDecoration(
-                                            hintText: "0000",
+                                            hintText: "000000",
                                             counterText: "",
                                             filled: true,
                                             fillColor: Colors.grey[100],
@@ -281,12 +280,13 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                                     if (!isVerified)
                                       ElevatedButton(
                                         onPressed: () async {
-                                          final correctPin =
-                                              widget.rideData['ridePin']
-                                                  ?.toString() ??
-                                              "4821";
-                                          if (ridePinController.text.trim() ==
-                                              correctPin) {
+                                          final result = await RideService().verifyRidePin(
+                                            widget.rideId,
+                                            ridePinController.text.trim(),
+                                          );
+                                          
+                                          if (result['success'] == true) {
+                                            if (!context.mounted) return;
                                             setDialogState(() {
                                               isVerified = true;
                                               errorText = null;
@@ -299,9 +299,9 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                                               Navigator.pop(context, true);
                                             }
                                           } else {
+                                            if (!context.mounted) return;
                                             setDialogState(() {
-                                              errorText =
-                                                  "The PIN entered does not match the rider’s ride PIN.\nPlease confirm the PIN with the rider and try again.";
+                                              errorText = result['message'];
                                               ridePinController.clear();
                                             });
                                           }
@@ -335,22 +335,17 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                         );
                         if (!context.mounted) return;
                         if (success) {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (context) => DriverOtpScreen(
-                                rideId: widget.rideId,
-                                correctOtp:
-                                    widget.rideData['otp'] ??
-                                    "0000", // Dynamic OTP
-                              ),
-                            ),
-                          );
+                          // No need for pushReplacement here because the UI should 
+                          // transition based on the ride document's status.
+                          // However, for immediate feedback:
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to start the ride'),
-                            ),
-                          );
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Failed to start the ride'),
+                              ),
+                            );
+                          }
                         }
                       },
                       style: ElevatedButton.styleFrom(
