@@ -144,10 +144,6 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
                             ),
                           ],
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.sos, color: Colors.red),
-                          onPressed: () {},
-                        ),
                       ],
                     ),
                   ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/services/ride_service.dart';
+import 'package:gowayanad/driver/driverridestartedscreen.dart';
 
 class DriverToPickupScreen extends StatefulWidget {
   final String rideId;
@@ -17,6 +18,10 @@ class DriverToPickupScreen extends StatefulWidget {
 
 class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
   String? _riderName;
+  final TextEditingController _pinController = TextEditingController();
+  bool _isPinVerified = false;
+  String? _pinError;
+  bool _isStartingRide = false;
   @override
   void initState() {
     super.initState();
@@ -162,206 +167,153 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                           ],
                         ),
                       ),
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(
-                          Icons.call,
-                          color: Colors.green,
-                          size: 28,
-                        ),
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(
+                        Icons.call,
+                        color: Colors.green,
+                        size: 28,
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Divider(),
+                const SizedBox(height: 10),
+                if (!_isPinVerified) ...[
+                  const Text(
+                    "ENTER RIDER PIN",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                      letterSpacing: 1.2,
+                    ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _pinController,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    maxLength: 6,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      letterSpacing: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: "000000",
+                      counterText: "",
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      errorText: _pinError,
+                    ),
+                  ),
+                ] else
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green),
+                        SizedBox(width: 8),
+                        Text(
+                          "PIN Verified Successfully",
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 24),
 
                   // Main Action Button
                   SizedBox(
                     width: double.infinity,
                     height: 60,
                     child: ElevatedButton(
-                      onPressed: () async {
-                        // Final verification and start ride
-                        if (!mounted) return;
-                        // Prompt driver for PIN
-                        bool? pinValid = await showDialog<bool>(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (context) {
-                            String? errorText;
-                            bool isVerified = false;
-                            final ridePinController = TextEditingController();
-
-                            return StatefulBuilder(
-                              builder: (context, setDialogState) {
-                                return AlertDialog(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  title: Text(
-                                    isVerified
-                                        ? "PIN Verified"
-                                        : (errorText != null
-                                              ? "Incorrect PIN"
-                                              : "Ride Verification Required"),
-                                    style: TextStyle(
-                                      color: isVerified
-                                          ? Colors.green
-                                          : (errorText != null
-                                                ? Colors.red
-                                                : Colors.black),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (isVerified) ...[
-                                        const Icon(
-                                          Icons.check_circle,
-                                          color: Colors.green,
-                                          size: 60,
-                                        ),
-                                        const SizedBox(height: 16),
-                                        const Text(
-                                          "Rider verification successful.\nThe ride will now begin.",
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(fontSize: 16),
-                                        ),
-                                      ] else ...[
-                                        Text(
-                                          errorText ??
-                                              "To start the ride, please ask the rider for their 4-digit ride PIN shown in the rider’s app.",
-                                          textAlign: TextAlign.center,
-                                          style: const TextStyle(fontSize: 14),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        if (errorText == null)
-                                          const Text(
-                                            "Enter the PIN below to verify the rider and begin the trip.",
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(fontSize: 14),
-                                          ),
-                                        const SizedBox(height: 20),
-                                        TextField(
-                                          controller: ridePinController,
-                                          keyboardType: TextInputType.number,
-                                          textAlign: TextAlign.center,
-                                          maxLength: 6,
-                                          style: const TextStyle(
-                                            fontSize: 24,
-                                            letterSpacing: 8,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          decoration: InputDecoration(
-                                            hintText: "000000",
-                                            counterText: "",
-                                            filled: true,
-                                            fillColor: Colors.grey[100],
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              borderSide: BorderSide.none,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                  actions: [
-                                    if (!isVerified)
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(context, false),
-                                        child: const Text(
-                                          "Cancel",
-                                          style: TextStyle(color: Colors.grey),
-                                        ),
-                                      ),
-                                    if (!isVerified)
-                                      ElevatedButton(
-                                        onPressed: () async {
-                                          final result = await RideService().verifyRidePin(
-                                            widget.rideId,
-                                            ridePinController.text.trim(),
-                                          );
-                                          
-                                          if (result['success'] == true) {
-                                            if (!context.mounted) return;
-                                            setDialogState(() {
-                                              isVerified = true;
-                                              errorText = null;
-                                            });
-                                            // Wait a bit to show success message
-                                            await Future.delayed(
-                                              const Duration(seconds: 2),
-                                            );
-                                            if (context.mounted) {
-                                              Navigator.pop(context, true);
-                                            }
-                                          } else {
-                                            if (!context.mounted) return;
-                                            setDialogState(() {
-                                              errorText = result['message'];
-                                              ridePinController.clear();
-                                            });
-                                          }
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.black,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          "Verify PIN",
-                                          style: TextStyle(color: Colors.white),
-                                        ),
-                                      ),
-                                  ],
+                      onPressed: _isStartingRide
+                          ? null
+                          : () async {
+                              if (!_isPinVerified) {
+                                // Verify PIN
+                                setState(() {
+                                  _pinError = null;
+                                });
+                                final result = await RideService().verifyRidePin(
+                                  widget.rideId,
+                                  _pinController.text.trim(),
                                 );
-                              },
-                            );
-                          },
-                        );
-
-                        if (pinValid != true) return;
-
-                        // Logic to notify user: "Ride has started"
-                        bool success = await RideService().updateRideStatus(
-                          widget.rideId,
-                          'started',
-                        );
-                        if (!context.mounted) return;
-                        if (success) {
-                          // No need for pushReplacement here because the UI should 
-                          // transition based on the ride document's status.
-                          // However, for immediate feedback:
-                        } else {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Failed to start the ride'),
-                              ),
-                            );
-                          }
-                        }
-                      },
+                                if (result['success'] == true) {
+                                  setState(() {
+                                    _isPinVerified = true;
+                                  });
+                                } else {
+                                  setState(() {
+                                    _pinError = result['message'];
+                                  });
+                                }
+                              } else {
+                                // Start Ride
+                                setState(() {
+                                  _isStartingRide = true;
+                                });
+                                bool success = await RideService().updateRideStatus(
+                                  widget.rideId,
+                                  'started',
+                                );
+                                if (success) {
+                                  if (mounted) {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => DriverRideStartedScreen(
+                                          rideId: widget.rideId,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  if (mounted) {
+                                    setState(() {
+                                      _isStartingRide = false;
+                                    });
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Failed to start the ride'),
+                                      ),
+                                    );
+                                  }
+                                }
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
+                        backgroundColor:
+                            _isPinVerified ? Colors.green : Colors.black,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        "START THE RIDE",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
+                      child: _isStartingRide
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                              _isPinVerified ? "START THE RIDE" : "VERIFY PIN",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
                     ),
                   ),
                 ],
