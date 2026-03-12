@@ -125,6 +125,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   Icons.credit_card_rounded,
                   "Credit / Debit Card",
                 ),
+                _paymentTile(
+                  "Wallet",
+                  Icons.account_balance_wallet_outlined,
+                  "Digital Wallet",
+                ),
                 _paymentTile("Cash", Icons.money_rounded, "Cash on Arrival"),
                 if (_errorMessage != null)
                   Padding(
