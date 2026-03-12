@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:gowayanad/driver/homepage.dart';
 
 class DriverRideFinishedScreen extends StatelessWidget {
   final String rideId;
@@ -165,7 +166,12 @@ class DriverRideFinishedScreen extends StatelessWidget {
                   height: 56,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.popUntil(context, (route) => route.isFirst);
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (context) => const DriverHomePage(),
+                        ),
+                        (route) => false,
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2D62ED),
