@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'reachedlocationscreen.dart';
+import 'package:gowayanad/reachedlocationscreen.dart';
 import 'services/ride_service.dart';
 import 'dart:async';
 

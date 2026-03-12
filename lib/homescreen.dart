@@ -24,10 +24,10 @@ class _CabBookingHomeState extends State<CabBookingHome> {
   Timer? _debounce;
   double? _calculatedDistance;
   final Map<String, String> _vehiclePrices = {
-    "Bike": "...",
-    "Auto": "...",
-    "Car": "...",
-    "Ambulance": "Free",
+    "Bike": "",
+    "Auto": "",
+    "Car": "",
+    "Ambulance": "",
   };
   bool _isCalculatingFare = false;
 
@@ -102,7 +102,9 @@ class _CabBookingHomeState extends State<CabBookingHome> {
           _vehiclePrices["Car"] = (100 + (18 * distanceInKm)).toStringAsFixed(
             0,
           );
-          _vehiclePrices["Ambulance"] = "Free";
+          _vehiclePrices["Ambulance"] = (300 + (20 * distanceInKm)).toStringAsFixed(
+            0,
+          );
           _isCalculatingFare = false;
           if (_selectedVehicleType != null) {
             _selectedVehiclePrice = _vehiclePrices[_selectedVehicleType];
@@ -270,25 +272,25 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                 _buildVehicleCard(
                   title: "Bike",
                   desc: "Quick emergency response",
-                  price: _vehiclePrices["Bike"] ?? "...",
+                  price: _vehiclePrices["Bike"] ?? "",
                   icon: Icons.directions_bike,
                 ),
                 _buildVehicleCard(
                   title: "Auto",
                   desc: "Quick emergency response",
-                  price: _vehiclePrices["Auto"] ?? "...",
+                  price: _vehiclePrices["Auto"] ?? "",
                   icon: Icons.electric_rickshaw,
                 ),
                 _buildVehicleCard(
                   title: "Car",
                   desc: "Comfortable transport",
-                  price: _vehiclePrices["Car"] ?? "...",
+                  price: _vehiclePrices["Car"] ?? "",
                   icon: Icons.directions_car,
                 ),
                 _buildVehicleCard(
                   title: "Ambulance",
                   desc: "Medical emergency",
-                  price: _vehiclePrices["Ambulance"] ?? "Free",
+                  price: _vehiclePrices["Ambulance"] ?? "",
                   icon: Icons.medical_services,
                 ),
               ],
@@ -303,7 +305,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                         _destinationController.text.isNotEmpty &&
                         _selectedVehicleType != null &&
                         _selectedVehiclePrice != null &&
-                        _selectedVehiclePrice != "..." &&
+                        _selectedVehiclePrice != "" &&
                         !_isCalculatingFare &&
                         !_isLoadingLocation)
                     ? () async {
@@ -422,6 +424,17 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
               maxLines: 2,
             ),
+            if (price.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                "₹$price",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D62ED),
+                  fontSize: 14,
+                ),
+              ),
+            ],
           ],
         ),
       ),
