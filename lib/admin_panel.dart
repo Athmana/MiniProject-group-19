@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:gowayanad/services/auth_services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -16,32 +14,6 @@ class AdminPanel extends StatefulWidget {
 class _AdminPanelState extends State<AdminPanel> {
   bool _isLoading = false;
   String _statusMessage = "Please select a CSV file to upload users.";
-
-  Future<void> _downloadTemplate() async {
-    try {
-      final Directory tempDir = await getTemporaryDirectory();
-      final String tempPath = tempDir.path;
-      final File file = File('$tempPath/user_template.csv');
-
-      String csvContent =
-          "name,phoneNumber,password\nJohn Doe,1234567890,password123";
-      await file.writeAsString(csvContent);
-
-      // ignore: deprecated_member_use
-      await Share.shareXFiles([
-        XFile(file.path),
-      ], text: 'CSV Template for Users');
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to download template: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
 
   Future<void> _pickAndProcessCSV(String role) async {
     try {
@@ -128,9 +100,13 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
-  Future<void> _deleteUser(String docId) async {
+  Future<void> _deleteUser(String docId, String role) async {
     try {
-      await FirebaseFirestore.instance.collection('users').doc(docId).delete();
+      String collectionName = (role == 'driver') ? 'drivers' : 'riders';
+      await FirebaseFirestore.instance
+          .collection(collectionName)
+          .doc(docId)
+          .delete();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User deleted successfully')),
@@ -263,10 +239,15 @@ class _AdminPanelState extends State<AdminPanel> {
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
+<<<<<<< HEAD
           child: Wrap(
             spacing: 12,
             runSpacing: 12,
             alignment: WrapAlignment.center,
+=======
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+>>>>>>> admin-panel
             children: [
               ElevatedButton.icon(
                 onPressed: () => _pickAndProcessCSV(role),
@@ -278,6 +259,7 @@ class _AdminPanelState extends State<AdminPanel> {
                 ),
               ),
               ElevatedButton.icon(
+<<<<<<< HEAD
                 onPressed: _downloadTemplate,
                 icon: const Icon(Icons.download),
                 label: const Text("Download Template"),
@@ -287,6 +269,8 @@ class _AdminPanelState extends State<AdminPanel> {
                 ),
               ),
               ElevatedButton.icon(
+=======
+>>>>>>> admin-panel
                 onPressed: () => _showAddUserDialog(role),
                 icon: const Icon(Icons.person_add),
                 label: Text("Add ${role == 'rider' ? 'Rider' : 'Driver'}"),
@@ -316,8 +300,7 @@ class _AdminPanelState extends State<AdminPanel> {
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
-                .collection('users')
-                .where('role', isEqualTo: role)
+                .collection(role == 'driver' ? 'drivers' : 'riders')
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -381,7 +364,7 @@ class _AdminPanelState extends State<AdminPanel> {
                                 TextButton(
                                   onPressed: () {
                                     Navigator.pop(context);
-                                    _deleteUser(docId);
+                                    _deleteUser(docId, role);
                                   },
                                   child: const Text(
                                     "Delete",

@@ -39,12 +39,23 @@ class AuthWrapper extends StatelessWidget {
         }
 
         if (snapshot.hasData && snapshot.data != null) {
-          // User is logged in, grab their role
-          return FutureBuilder<DocumentSnapshot>(
-            future: FirebaseFirestore.instance
-                .collection('users')
-                .doc(snapshot.data!.uid)
-                .get(),
+          // User is logged in, grab their role by checking riders then drivers
+          return FutureBuilder<String?>(
+            future: () async {
+              DocumentSnapshot riderDoc = await FirebaseFirestore.instance
+                  .collection('riders')
+                  .doc(snapshot.data!.uid)
+                  .get();
+              if (riderDoc.exists) return 'rider';
+
+              DocumentSnapshot driverDoc = await FirebaseFirestore.instance
+                  .collection('drivers')
+                  .doc(snapshot.data!.uid)
+                  .get();
+              if (driverDoc.exists) return 'driver';
+
+              return null;
+            }(),
             builder: (context, roleSnapshot) {
               if (roleSnapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(
@@ -52,8 +63,8 @@ class AuthWrapper extends StatelessWidget {
                 );
               }
 
-              if (roleSnapshot.hasData && roleSnapshot.data!.exists) {
-                String role = roleSnapshot.data!.get('role') ?? 'rider';
+              if (roleSnapshot.hasData) {
+                String role = roleSnapshot.data!;
                 if (role == 'driver') {
                   return const DriverHomePage();
                 } else {
@@ -61,8 +72,8 @@ class AuthWrapper extends StatelessWidget {
                 }
               }
 
-              // Fallback if document doesn't exist
-              return const EmergencyRideHome();
+              // Fallback if document doesn't exist (e.g., deleted from Firestore but auth remains)
+              return const LoginScreen();
             },
           );
         }

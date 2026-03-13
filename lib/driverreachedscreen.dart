@@ -28,9 +28,7 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
   }
 
   void _listenToRideStatus() {
-    _rideSubscription = _rideService.listenToRide(widget.rideId).listen((
-      snapshot,
-    ) {
+    _rideSubscription = _rideService.listenToRide(widget.rideId).listen((snapshot) {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
         if (mounted) {
@@ -46,8 +44,7 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) =>
-                    ReachedLocationScreen(rideId: widget.rideId),
+                builder: (context) => ReachedLocationScreen(rideId: widget.rideId),
               ),
             );
           }
@@ -99,7 +96,11 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
+<<<<<<< HEAD
           // Top Status Area (Replacing Map)
+=======
+          // Top Map Area
+>>>>>>> admin-panel
           SizedBox(
             height: MediaQuery.of(context).size.height * 0.4,
             width: double.infinity,
@@ -149,7 +150,11 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
+<<<<<<< HEAD
                     "Your vehicle is at the pickup point",
+=======
+                    "Your vehicle has arrived at the pickup point",
+>>>>>>> admin-panel
                     style: TextStyle(color: Colors.grey),
                   ),
 
@@ -179,6 +184,7 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                     ],
                   ),
                   const SizedBox(height: 10),
+<<<<<<< HEAD
                   GestureDetector(
                     onTap: () {
                       setState(() {
@@ -220,6 +226,25 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                             ),
                           ),
                         ],
+=======
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5FE),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      (_rideData?['ridePin']?.toString() ?? "0000")
+                          .split('')
+                          .join(' '),
+                      style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 8,
+>>>>>>> admin-panel
                       ),
                     ),
                   ),
@@ -245,8 +270,7 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed:
-                              null, // Rider waits for Driver to enter OTP
+                          onPressed: null, // Rider waits for Driver to verify PIN
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             backgroundColor: const Color(0xFF2D62ED),

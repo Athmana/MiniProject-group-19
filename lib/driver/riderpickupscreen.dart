@@ -18,10 +18,14 @@ class DriverToPickupScreen extends StatefulWidget {
 
 class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
   String? _riderName;
+<<<<<<< HEAD
   final TextEditingController _pinController = TextEditingController();
   bool _isPinVerified = false;
   String? _pinError;
   bool _isStartingRide = false;
+=======
+
+>>>>>>> admin-panel
   @override
   void initState() {
     super.initState();
@@ -34,7 +38,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
       final user = await RideService().getUserDetails(riderId);
       if (mounted && user != null) {
         setState(() {
-          _riderName = user['fullName'];
+          _riderName = user['name'];
         });
       }
     }
@@ -45,6 +49,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
     return Scaffold(
       body: Stack(
         children: [
+<<<<<<< HEAD
           // 1. Background Status Area (Replacing Map)
           Positioned.fill(
             child: Container(
@@ -74,12 +79,23 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                       style: const TextStyle(color: Colors.grey),
                     ),
                   ],
+=======
+          // 1. Map View
+          SizedBox(
+            height: MediaQuery.of(context).size.height,
+            width: MediaQuery.of(context).size.width,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: LatLng(
+                  widget.rideData['pickupLat'] as double? ?? 11.6094,
+                  widget.rideData['pickupLng'] as double? ?? 76.0828,
+>>>>>>> admin-panel
                 ),
               ),
             ),
           ),
 
-          // 2. Top Navigation Info (Floating Card)
+          // 2. Navigation Info
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -88,7 +104,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF2D62ED),
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
+                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
                 ),
                 child: Row(
                   children: [
@@ -102,9 +118,15 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
+<<<<<<< HEAD
                         children: [
                           const Text(
                             "Arriving to Pickup",
+=======
+                        children: const [
+                          Text(
+                            "Heading to Pickup",
+>>>>>>> admin-panel
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -112,6 +134,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                             ),
                           ),
                           Text(
+<<<<<<< HEAD
                             widget.rideData['pickupLocation'] ?? "Kalpetta",
                             style: const TextStyle(
                               color: Colors.white70,
@@ -119,6 +142,10 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+=======
+                            "Follow the map to reach the passenger",
+                            style: TextStyle(color: Colors.white70, fontSize: 14),
+>>>>>>> admin-panel
                           ),
                         ],
                       ),
@@ -129,7 +156,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
             ),
           ),
 
-          // 3. Bottom Passenger Info & Arrival Button
+          // 3. Passenger Info & Start Button
           Align(
             alignment: Alignment.bottomCenter,
             child: Container(
@@ -152,28 +179,18 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                           children: [
                             Text(
                               _riderName ?? "Loading rider...",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                             ),
                             Text(
                               "Pickup: ${widget.rideData['pickupLocation'] ?? 'Destination'}",
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 14,
-                              ),
+                              style: const TextStyle(color: Colors.grey, fontSize: 14),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
                         onPressed: () {},
-                        icon: const Icon(
-                          Icons.call,
-                          color: Colors.green,
-                          size: 28,
-                        ),
+                        icon: const Icon(Icons.call, color: Colors.green, size: 28),
                       ),
                     ],
                   ),
@@ -237,6 +254,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                     ),
                   const SizedBox(height: 24),
 
+<<<<<<< HEAD
                   // Main Action Button
                   Row(
                     children: [
@@ -262,10 +280,59 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                                     child: const Text(
                                       "Yes, Cancel",
                                       style: TextStyle(color: Colors.red),
+=======
+                  SizedBox(
+                    width: double.infinity,
+                    height: 60,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final bool? pinValid = await showDialog<bool>(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) {
+                            final pinController = TextEditingController();
+                            return AlertDialog(
+                              title: const Text("Enter Rider PIN"),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text("Ask the rider for their 4-digit PIN to start the ride."),
+                                  const SizedBox(height: 16),
+                                  TextField(
+                                    controller: pinController,
+                                    keyboardType: TextInputType.number,
+                                    textAlign: TextAlign.center,
+                                    maxLength: 4,
+                                    decoration: const InputDecoration(
+                                      hintText: "0000",
+                                      border: OutlineInputBorder(),
+>>>>>>> admin-panel
                                     ),
                                   ),
                                 ],
                               ),
+<<<<<<< HEAD
+=======
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: const Text("Cancel"),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    final String correctPin = widget.rideData['ridePin']?.toString() ?? "0000";
+                                    if (pinController.text.trim() == correctPin) {
+                                      Navigator.pop(context, true);
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text("Incorrect PIN"), backgroundColor: Colors.red),
+                                      );
+                                    }
+                                  },
+                                  child: const Text("Verify"),
+                                ),
+                              ],
+>>>>>>> admin-panel
                             );
 
                             if (confirm == true) {
@@ -285,6 +352,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                               }
                             }
                           },
+<<<<<<< HEAD
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             side: const BorderSide(color: Colors.redAccent),
@@ -391,6 +459,31 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                                   ),
                                 ),
                         ),
+=======
+                        );
+
+                        if (pinValid == true) {
+                          bool success = await RideService().updateRideStatus(widget.rideId, 'started');
+                          if (success && mounted) {
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (context) => DriverOtpScreen(
+                                  rideId: widget.rideId,
+                                  correctOtp: widget.rideData['ridePin'] ?? "0000",
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text(
+                        "START THE RIDE",
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+>>>>>>> admin-panel
                       ),
                     ],
                   ),
