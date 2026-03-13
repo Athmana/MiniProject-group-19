@@ -43,7 +43,8 @@ class _DriverWaitingPaymentScreenState
             _rideSubscription?.cancel();
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
-                builder: (context) => const DriverRideFinishedScreen(),
+                builder: (context) =>
+                    DriverRideFinishedScreen(rideId: widget.rideId),
               ),
             );
           }
