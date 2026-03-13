@@ -6,14 +6,14 @@ import 'package:gowayanad/waitingfordriverscreen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 
-class EmergencyRideHome extends StatefulWidget {
-  const EmergencyRideHome({super.key});
+class RiderBookingScreen extends StatefulWidget {
+  const RiderBookingScreen({super.key});
 
   @override
-  State<EmergencyRideHome> createState() => _EmergencyRideHomeState();
+  State<RiderBookingScreen> createState() => _RiderBookingScreenState();
 }
 
-class _EmergencyRideHomeState extends State<EmergencyRideHome> {
+class _RiderBookingScreenState extends State<RiderBookingScreen> {
   Position? _currentPosition;
   bool _isLoadingLocation = true;
   final TextEditingController _destinationController = TextEditingController();
@@ -142,6 +142,32 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_statusMessage != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _statusMessage!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () => setState(() => _statusMessage = null),
+                    ),
+                  ],
+                ),
+              ),
             // Hero Banner
             Container(
               padding: const EdgeInsets.all(20),
@@ -233,7 +259,7 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: (_isLoadingLocation || _selectedVehicleType == null)
+                onPressed: (_isLoadingLocation || _isCalculatingFare || _selectedVehicleType == null)
                     ? null
                     : () async {
                         final String dest = _destinationController.text.trim();
@@ -244,30 +270,58 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                           return;
                         }
 
-                        // Geocode destination
+                        setState(() => _isCalculatingFare = true);
+
                         try {
+                          double? dLat, dLng, dist;
+                          
+                          // 1. Geocode destination if not already done or to get fresh coordinates
                           List<Location> locations = await locationFromAddress(dest);
                           if (locations.isEmpty) throw Exception("No location found");
+                          dLat = locations.first.latitude;
+                          dLng = locations.first.longitude;
                           
-                          final double dLat = locations.first.latitude;
-                          final double dLng = locations.first.longitude;
-                          final double pLat = _currentPosition!.latitude;
-                          final double pLng = _currentPosition!.longitude;
+                          // 2. Ensure we have a distance
+                          if (_calculatedDistance == null) {
+                            final double straightLineDistance = Geolocator.distanceBetween(
+                              _currentPosition!.latitude,
+                              _currentPosition!.longitude,
+                              dLat,
+                              dLng,
+                            ) / 1000;
+                            dist = straightLineDistance * 1.4;
+                          } else {
+                            dist = _calculatedDistance;
+                          }
 
+                          if (!mounted) return;
+
+                          // 3. Parse price safely
+                          double priceValue = 0;
+                          if (_selectedVehiclePrice != null && _selectedVehiclePrice != "--") {
+                            priceValue = double.tryParse(_selectedVehiclePrice!) ?? 0;
+                          }
+                          
+                          // If price is still zero/invalid, calculate it now
+                          if (priceValue <= 0) {
+                            priceValue = RideService.calculateFare(dist!, _selectedVehicleType!);
+                          }
+
+                          // 4. Request the ride
                           final String? rideId = await RideService().requestRide(
                             pickupLocation: "Current Location",
-                            pickupLat: pLat,
-                            pickupLng: pLng,
+                            pickupLat: _currentPosition!.latitude,
+                            pickupLng: _currentPosition!.longitude,
                             destination: dest,
                             destinationLat: dLat,
                             destinationLng: dLng,
                             vehicleType: _selectedVehicleType!,
-                            distance: _calculatedDistance ?? 1.0,
-                            price: double.parse(_selectedVehiclePrice ?? "0"),
+                            distance: dist!,
+                            price: priceValue,
                           );
 
                           if (rideId != null && mounted) {
-                            Navigator.push(
+                            Navigator.pushReplacement(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => WaitingForDriverScreen(rideId: rideId),
@@ -280,6 +334,10 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                               SnackBar(content: Text("Error: ${e.toString()}")),
                             );
                           }
+                        } finally {
+                          if (mounted) {
+                            setState(() => _isCalculatingFare = false);
+                          }
                         }
                       },
                 style: ElevatedButton.styleFrom(
@@ -288,7 +346,7 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: _isLoadingLocation
+                child: (_isLoadingLocation || _isCalculatingFare)
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text(
                         "Confirm Emergency Ride",
@@ -304,8 +362,15 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
 
   Widget _buildVehicleCard(String type, String desc, IconData icon) {
     bool isSelected = _selectedVehicleType == type;
+    String price = _vehiclePrices[type] ?? "--";
+    
     return GestureDetector(
-      onTap: () => setState(() => _selectedVehicleType = type),
+      onTap: () {
+        setState(() {
+          _selectedVehicleType = type;
+          _selectedVehiclePrice = price != "--" ? price : null;
+        });
+      },
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(

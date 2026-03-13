@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:gowayanad/driver/driverotpscreen.dart';
+import 'package:gowayanad/driver/driverridestartedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 
 class DriverToPickupScreen extends StatefulWidget {
   final String rideId;
@@ -19,11 +21,43 @@ class DriverToPickupScreen extends StatefulWidget {
 
 class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
   String? _riderName;
+  StreamSubscription<DocumentSnapshot>? _rideSubscription;
+  Map<String, dynamic>? _currentRideData;
 
   @override
   void initState() {
     super.initState();
+    _currentRideData = widget.rideData;
     _fetchRiderName();
+    _listenToRideStatus();
+  }
+
+  void _listenToRideStatus() {
+    _rideSubscription =
+        RideService().listenToRide(widget.rideId).listen((snapshot) {
+      if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
+        setState(() {
+          _currentRideData = data;
+        });
+
+        if (data['status'] == 'cancelled') {
+          if (mounted) {
+            _rideSubscription?.cancel();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Rider cancelled the trip')),
+            );
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _rideSubscription?.cancel();
+    super.dispose();
   }
 
   void _fetchRiderName() async {
@@ -32,7 +66,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
       final user = await RideService().getUserDetails(riderId);
       if (mounted && user != null) {
         setState(() {
-          _riderName = user['name'];
+          _riderName = user['name'] ?? user['fullName'] ?? "Rider";
         });
       }
     }
@@ -136,7 +170,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                             ),
                             Text(
-                              "Pickup: ${widget.rideData['pickupLocation'] ?? 'Remote Location'}",
+                              "Pickup: ${_currentRideData?['pickupLocation'] ?? 'Remote Location'}",
                               style: const TextStyle(
                                 color: Colors.grey,
                                 fontSize: 14,
@@ -188,13 +222,13 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                                   child: const Text("Cancel"),
                                 ),
                                 ElevatedButton(
-                                  onPressed: () {
-                                    final String correctPin = widget.rideData['ridePin']?.toString() ?? "0000";
-                                    if (pinController.text.trim() == correctPin) {
+                                  onPressed: () async {
+                                    final res = await RideService().verifyRidePin(widget.rideId, pinController.text.trim());
+                                    if (res['success'] == true) {
                                       Navigator.pop(context, true);
                                     } else {
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text("Incorrect PIN"), backgroundColor: Colors.red),
+                                        SnackBar(content: Text(res['message'] ?? "Incorrect PIN"), backgroundColor: Colors.red),
                                       );
                                     }
                                   },
@@ -206,13 +240,11 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                         );
 
                         if (pinValid == true) {
-                          bool success = await RideService().updateRideStatus(widget.rideId, 'started');
-                          if (success && mounted) {
+                          if (mounted) {
                             Navigator.of(context).pushReplacement(
                               MaterialPageRoute(
-                                builder: (context) => DriverOtpScreen(
+                                builder: (context) => DriverRideStartedScreen(
                                   rideId: widget.rideId,
-                                  correctOtp: widget.rideData['ridePin'] ?? "0000",
                                 ),
                               ),
                             );

@@ -46,7 +46,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
           _rideService.getUserDetails(_rideData!['driverId']).then((user) {
             if (mounted && user != null) {
               setState(() {
-                _driverName = user['fullName'] ?? "Driver";
+                _driverName = user['name'] ?? user['fullName'] ?? "Driver";
               });
             }
           });
@@ -74,6 +74,15 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                 builder: (context) => RideStartedScreen(rideId: widget.rideId),
               ),
             );
+          }
+        } else if (_rideData?['status'] == 'cancelled') {
+          if (mounted) {
+            _rideSubscription?.cancel();
+            _countdownTimer?.cancel();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Ride was cancelled.')),
+            );
+            Navigator.of(context).popUntil((route) => route.isFirst);
           }
         }
       }

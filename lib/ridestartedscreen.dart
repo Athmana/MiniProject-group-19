@@ -39,7 +39,7 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
           _rideService.getUserDetails(_rideData!['driverId']).then((user) {
             if (mounted && user != null) {
               setState(() {
-                _driverName = user['fullName'] ?? "Driver";
+                _driverName = user['name'] ?? user['fullName'] ?? "Driver";
               });
             }
           });
@@ -54,6 +54,14 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
                     ReachedLocationScreen(rideId: widget.rideId),
               ),
             );
+          }
+        } else if (_rideData?['status'] == 'cancelled') {
+          if (mounted) {
+            _rideSubscription?.cancel();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Ride was cancelled.')),
+            );
+            Navigator.of(context).popUntil((route) => route.isFirst);
           }
         }
       }

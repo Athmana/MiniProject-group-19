@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/riderpickupscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DriverRequestScreen extends StatefulWidget {
   final String rideId;
@@ -18,11 +20,36 @@ class DriverRequestScreen extends StatefulWidget {
 
 class _DriverRequestScreenState extends State<DriverRequestScreen> {
   String? _riderName;
+  StreamSubscription<DocumentSnapshot>? _rideSubscription;
 
   @override
   void initState() {
     super.initState();
     _fetchRiderName();
+    _listenToRideStatus();
+  }
+
+  void _listenToRideStatus() {
+    _rideSubscription = RideService().listenToRide(widget.rideId).listen((snapshot) {
+      if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
+        if (data['status'] == 'cancelled') {
+          if (mounted) {
+            _rideSubscription?.cancel();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Rider cancelled the request')),
+            );
+            Navigator.of(context).pop();
+          }
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _rideSubscription?.cancel();
+    super.dispose();
   }
 
   void _fetchRiderName() async {
@@ -162,9 +189,8 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () async {
-                            bool success = await RideService().updateRideStatus(
+                            bool success = await RideService().acceptRide(
                               widget.rideId,
-                              'accepted',
                             );
                             if (context.mounted) {
                               if (success) {

@@ -40,6 +40,14 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
               ),
             );
           }
+        } else if (data['status'] == 'cancelled') {
+          if (mounted) {
+            _rideSubscription?.cancel();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Ride request was cancelled.')),
+            );
+            Navigator.of(context).pop();
+          }
         }
       }
     });
@@ -144,9 +152,12 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
 
               // 4. Cancel Option
               TextButton(
-                onPressed: () {
-                  // Show a confirmation dialog or go back
-                  Navigator.pop(context);
+                onPressed: () async {
+                  // Cancel the ride in Firestore before popping
+                  await _rideService.cancelRide(widget.rideId);
+                  if (mounted) {
+                    Navigator.pop(context);
+                  }
                 },
                 child: const Text(
                   "Cancel Request",

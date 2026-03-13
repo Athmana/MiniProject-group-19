@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:gowayanad/homescreen.dart';
 import 'package:gowayanad/services/location_service.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:gowayanad/homescreen.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class EmergencyRideHome extends StatefulWidget {
@@ -164,12 +164,12 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
               height: 60,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const EmergencyRideHome(),
-                    ),
-                  );
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const RiderBookingScreen(),
+                      ),
+                    );
                 },
                 icon: const Icon(Icons.bolt_rounded, color: Colors.white),
                 label: const Text(

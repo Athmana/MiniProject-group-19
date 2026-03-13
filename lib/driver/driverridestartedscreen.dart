@@ -84,6 +84,18 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
           final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
           final status = data['status'] ?? 'accepted';
 
+          if (status == 'cancelled') {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Ride was cancelled')),
+                );
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              }
+            });
+            return const SizedBox.shrink();
+          }
+
           // Logic for target location
           final bool isHeadingToPickup =
               status == 'accepted' || status == 'arrived';
@@ -106,7 +118,7 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
             _rideService.getUserDetails(data['riderId']).then((riderData) {
               if (mounted) {
                 setState(
-                  () => _riderName = riderData?['fullName'] ?? "Valued Rider",
+                  () => _riderName = riderData?['name'] ?? riderData?['fullName'] ?? "Valued Rider",
                 );
               }
             });

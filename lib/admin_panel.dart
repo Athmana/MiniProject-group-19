@@ -3,6 +3,8 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:gowayanad/services/auth_services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});
@@ -34,12 +36,13 @@ class _AdminPanelState extends State<AdminPanel> {
         // Read the entire file as a string
         final String csvString = await file.readAsString();
 
-        // Convert the CSV string to a list of lists manully
-        List<String> lines = csvString.split('\n');
+        // Robust manual parsing (splitting by lines and commas)
         List<List<dynamic>> fields = [];
-        for (String line in lines) {
+        final lines = csvString.split(RegExp(r'\r?\n'));
+        for (var line in lines) {
           if (line.trim().isNotEmpty) {
-            fields.add(line.split(','));
+            // Very basic comma split - handles most standard CSVs without complex quoted fields
+            fields.add(line.split(',').map((e) => e.trim()).toList());
           }
         }
 
@@ -97,6 +100,31 @@ class _AdminPanelState extends State<AdminPanel> {
         _isLoading = false;
         _statusMessage = "Error processing file: $e";
       });
+    }
+  }
+
+  Future<void> _downloadTemplate() async {
+    try {
+      List<List<dynamic>> rows = [
+        ["Name", "Phone", "Password"],
+        ["John Doe", "9876543210", "pass123"],
+        ["Jane Smith", "8765432109", "pass456"],
+      ];
+
+      // Convert to CSV string manually
+      String csvData = rows.map((row) => row.join(',')).join('\n');
+      final directory = await getTemporaryDirectory();
+      final path = "${directory.path}/user_template.csv";
+      final file = File(path);
+      await file.writeAsString(csvData);
+
+      await Share.shareXFiles([XFile(path)], text: 'Gowayanad User Template');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error generating template: $e")),
+        );
+      }
     }
   }
 
@@ -242,6 +270,19 @@ class _AdminPanelState extends State<AdminPanel> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
+              Column(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _downloadTemplate,
+                    icon: const Icon(Icons.download),
+                    label: const Text("Template"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey.shade700,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
               ElevatedButton.icon(
                 onPressed: () => _pickAndProcessCSV(role),
                 icon: const Icon(Icons.upload_file),

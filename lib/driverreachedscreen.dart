@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'reachedlocationscreen.dart';
+import 'ridestartedscreen.dart';
 import 'services/ride_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
@@ -34,15 +34,23 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
             _rideData = data;
           });
         }
-        if (data['status'] == 'completed') {
+        if (data['status'] == 'started') {
           if (mounted) {
             _rideSubscription?.cancel();
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => ReachedLocationScreen(rideId: widget.rideId),
+                builder: (context) => RideStartedScreen(rideId: widget.rideId),
               ),
             );
+          }
+        } else if (data['status'] == 'cancelled') {
+          if (mounted) {
+            _rideSubscription?.cancel();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Ride was cancelled.')),
+            );
+            Navigator.of(context).popUntil((route) => route.isFirst);
           }
         }
       }
@@ -153,7 +161,31 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () {},
+                          onPressed: () async {
+                            final bool? confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text("Cancel Ride"),
+                                content: const Text("Are you sure you want to cancel this ride?"),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text("No"),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text("Yes, Cancel", style: TextStyle(color: Colors.red)),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              await _rideService.cancelRide(widget.rideId);
+                              if (mounted) {
+                                Navigator.of(context).popUntil((route) => route.isFirst);
+                              }
+                            }
+                          },
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             side: const BorderSide(color: Colors.redAccent),

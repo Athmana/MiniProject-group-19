@@ -166,12 +166,21 @@ class RideService {
       final String? driverId = FirebaseAuth.instance.currentUser?.uid;
       if (driverId == null) throw Exception("Driver not logged in");
 
-      await _firestore.collection('rides').doc(rideId).update({
-        'driverId': driverId,
-        'status': 'accepted',
-        'acceptedAt': FieldValue.serverTimestamp(),
+      return await _firestore.runTransaction((transaction) async {
+        DocumentSnapshot snapshot = await transaction.get(_firestore.collection('rides').doc(rideId));
+        if (!snapshot.exists) return false;
+        
+        final data = snapshot.data() as Map<String, dynamic>;
+        if (data['status'] != 'pending') return false;
+
+        transaction.update(snapshot.reference, {
+          'driverId': driverId,
+          'status': 'accepted',
+          'acceptedAt': FieldValue.serverTimestamp(),
+          'rideStatus': 'accepted',
+        });
+        return true;
       });
-      return true;
     } catch (e) {
       return false;
     }
@@ -190,12 +199,21 @@ class RideService {
 
   Future<bool> updateRideStatus(String rideId, String newStatus) async {
     try {
-      await _firestore.collection('rides').doc(rideId).update({
-        'status': newStatus,
-        'rideStatus': newStatus,
-        '${newStatus}At': FieldValue.serverTimestamp(),
+      return await _firestore.runTransaction((transaction) async {
+        DocumentSnapshot snapshot = await transaction.get(_firestore.collection('rides').doc(rideId));
+        if (!snapshot.exists) return false;
+        
+        final data = snapshot.data() as Map<String, dynamic>;
+        // Don't update if already cancelled or completed
+        if (data['status'] == 'cancelled' || data['status'] == 'completed') return false;
+
+        transaction.update(snapshot.reference, {
+          'status': newStatus,
+          'rideStatus': newStatus,
+          '${newStatus}At': FieldValue.serverTimestamp(),
+        });
+        return true;
       });
-      return true;
     } catch (e) {
       return false;
     }
