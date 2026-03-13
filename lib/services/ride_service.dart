@@ -189,4 +189,20 @@ class RideService {
       return false;
     }
   }
+
+  Future<bool> regenerateRidePin(String rideId) async {
+    try {
+      String newPin = (1000 + Random().nextInt(9000)).toString();
+      await _firestore.collection('rides').doc(rideId).update({
+        'ridePin': newPin,
+        'pinUpdatedAt': FieldValue.serverTimestamp(),
+        'pinExpiryAt': Timestamp.fromDate(
+          DateTime.now().add(const Duration(minutes: 15)),
+        ),
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 }
