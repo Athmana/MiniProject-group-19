@@ -197,7 +197,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                       Expanded(
                         child: _buildLocationCard(
                           "Destination",
-                          _rideData?['destination'] ??
+                          _rideData?['destinationLocation'] ??
                               "Sulthan Bathery Hospital",
                           "Distance calculated",
                         ),

@@ -20,6 +20,17 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
   String? _selectedVehicleType;
   String? _statusMessage;
 
+  // Added for Fare Calculation
+  bool _isCalculatingFare = false;
+  double? _calculatedDistance;
+  final Map<String, String> _vehiclePrices = {
+    "Bike": "--",
+    "Auto": "--",
+    "Car": "--",
+    "Ambulance": "--",
+  };
+  String? _selectedVehiclePrice;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +56,59 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
     }
   }
 
+  Future<void> _calculateFares(String destination) async {
+    if (destination.isEmpty || _currentPosition == null) return;
+
+    setState(() {
+      _isCalculatingFare = true;
+    });
+
+    try {
+      // Get destination coordinates for distance calculation
+      List<Location> locations = await locationFromAddress(destination);
+      if (locations.isEmpty || !mounted) {
+        if (mounted) setState(() => _isCalculatingFare = false);
+        return;
+      }
+
+      final destLat = locations[0].latitude;
+      final destLng = locations[0].longitude;
+
+      // Estimating actual route distance using a circuity factor (1.4x straight-line)
+      // as a placeholder for a routing API call.
+      final double straightLineDistance =
+          Geolocator.distanceBetween(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+            destLat,
+            destLng,
+          ) /
+          1000;
+      
+      final double distanceInKm = straightLineDistance * 1.4;
+
+      if (!mounted) return;
+
+      if (distanceInKm > 0) {
+        setState(() {
+          _calculatedDistance = distanceInKm;
+          _vehiclePrices["Bike"] = RideService.calculateFare(distanceInKm, "Bike").toStringAsFixed(0);
+          _vehiclePrices["Auto"] = RideService.calculateFare(distanceInKm, "Auto").toStringAsFixed(0);
+          _vehiclePrices["Car"] = RideService.calculateFare(distanceInKm, "Car").toStringAsFixed(0);
+          _vehiclePrices["Ambulance"] = RideService.calculateFare(distanceInKm, "Ambulance").toStringAsFixed(0);
+          _isCalculatingFare = false;
+          if (_selectedVehicleType != null) {
+            _selectedVehiclePrice = _vehiclePrices[_selectedVehicleType];
+          }
+        });
+      } else {
+        if (mounted) setState(() => _isCalculatingFare = false);
+      }
+    } catch (e) {
+      debugPrint("Error calculating fares: $e");
+      if (mounted) setState(() => _isCalculatingFare = false);
+    }
+  }
   @override
   void dispose() {
     _destinationController.dispose();
@@ -118,9 +182,19 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
             const SizedBox(height: 12),
             TextField(
               controller: _destinationController,
+              onChanged: (value) {
+                // Optionally calculate fares as the user types, 
+                // but usually better on debounced or dedicated check button.
+                // For now, let's trigger it on departure.
+              },
+              onSubmitted: (value) => _calculateFares(value),
               decoration: InputDecoration(
                 hintText: "Enter destination address",
                 prefixIcon: const Icon(Icons.location_on, color: Colors.red),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: () => _calculateFares(_destinationController.text),
+                ),
                 filled: true,
                 fillColor: Colors.grey.shade100,
                 border: OutlineInputBorder(
@@ -185,9 +259,11 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                             pickupLat: pLat,
                             pickupLng: pLng,
                             destination: dest,
-                            destLat: dLat,
-                            destLng: dLng,
+                            destinationLat: dLat,
+                            destinationLng: dLng,
                             vehicleType: _selectedVehicleType!,
+                            distance: _calculatedDistance ?? 1.0,
+                            price: double.parse(_selectedVehiclePrice ?? "0"),
                           );
 
                           if (rideId != null && mounted) {

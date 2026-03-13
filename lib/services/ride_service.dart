@@ -5,29 +5,54 @@ import 'dart:math';
 class RideService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Centralized Fare Calculation
+  static double calculateFare(double distanceKm, String vehicleType) {
+    double baseFare;
+    double ratePerKm;
+
+    switch (vehicleType.toLowerCase()) {
+      case 'ambulance':
+        baseFare = 300.0;
+        ratePerKm = 20.0;
+        break;
+      case 'car':
+        baseFare = 100.0;
+        ratePerKm = 18.0;
+        break;
+      case 'auto':
+        baseFare = 50.0;
+        ratePerKm = 12.0;
+        break;
+      case 'bike':
+        baseFare = 30.0;
+        ratePerKm = 8.0;
+        break;
+      default:
+        baseFare = 50.0;
+        ratePerKm = 12.0;
+    }
+
+    double price = baseFare + (distanceKm * ratePerKm);
+    return double.parse(price.toStringAsFixed(0)); // Standardized to whole numbers as per UI requirements
+  }
+
   Future<String?> requestRide({
     required String pickupLocation,
     required double pickupLat,
     required double pickupLng,
     required String destination,
-    required double destLat,
-    required double destLng,
+    required double destinationLat,
+    required double destinationLng,
     required String vehicleType,
+    required double distance,
+    required double price,
   }) async {
     try {
       final String? riderId = FirebaseAuth.instance.currentUser?.uid;
       if (riderId == null) throw Exception("User not logged in");
 
-      double distance = calculateDistance(
-        pickupLat,
-        pickupLng,
-        destLat,
-        destLng,
-      );
-      double price = 50 + (distance * 12);
-      price = double.parse(price.toStringAsFixed(2));
-
-      String ridePin = (1000 + Random().nextInt(9000)).toString();
+      String ridePin = (100000 + Random().nextInt(900000)).toString(); // 6-digit PIN
+      DateTime expiryTime = DateTime.now().add(const Duration(minutes: 15));
 
       DocumentReference docRef = await _firestore.collection('rides').add({
         'riderId': riderId,
@@ -36,16 +61,65 @@ class RideService {
         'pickupLocation': pickupLocation,
         'pickupLat': pickupLat,
         'pickupLng': pickupLng,
-        'destination': destination,
-        'destLat': destLat,
-        'destLng': destLng,
+        'destinationLocation': destination,
+        'destinationLat': destinationLat,
+        'destinationLng': destinationLng,
         'vehicleType': vehicleType,
-        'distance': distance,
-        'price': price,
+        'distanceKm': distance,
+        'fareAmount': price,
         'ridePin': ridePin,
+        'rideStatus': 'pending', // Redundant but requested in field list
         'createdAt': FieldValue.serverTimestamp(),
+        'pinExpiryAt': Timestamp.fromDate(expiryTime),
       });
       return docRef.id;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<bool> updatePaymentStatus(String rideId, String paymentStatus) async {
+    try {
+      await _firestore.collection('rides').doc(rideId).update({
+        'paymentStatus': paymentStatus,
+        'paidAt': FieldValue.serverTimestamp(),
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> submitReview(
+    String rideId,
+    double rating,
+    String feedback,
+  ) async {
+    try {
+      await _firestore.collection('rides').doc(rideId).update({
+        'rating': rating,
+        'feedback': feedback,
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getUserDetails(String userId) async {
+    try {
+      DocumentSnapshot doc =
+          await _firestore.collection('riders').doc(userId).get();
+      if (doc.exists) {
+        return doc.data() as Map<String, dynamic>;
+      }
+
+      doc = await _firestore.collection('drivers').doc(userId).get();
+      if (doc.exists) {
+        return doc.data() as Map<String, dynamic>;
+      }
+
+      return null;
     } catch (e) {
       return null;
     }
@@ -118,6 +192,7 @@ class RideService {
     try {
       await _firestore.collection('rides').doc(rideId).update({
         'status': newStatus,
+        'rideStatus': newStatus,
         '${newStatus}At': FieldValue.serverTimestamp(),
       });
       return true;
@@ -126,11 +201,15 @@ class RideService {
     }
   }
 
-  Future<bool> updatePaymentStatus(String rideId, String paymentStatus) async {
+  Future<bool> regenerateRidePin(String rideId) async {
     try {
+      String newPin = (100000 + Random().nextInt(900000)).toString();
+      DateTime newExpiry = DateTime.now().add(const Duration(minutes: 15));
+
       await _firestore.collection('rides').doc(rideId).update({
-        'paymentStatus': paymentStatus,
-        'paidAt': FieldValue.serverTimestamp(),
+        'ridePin': newPin,
+        'pinExpiryAt': Timestamp.fromDate(newExpiry),
+        'pinUpdatedAt': FieldValue.serverTimestamp(),
       });
       return true;
     } catch (e) {
@@ -138,38 +217,32 @@ class RideService {
     }
   }
 
-  Future<bool> submitReview(
-    String rideId,
-    double rating,
-    String feedback,
-  ) async {
+  Future<Map<String, dynamic>> verifyRidePin(String rideId, String enteredPin) async {
     try {
-      await _firestore.collection('rides').doc(rideId).update({
-        'rating': rating,
-        'feedback': feedback,
-      });
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
+      DocumentSnapshot doc = await _firestore.collection('rides').doc(rideId).get();
+      if (!doc.exists) return {'success': false, 'message': 'Ride not found'};
+      
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      String correctPin = data['ridePin']?.toString() ?? "";
+      Timestamp? expiry = data['pinExpiryAt'];
 
-  Future<Map<String, dynamic>?> getUserDetails(String userId) async {
-    try {
-      DocumentSnapshot doc =
-          await _firestore.collection('riders').doc(userId).get();
-      if (doc.exists) {
-        return doc.data() as Map<String, dynamic>;
+      if (expiry != null && DateTime.now().isAfter(expiry.toDate())) {
+        await regenerateRidePin(rideId);
+        return {'success': false, 'message': 'PIN expired and has been refreshed.'};
       }
 
-      doc = await _firestore.collection('drivers').doc(userId).get();
-      if (doc.exists) {
-        return doc.data() as Map<String, dynamic>;
+      if (enteredPin == correctPin) {
+        await _firestore.collection('rides').doc(rideId).update({
+          'status': 'started',
+          'rideStatus': 'started',
+          'startedAt': FieldValue.serverTimestamp(),
+        });
+        return {'success': true};
+      } else {
+        return {'success': false, 'message': 'Invalid PIN.'};
       }
-
-      return null;
     } catch (e) {
-      return null;
+      return {'success': false, 'message': 'Verification error: $e'};
     }
   }
 
@@ -183,22 +256,6 @@ class RideService {
         'driverLat': lat,
         'driverLng': lng,
         'locationUpdatedAt': FieldValue.serverTimestamp(),
-      });
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> regenerateRidePin(String rideId) async {
-    try {
-      String newPin = (1000 + Random().nextInt(9000)).toString();
-      await _firestore.collection('rides').doc(rideId).update({
-        'ridePin': newPin,
-        'pinUpdatedAt': FieldValue.serverTimestamp(),
-        'pinExpiryAt': Timestamp.fromDate(
-          DateTime.now().add(const Duration(minutes: 15)),
-        ),
       });
       return true;
     } catch (e) {

@@ -30,9 +30,9 @@ class DriverRideFinishedScreen extends StatelessWidget {
 
           if (snapshot.hasData && snapshot.data!.exists) {
             final data = snapshot.data!.data() as Map<String, dynamic>;
-            price = "₹${data['price'] ?? '0'}";
+            price = "₹${data['fareAmount'] ?? '0'}";
 
-            final double distance = (data['distance'] ?? 0.0).toDouble();
+            final double distance = (data['distanceKm'] ?? 0.0).toDouble();
             distanceText = "${distance.toStringAsFixed(1)} km";
 
             // Assuming driver gets 85% of the fare, or just show full for now

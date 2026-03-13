@@ -136,8 +136,11 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                             ),
                             Text(
-                              "Pickup: ${widget.rideData['pickupLocation'] ?? 'Destination'}",
-                              style: const TextStyle(color: Colors.grey, fontSize: 14),
+                              "Pickup: ${widget.rideData['pickupLocation'] ?? 'Remote Location'}",
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                              ),
                             ),
                           ],
                         ),

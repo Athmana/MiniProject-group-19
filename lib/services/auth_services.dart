@@ -19,7 +19,7 @@ class AuthService {
     // Save role and details to the specific collection
     await _firestore.collection(collectionName).doc(result.user!.uid).set({
       'email': email,
-      'role': role, // 'user' or 'driver'
+      'role': role, // 'rider' or 'driver'
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -97,7 +97,7 @@ class AuthService {
         if (role == 'driver') {
           Navigator.pushReplacementNamed(context, '/driverHome');
         } else {
-          Navigator.pushReplacementNamed(context, '/userHome');
+          Navigator.pushReplacementNamed(context, '/riderHome');
         }
       }
     } catch (e) {
