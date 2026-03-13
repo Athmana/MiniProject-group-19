@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:gowayanad/reachedlocationscreen.dart';
+import 'reachedlocationscreen.dart';
 import 'services/ride_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
 
 class DriverReachedScreen extends StatefulWidget {
@@ -17,9 +18,6 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
   final RideService _rideService = RideService();
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
-  bool _isPinVisible = false;
-  Timer? _countdownTimer;
-  String _timeLeft = "15:00";
 
   @override
   void initState() {
@@ -35,12 +33,10 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
           setState(() {
             _rideData = data;
           });
-          _startCountdown();
         }
         if (data['status'] == 'completed') {
           if (mounted) {
             _rideSubscription?.cancel();
-            _countdownTimer?.cancel();
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -53,40 +49,9 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
     });
   }
 
-  void _startCountdown() {
-    _countdownTimer?.cancel();
-    final expiry = _rideData?['pinExpiryAt'] as Timestamp?;
-    if (expiry == null) return;
-
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      final now = DateTime.now();
-      final difference = expiry.toDate().difference(now);
-
-      if (difference.isNegative) {
-        timer.cancel();
-        if (mounted) {
-          setState(() {
-            _timeLeft = "Expired";
-          });
-          _rideService.regenerateRidePin(widget.rideId);
-        }
-      } else {
-        final minutes = difference.inMinutes;
-        final seconds = difference.inSeconds % 60;
-        if (mounted) {
-          setState(() {
-            _timeLeft =
-                "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
-          });
-        }
-      }
-    });
-  }
-
   @override
   void dispose() {
     _rideSubscription?.cancel();
-    _countdownTimer?.cancel();
     super.dispose();
   }
 
@@ -96,38 +61,32 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-<<<<<<< HEAD
-          // Top Status Area (Replacing Map)
-=======
           // Top Map Area
->>>>>>> admin-panel
           SizedBox(
             height: MediaQuery.of(context).size.height * 0.4,
             width: double.infinity,
-            child: Container(
-              color: const Color(0xFFE8F5E9),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.check_circle_outline,
-                      size: 100,
-                      color: Colors.green,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _rideData != null ? "Driver Arrived" : "Finalizing...",
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
+            child: _rideData == null
+                ? const Center(child: CircularProgressIndicator())
+                : GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(
+                        _rideData!['pickupLat'] as double? ?? 11.6094,
+                        _rideData!['pickupLng'] as double? ?? 76.0828,
                       ),
+                      zoom: 15,
                     ),
-                  ],
-                ),
-              ),
-            ),
+                    markers: {
+                      Marker(
+                        markerId: const MarkerId('pickup'),
+                        position: LatLng(
+                          _rideData!['pickupLat'] as double? ?? 11.6094,
+                          _rideData!['pickupLng'] as double? ?? 76.0828,
+                        ),
+                        infoWindow: const InfoWindow(title: 'Pickup Location'),
+                      ),
+                    },
+                    myLocationEnabled: true,
+                  ),
           ),
 
           Expanded(
@@ -150,83 +109,22 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-<<<<<<< HEAD
-                    "Your vehicle is at the pickup point",
-=======
                     "Your vehicle has arrived at the pickup point",
->>>>>>> admin-panel
                     style: TextStyle(color: Colors.grey),
                   ),
 
                   const SizedBox(height: 30),
 
                   // Security PIN Section
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "SHARE THIS PIN WITH DRIVER",
-                        style: TextStyle(
-                          letterSpacing: 1.2,
-                          fontSize: 10,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        _timeLeft == "Expired" ? "PIN Expired" : "Expires: $_timeLeft",
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: _timeLeft == "Expired" ? Colors.red : Colors.blue,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+                  const Text(
+                    "SHARE THIS PIN WITH DRIVER",
+                    style: TextStyle(
+                      letterSpacing: 1.2,
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
                   ),
                   const SizedBox(height: 10),
-<<<<<<< HEAD
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _isPinVisible = !_isPinVisible;
-                      });
-                    },
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5FE),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF2D62ED).withOpacity(0.1)),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            _isPinVisible
-                                ? (_rideData?['ridePin']?.toString() ?? "------")
-                                    .split('')
-                                    .join(' ')
-                                : "• • • • • •",
-                            style: const TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 8,
-                              color: Color(0xFF2D62ED),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _isPinVisible ? "Tap to hide" : "Tap to reveal",
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-=======
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
@@ -244,7 +142,6 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 8,
->>>>>>> admin-panel
                       ),
                     ),
                   ),

@@ -239,15 +239,8 @@ class _AdminPanelState extends State<AdminPanel> {
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
-<<<<<<< HEAD
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-=======
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
->>>>>>> admin-panel
             children: [
               ElevatedButton.icon(
                 onPressed: () => _pickAndProcessCSV(role),
@@ -259,18 +252,6 @@ class _AdminPanelState extends State<AdminPanel> {
                 ),
               ),
               ElevatedButton.icon(
-<<<<<<< HEAD
-                onPressed: _downloadTemplate,
-                icon: const Icon(Icons.download),
-                label: const Text("Download Template"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-              ElevatedButton.icon(
-=======
->>>>>>> admin-panel
                 onPressed: () => _showAddUserDialog(role),
                 icon: const Icon(Icons.person_add),
                 label: Text("Add ${role == 'rider' ? 'Rider' : 'Driver'}"),
