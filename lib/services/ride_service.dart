@@ -24,7 +24,33 @@ class RideService {
         destLat,
         destLng,
       );
-      double price = 50 + (distance * 12);
+      
+      double baseFare;
+      double ratePerKm;
+      
+      switch (vehicleType.toLowerCase()) {
+        case 'ambulance':
+          baseFare = 300.0;
+          ratePerKm = 20.0;
+          break;
+        case 'truck':
+          baseFare = 100.0;
+          ratePerKm = 15.0;
+          break;
+        case 'car':
+          baseFare = 60.0;
+          ratePerKm = 12.0;
+          break;
+        case 'auto':
+          baseFare = 40.0;
+          ratePerKm = 10.0;
+          break;
+        default:
+          baseFare = 50.0;
+          ratePerKm = 12.0;
+      }
+
+      double price = baseFare + (distance * ratePerKm);
       price = double.parse(price.toStringAsFixed(2));
 
       String ridePin = (1000 + Random().nextInt(9000)).toString();

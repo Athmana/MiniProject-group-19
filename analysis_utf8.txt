@@ -1,29 +1,14 @@
-﻿Analyzing MiniProject-group-19...                               
+﻿Analyzing gowayanad...                                          
 
-   info - Statements in an if should be enclosed in a block - lib\driver\driverridestartedscreen.dart:79:13 - curly_braces_in_flow_control_structures
-   info - Statements in an if should be enclosed in a block - lib\driver\driverridestartedscreen.dart:105:17 - curly_braces_in_flow_control_structures
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\driver\driverridestartedscreen.dart:193:53 - deprecated_member_use
-   info - Don't use 'BuildContext's across async gaps - lib\driver\homepage.dart:87:22 - use_build_context_synchronously
-  error - The method 'RideStartedScreen' isn't defined for the type '_DriverReachedScreenState' - lib\driverreachedscreen.dart:179:39 - undefined_method
-   info - Don't invoke 'print' in production code - lib\homepage.dart:49:7 - avoid_print
-   info - Don't use 'BuildContext's across async gaps - lib\homepage.dart:69:49 - use_build_context_synchronously
-   info - Invalid use of a private type in a public API - lib\loginscreen.dart:9:3 - library_private_types_in_public_api
-   info - Invalid use of a private type in a public API - lib\registerscreen.dart:8:3 - library_private_types_in_public_api
-   info - Don't invoke 'print' in production code - lib\services\auth_services.dart:34:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\auth_services.dart:45:9 - avoid_print
-   info - Don't use 'BuildContext's across async gaps - lib\services\auth_services.dart:46:40 - use_build_context_synchronously
-   info - Don't invoke 'print' in production code - lib\services\auth_services.dart:48:9 - avoid_print
-   info - Don't use 'BuildContext's across async gaps - lib\services\auth_services.dart:49:40 - use_build_context_synchronously
-   info - Don't invoke 'print' in production code - lib\services\auth_services.dart:52:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:48:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:109:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:122:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:137:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:151:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:169:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:186:7 - avoid_print
-   info - Invalid use of a private type in a public API - lib\services\user_add.dart:8:3 - library_private_types_in_public_api
-   info - Don't use 'BuildContext's across async gaps - lib\services\user_add.dart:29:9 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps - lib\services\user_add.dart:31:21 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps - lib\services\user_add.dart:34:9 - use_build_context_synchronously
+   info - The local variable '_pinController' starts with an underscore - lib\driver\riderpickupscreen.dart:192:35 - no_leading_underscores_for_local_identifiers
+  error - Unexpected text 'return' - lib\driver\riderpickupscreen.dart:267:29 - unexpected_token
+  error - Too many positional arguments: 0 expected, but 1 found - lib\driver\riderpickupscreen.dart:267:36 - extra_positional_arguments_could_be_named
+  error - The named parameter 'child' is required, but there's no corresponding argument - lib\driver\riderpickupscreen.dart:293:33 - missing_required_argument
+  error - Expected to find ';' - lib\driver\riderpickupscreen.dart:305:42 - expected_token
+  error - Expected to find ')' - lib\driver\riderpickupscreen.dart:306:39 - expected_token
+  error - Expected to find '}' - lib\driver\riderpickupscreen.dart:306:39 - expected_token
+  error - Expected to find ')' - lib\driver\riderpickupscreen.dart:307:37 - expected_token
+  error - Expected to find ']' - lib\driver\riderpickupscreen.dart:308:35 - expected_token
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\loginscreen.dart:135:45 - deprecated_member_use
+   info - Don't invoke 'print' in production code - lib\services\auth_services.dart:69:7 - avoid_print
 

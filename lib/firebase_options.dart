@@ -66,4 +66,5 @@ class DefaultFirebaseOptions {
     projectId: 'gowayanad-fc860',
     storageBucket: 'gowayanad-fc860.firebasestorage.app',
   );
+
 }

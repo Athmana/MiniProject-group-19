@@ -176,20 +176,17 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                     height: 60,
                     child: ElevatedButton(
                       onPressed: () async {
-
                         // Final verification and start ride
                         if (!mounted) return;
-                        // Prompt driver for PIN
-                        final pinController = TextEditingController();
 
+                        // Prompt driver for PIN
                         bool? pinValid = await showDialog<bool>(
                           context: context,
                           barrierDismissible: false,
                           builder: (context) {
-
                             String? errorText;
                             bool isVerified = false;
-                            final _pinController = TextEditingController();
+                            final dialogPinController = TextEditingController();
 
                             return StatefulBuilder(
                               builder: (context, setDialogState) {
@@ -201,14 +198,12 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                                     isVerified
                                         ? "PIN Verified"
                                         : (errorText != null
-                                              ? "Incorrect PIN"
-                                              : "Ride Verification Required"),
+                                            ? "Incorrect PIN"
+                                            : "Ride Verification Required"),
                                     style: TextStyle(
                                       color: isVerified
                                           ? Colors.green
-                                          : (errorText != null
-                                                ? Colors.red
-                                                : Colors.black),
+                                          : (errorText != null ? Colors.red : Colors.black),
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -234,16 +229,9 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                                           textAlign: TextAlign.center,
                                           style: const TextStyle(fontSize: 14),
                                         ),
-                                        const SizedBox(height: 8),
-                                        if (errorText == null)
-                                          const Text(
-                                            "Enter the PIN below to verify the rider and begin the trip.",
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(fontSize: 14),
-                                          ),
                                         const SizedBox(height: 20),
                                         TextField(
-                                          controller: _pinController,
+                                          controller: dialogPinController,
                                           keyboardType: TextInputType.number,
                                           textAlign: TextAlign.center,
                                           maxLength: 4,
@@ -258,98 +246,46 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                                             filled: true,
                                             fillColor: Colors.grey[100],
                                             border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
+                                              borderRadius: BorderRadius.circular(12),
                                               borderSide: BorderSide.none,
                                             ),
                                           ),
-
-                            return AlertDialog(
-                              title: const Text("Enter Rider PIN"),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                    "Ask the rider for their 4-digit PIN to start the ride.",
-                                  ),
-                                  const SizedBox(height: 16),
-                                  TextField(
-                                    controller: pinController,
-                                    keyboardType: TextInputType.number,
-                                    textAlign: TextAlign.center,
-                                    decoration: const InputDecoration(
-                                      hintText: "Enter 4-digit PIN",
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, false),
-                                  child: const Text("Cancel"),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    if (pinController.text.trim() == "4821") {
-                                      Navigator.pop(context, true);
-                                    } else {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text("Incorrect PIN"),
-                                          backgroundColor: Colors.red,
-
                                         ),
                                       ],
                                     ],
                                   ),
                                   actions: [
-                                    if (!isVerified)
+                                    if (!isVerified) ...[
                                       TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(context, false),
+                                        onPressed: () => Navigator.pop(context, false),
                                         child: const Text(
                                           "Cancel",
                                           style: TextStyle(color: Colors.grey),
                                         ),
                                       ),
-                                    if (!isVerified)
                                       ElevatedButton(
                                         onPressed: () async {
-                                          final correctPin =
-                                              widget.rideData['ridePin']
-                                                  ?.toString() ??
-                                              "4821";
-                                          if (_pinController.text.trim() ==
-                                              correctPin) {
+                                          final correctPin = widget.rideData['ridePin']?.toString() ?? "4821";
+                                          if (dialogPinController.text.trim() == correctPin) {
                                             setDialogState(() {
                                               isVerified = true;
                                               errorText = null;
                                             });
-                                            // Wait a bit to show success message
-                                            await Future.delayed(
-                                              const Duration(seconds: 2),
-                                            );
+                                            await Future.delayed(const Duration(seconds: 2));
                                             if (context.mounted) {
                                               Navigator.pop(context, true);
                                             }
                                           } else {
                                             setDialogState(() {
-                                              errorText =
-                                                  "The PIN entered does not match the rider’s ride PIN.\nPlease confirm the PIN with the rider and try again.";
-                                              _pinController.clear();
+                                              errorText = "Incorrect PIN. Please try again.";
+                                              dialogPinController.clear();
                                             });
                                           }
                                         },
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.black,
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
+                                            borderRadius: BorderRadius.circular(10),
                                           ),
                                         ),
                                         child: const Text(
@@ -357,6 +293,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                                           style: TextStyle(color: Colors.white),
                                         ),
                                       ),
+                                    ],
                                   ],
                                 );
                               },

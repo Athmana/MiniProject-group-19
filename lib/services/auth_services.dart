@@ -66,11 +66,11 @@ class AuthService {
 
 
 
-      print("Tried login with $loginEmail");
 
 
 
-      debugPrint("Tried login with $loginEmail");
+
+
 
 
       // Fetch user role from Firestore
