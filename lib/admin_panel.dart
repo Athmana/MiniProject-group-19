@@ -104,9 +104,13 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
-  Future<void> _deleteUser(String docId) async {
+  Future<void> _deleteUser(String docId, String role) async {
     try {
-      await FirebaseFirestore.instance.collection('users').doc(docId).delete();
+      String collectionName = (role == 'driver') ? 'drivers' : 'riders';
+      await FirebaseFirestore.instance
+          .collection(collectionName)
+          .doc(docId)
+          .delete();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User deleted successfully')),
@@ -281,8 +285,7 @@ class _AdminPanelState extends State<AdminPanel> {
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
-                .collection('users')
-                .where('role', isEqualTo: role)
+                .collection(role == 'driver' ? 'drivers' : 'riders')
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -343,11 +346,11 @@ class _AdminPanelState extends State<AdminPanel> {
                                   onPressed: () => Navigator.pop(context),
                                   child: const Text("Cancel"),
                                 ),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                    _deleteUser(docId);
-                                  },
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      _deleteUser(docId, role);
+                                    },
                                   child: const Text(
                                     "Delete",
                                     style: TextStyle(color: Colors.red),

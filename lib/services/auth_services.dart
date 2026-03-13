@@ -13,10 +13,14 @@ class AuthService {
       password: password,
     );
 
-    // Save role to Firestore
-    await _firestore.collection('users').doc(result.user!.uid).set({
+    // Determine collection name
+    String collectionName = (role == 'driver') ? 'drivers' : 'riders';
+
+    // Save role and details to the specific collection
+    await _firestore.collection(collectionName).doc(result.user!.uid).set({
       'email': email,
       'role': role, // 'user' or 'driver'
+      'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
@@ -30,19 +34,23 @@ class AuthService {
     // Generate a pseudo-email for Firebase Auth since it requires an email for password login
     String pseudoEmail = "$phone@gowayanad.app";
 
-    // Check if user already exists (optional, createUserWithEmailAndPassword handles it)
+    // Create user in Firebase Auth
     UserCredential result = await _auth.createUserWithEmailAndPassword(
       email: pseudoEmail,
       password: password,
     );
 
-    // Save role and details to Firestore
-    await _firestore.collection('users').doc(result.user!.uid).set({
+    // Determine collection name
+    String collectionName = (role == 'driver') ? 'drivers' : 'riders';
+
+    // Save role and details to the specific collection
+    await _firestore.collection(collectionName).doc(result.user!.uid).set({
       'name': name,
       'phone': phone,
       'password':
           password, // Storing plain text password as requested (Note: Not secure for production)
       'role': role, // 'rider' or 'driver'
+      'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
@@ -66,13 +74,24 @@ class AuthService {
 
       debugPrint("Tried login with $loginEmail");
 
-      // Fetch user role from Firestore
-      DocumentSnapshot userDoc = await _firestore
-          .collection('users')
-          .doc(result.user!.uid)
-          .get();
+      // Fetch user role from Firestore by checking both collections
+      String? role;
+      DocumentSnapshot userDoc =
+          await _firestore.collection('riders').doc(result.user!.uid).get();
 
-      String role = userDoc['role'];
+      if (userDoc.exists) {
+        role = 'rider';
+      } else {
+        userDoc =
+            await _firestore.collection('drivers').doc(result.user!.uid).get();
+        if (userDoc.exists) {
+          role = 'driver';
+        }
+      }
+
+      if (role == null) {
+        throw Exception("User data not found in either riders or drivers collection.");
+      }
 
       if (context.mounted) {
         if (role == 'driver') {

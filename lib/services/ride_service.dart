@@ -171,13 +171,19 @@ class RideService {
   // 7. Get User Details
   Future<Map<String, dynamic>?> getUserDetails(String userId) async {
     try {
-      DocumentSnapshot doc = await _firestore
-          .collection('users')
-          .doc(userId)
-          .get();
+      // First check riders
+      DocumentSnapshot doc =
+          await _firestore.collection('riders').doc(userId).get();
       if (doc.exists) {
         return doc.data() as Map<String, dynamic>;
       }
+
+      // Then check drivers
+      doc = await _firestore.collection('drivers').doc(userId).get();
+      if (doc.exists) {
+        return doc.data() as Map<String, dynamic>;
+      }
+
       return null;
     } catch (e) {
       return null;
