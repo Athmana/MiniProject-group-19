@@ -57,14 +57,6 @@ class _AdminPanelState extends State<AdminPanel> {
 
         for (int i = 1; i < fields.length; i++) {
           final row = fields[i];
-- [x] Post-Merge Error Resolution
-    - [x] Clean up malformed conflict markers in all affected files
-    - [x] Restore consistent API naming (`destLat`/`destLng`)
-    - [x] Fix undefined references in `TrackingService` and `homepage.dart`
-    - [x] Verify build stability with `flutter analyze` (0 errors)
-- [x] Merge & Final Push
-    - [x] Resolve non-fast-forward push issues
-    - [x] Push clean, verified code to `admin-panel` branch
 
           if (row.length >= 3) {
             String name = row[0].toString().trim();
