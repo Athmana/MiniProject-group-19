@@ -1,34 +1,192 @@
-﻿Analyzing gowayanad...                                          
+﻿Resolving dependencies...
+Downloading packages...
+  _flutterfire_internals 1.3.66 (1.3.67 available)
+  cloud_firestore 6.1.2 (6.1.3 available)
+  cloud_firestore_platform_interface 7.0.6 (7.0.7 available)
+  cloud_firestore_web 5.1.2 (5.1.3 available)
+  firebase_auth 6.1.4 (6.2.0 available)
+  firebase_auth_platform_interface 8.1.6 (8.1.7 available)
+  firebase_auth_web 6.1.2 (6.1.3 available)
+  firebase_core 4.4.0 (4.5.0 available)
+  firebase_core_web 3.4.0 (3.5.0 available)
+  flutter_polyline_points 2.1.0 (3.1.0 available)
+  geocoding_android 4.0.1 (5.0.0 available)
+  geocoding_platform_interface 3.2.0 (5.0.0 available)
+  google_maps_flutter 2.14.2 (2.15.0 available)
+  google_maps_flutter_android 2.19.1 (2.19.2 available)
+  google_maps_flutter_ios 2.17.5 (2.18.0 available)
+  google_maps_flutter_web 0.5.14+3 (0.6.1 available)
+  matcher 0.12.18 (0.12.19 available)
+  meta 1.17.0 (1.18.1 available)
+  test_api 0.7.8 (0.7.10 available)
+  win32 5.15.0 (6.0.0 available)
+Got dependencies!
+20 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing gowayanad...                                          
 
-  error - The name 'CsvToListConverter' isn't a class - lib\admin_panel.dart:39:30 - creation_with_non_type
-   info - Don't invoke 'print' in production code - lib\admin_panel.dart:76:17 - avoid_print
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\driver\driverridestartedscreen.dart:84:41 - deprecated_member_use
-   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\driver\driverridestartedscreen.dart:160:40 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\driver\driverridestartedscreen.dart:168:50 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps - lib\driver\homepage.dart:87:22 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\driver\riderpickupscreen.dart:185:40 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\driver\riderpickupscreen.dart:195:50 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\driverreachedscreen.dart:175:33 - use_build_context_synchronously
-   info - Don't invoke 'print' in production code - lib\homepage.dart:49:7 - avoid_print
-   info - Don't use 'BuildContext's across async gaps - lib\homepage.dart:69:49 - use_build_context_synchronously
-   info - Invalid use of a private type in a public API - lib\loginscreen.dart:10:3 - library_private_types_in_public_api
-   info - Invalid use of a private type in a public API - lib\registerscreen.dart:8:3 - library_private_types_in_public_api
-   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\ridecompleted.dart:181:31 - use_build_context_synchronously
-   info - Don't invoke 'print' in production code - lib\services\auth_services.dart:66:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\auth_services.dart:77:9 - avoid_print
-   info - Don't use 'BuildContext's across async gaps - lib\services\auth_services.dart:78:40 - use_build_context_synchronously
-   info - Don't invoke 'print' in production code - lib\services\auth_services.dart:80:9 - avoid_print
-   info - Don't use 'BuildContext's across async gaps - lib\services\auth_services.dart:81:40 - use_build_context_synchronously
-   info - Don't invoke 'print' in production code - lib\services\auth_services.dart:84:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:34:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:85:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:98:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:113:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:127:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:145:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:162:7 - avoid_print
-   info - Invalid use of a private type in a public API - lib\services\user_add.dart:8:3 - library_private_types_in_public_api
-   info - Don't use 'BuildContext's across async gaps - lib\services\user_add.dart:29:9 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps - lib\services\user_add.dart:31:21 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps - lib\services\user_add.dart:34:9 - use_build_context_synchronously
+  error - The named parameter 'child' is required, but there's no corresponding argument - lib\admin_panel.dart:197:17 - missing_required_argument
+  error - A try block must be followed by an 'on', 'catch', or 'finally' clause - lib\admin_panel.dart:221:27 - missing_catch_or_finally
+  error - Undefined name 'admin' - lib\admin_panel.dart:229:2 - undefined_identifier
+  error - Expected to find ';' - lib\admin_panel.dart:229:8 - expected_token
+  error - Undefined name 'panel' - lib\admin_panel.dart:229:8 - undefined_identifier
+  error - Expected to find ';' - lib\admin_panel.dart:232:80 - expected_token
+  error - Expected an identifier - lib\admin_panel.dart:234:29 - missing_identifier
+  error - Expected to find ')' - lib\admin_panel.dart:234:29 - expected_token
+  error - Undefined name 'main' - lib\admin_panel.dart:237:2 - undefined_identifier
+  error - Expected to find ',' - lib\admin_panel.dart:238:33 - expected_token
+  error - Too many positional arguments: 1 expected, but 2 found - lib\admin_panel.dart:238:33 - extra_positional_arguments_could_be_named
+  error - 'catch' can't be used as an identifier because it's a keyword - lib\admin_panel.dart:243:29 - expected_identifier_but_got_keyword
+  error - The method 'catch' isn't defined for the type '_AdminPanelState' - lib\admin_panel.dart:243:29 - undefined_method
+  error - Undefined name 'e' - lib\admin_panel.dart:243:36 - undefined_identifier
+  error - Expected to find ';' - lib\admin_panel.dart:243:37 - expected_token
+  error - Undefined name 'admin' - lib\admin_panel.dart:245:2 - undefined_identifier
+  error - Expected to find ';' - lib\admin_panel.dart:245:8 - expected_token
+  error - Undefined name 'panel' - lib\admin_panel.dart:245:8 - undefined_identifier
+  error - Expected to find ';' - lib\admin_panel.dart:247:80 - expected_token
+  error - Expected an identifier - lib\admin_panel.dart:249:29 - missing_identifier
+  error - Expected to find ')' - lib\admin_panel.dart:249:29 - expected_token
+  error - Undefined name 'main' - lib\admin_panel.dart:251:1 - undefined_identifier
+  error - Expected to find ',' - lib\admin_panel.dart:252:33 - expected_token
+  error - Too many positional arguments: 1 expected, but 2 found - lib\admin_panel.dart:252:33 - extra_positional_arguments_could_be_named
+  error - Undefined name 'e' - lib\admin_panel.dart:253:70 - undefined_identifier
+  error - Expected to find ';' - lib\admin_panel.dart:259:25 - expected_token
+  error - Expected an identifier - lib\admin_panel.dart:259:26 - missing_identifier
+  error - Unexpected text ',' - lib\admin_panel.dart:259:26 - unexpected_token
+warning - The label 'child' isn't used - lib\admin_panel.dart:260:19 - unused_label
+  error - Expected to find ';' - lib\admin_panel.dart:266:46 - expected_token
+  error - Expected an identifier - lib\admin_panel.dart:266:47 - missing_identifier
+  error - Unexpected text ',' - lib\admin_panel.dart:266:47 - unexpected_token
+  error - Expected to find '}' - lib\admin_panel.dart:267:17 - expected_token
+  error - Too many positional arguments: 0 expected, but 1 found - lib\admin_panel.dart:281:2 - extra_positional_arguments_could_be_named
+  error - Undefined name 'admin' - lib\admin_panel.dart:281:2 - undefined_identifier
+  error - Undefined name 'panel' - lib\admin_panel.dart:281:8 - undefined_identifier
+  error - Expected to find ',' - lib\admin_panel.dart:282:11 - expected_token
+  error - The named parameter 'label' is required, but there's no corresponding argument - lib\admin_panel.dart:285:15 - missing_required_argument
+  error - The argument type 'Future<void> Function(String)' can't be assigned to the parameter type 'VoidCallback?'.  - lib\admin_panel.dart:286:28 - argument_type_not_assignable
+  error - The named parameter 'child' isn't defined - lib\admin_panel.dart:288:11 - undefined_named_parameter
+  error - Too many positional arguments: 0 expected, but 1 found - lib\admin_panel.dart:295:2 - extra_positional_arguments_could_be_named
+  error - Undefined name 'main' - lib\admin_panel.dart:295:2 - undefined_identifier
+  error - Expected to find ',' - lib\admin_panel.dart:296:17 - expected_token
+  error - Too many positional arguments: 0 expected, but 1 found - lib\admin_panel.dart:304:2 - extra_positional_arguments_could_be_named
+  error - Undefined name 'admin' - lib\admin_panel.dart:304:2 - undefined_identifier
+  error - Undefined name 'panel' - lib\admin_panel.dart:304:8 - undefined_identifier
+  error - Expected to find ',' - lib\admin_panel.dart:305:17 - expected_token
+  error - The named parameter 'onPressed' isn't defined - lib\admin_panel.dart:330:17 - undefined_named_parameter
+  error - The named parameter 'icon' isn't defined - lib\admin_panel.dart:331:17 - undefined_named_parameter
+  error - The named parameter 'label' isn't defined - lib\admin_panel.dart:332:17 - undefined_named_parameter
+  error - The argument for the named parameter 'style' was already specified - lib\admin_panel.dart:333:17 - duplicate_named_argument
+  error - The argument type 'ButtonStyle' can't be assigned to the parameter type 'TextStyle?'.  - lib\admin_panel.dart:333:24 - argument_type_not_assignable
+  error - Too many positional arguments: 0 expected, but 1 found - lib\admin_panel.dart:338:15 - extra_positional_arguments_could_be_named
+  error - Expected to find ')' - lib\admin_panel.dart:347:13 - expected_token
+  error - Too many positional arguments: 1 expected, but 2 found - lib\admin_panel.dart:363:2 - extra_positional_arguments_could_be_named
+  error - Undefined name 'main' - lib\admin_panel.dart:363:2 - undefined_identifier
+  error - Undefined name 'admin' - lib\driver\riderpickupscreen.dart:182:1 - undefined_identifier
+  error - Expected to find ';' - lib\driver\riderpickupscreen.dart:182:7 - expected_token
+  error - Undefined name 'panel' - lib\driver\riderpickupscreen.dart:182:7 - undefined_identifier
+  error - Undefined class 'main' - lib\driver\riderpickupscreen.dart:186:2 - undefined_class
+  error - Expected to find ';' - lib\driver\riderpickupscreen.dart:187:25 - expected_token
+  error - Expected an identifier - lib\driver\riderpickupscreen.dart:187:29 - missing_identifier
+  error - Undefined name 'pinValid' - lib\driver\riderpickupscreen.dart:187:31 - undefined_identifier
+  error - The name 'bool' isn't a type, so it can't be used as a type argument - lib\driver\riderpickupscreen.dart:187:59 - non_type_as_type_argument
+  error - Undefined name 'admin' - lib\driver\riderpickupscreen.dart:191:2 - undefined_identifier
+  error - Expected to find ';' - lib\driver\riderpickupscreen.dart:191:8 - expected_token
+  error - Undefined name 'panel' - lib\driver\riderpickupscreen.dart:191:8 - undefined_identifier
+  error - Local variable 'bool' can't be referenced before it is declared - lib\driver\riderpickupscreen.dart:193:29 - referenced_before_declaration
+  error - Unexpected text 'return' - lib\driver\riderpickupscreen.dart:239:29 - unexpected_token
+  error - Too many positional arguments: 1 expected, but 2 found - lib\driver\riderpickupscreen.dart:239:36 - extra_positional_arguments_could_be_named
+  error - The named parameter 'child' is required, but there's no corresponding argument - lib\driver\riderpickupscreen.dart:265:33 - missing_required_argument
+  error - Arguments of a constant creation must be constant expressions - lib\driver\riderpickupscreen.dart:276:2 - const_with_non_constant_argument
+  error - Too many positional arguments: 0 expected, but 1 found - lib\driver\riderpickupscreen.dart:276:2 - extra_positional_arguments_could_be_named
+  error - Undefined name 'main' - lib\driver\riderpickupscreen.dart:276:2 - undefined_identifier
+  error - Expected to find ';' - lib\driver\riderpickupscreen.dart:278:66 - expected_token
+  error - Expected an identifier - lib\driver\riderpickupscreen.dart:279:41 - missing_identifier
+  error - Expected to find ')' - lib\driver\riderpickupscreen.dart:279:41 - expected_token
+   info - Statements in an if should be enclosed in a block - lib\driver\riderpickupscreen.dart:280:43 - curly_braces_in_flow_control_structures
+  error - Expected to find ';' - lib\driver\riderpickupscreen.dart:284:43 - expected_token
+  error - Expected an identifier - lib\driver\riderpickupscreen.dart:284:44 - missing_identifier
+  error - Unexpected text ',' - lib\driver\riderpickupscreen.dart:284:44 - unexpected_token
+  error - Expected to find ';' - lib\driver\riderpickupscreen.dart:285:66 - expected_token
+  error - Expected an identifier - lib\driver\riderpickupscreen.dart:285:67 - missing_identifier
+  error - Unexpected text ',' - lib\driver\riderpickupscreen.dart:285:67 - unexpected_token
+  error - Expected to find ';' - lib\driver\riderpickupscreen.dart:307:41 - expected_token
+  error - Expected an identifier - lib\driver\riderpickupscreen.dart:307:42 - missing_identifier
+  error - Unexpected text ',' - lib\driver\riderpickupscreen.dart:307:42 - unexpected_token
+  error - Expected to find ')' - lib\driver\riderpickupscreen.dart:308:39 - expected_token
+  error - Expected to find '}' - lib\driver\riderpickupscreen.dart:308:39 - expected_token
+  error - Expected to find ')' - lib\driver\riderpickupscreen.dart:309:37 - expected_token
+  error - Expected to find ']' - lib\driver\riderpickupscreen.dart:310:35 - expected_token
+  error - Expected an identifier - lib\driver\riderpickupscreen.dart:367:26 - missing_identifier
+  error - Expected to find ':' - lib\driver\riderpickupscreen.dart:367:26 - expected_token
+  error - Undefined name 'pinValid' - lib\driver\riderpickupscreen.dart:369:29 - undefined_identifier
+  error - Local variable 'bool' can't be referenced before it is declared - lib\driver\riderpickupscreen.dart:372:25 - referenced_before_declaration
+  error - Undefined name 'admin' - lib\driverreachedscreen.dart:146:2 - undefined_identifier
+  error - The method 'panel' isn't defined for the type '_DriverReachedScreenState' - lib\driverreachedscreen.dart:146:8 - undefined_method
+  error - Too many positional arguments: 1 expected, but 3 found - lib\driverreachedscreen.dart:151:23 - extra_positional_arguments_could_be_named
+  error - Undefined name 'main' - lib\driverreachedscreen.dart:152:2 - undefined_identifier
+  error - Expected to find ',' - lib\driverreachedscreen.dart:153:23 - expected_token
+  error - The named parameter 'child' is required, but there's no corresponding argument - lib\homescreen.dart:363:22 - missing_required_argument
+  error - Too many positional arguments: 0 expected, but 1 found - lib\homescreen.dart:364:1 - extra_positional_arguments_could_be_named
+  error - Undefined name 'admin' - lib\homescreen.dart:364:1 - undefined_identifier
+  error - Undefined name 'panel' - lib\homescreen.dart:364:7 - undefined_identifier
+  error - Expected to find ',' - lib\homescreen.dart:365:17 - expected_token
+warning - The label 'onPressed' isn't used - lib\homescreen.dart:369:17 - unused_label
+  error - Expected to find ';' - lib\homescreen.dart:378:2 - expected_token
+  error - Expected to find ';' - lib\homescreen.dart:465:23 - expected_token
+  error - Expected an identifier - lib\homescreen.dart:465:27 - missing_identifier
+  error - Unexpected text ';' - lib\homescreen.dart:465:27 - unexpected_token
+warning - The label 'style' isn't used - lib\homescreen.dart:466:17 - unused_label
+  error - Too many positional arguments: 0 expected, but 2 found - lib\homescreen.dart:467:2 - extra_positional_arguments_could_be_named
+  error - Undefined name 'admin' - lib\homescreen.dart:467:2 - undefined_identifier
+  error - Undefined name 'panel' - lib\homescreen.dart:467:8 - undefined_identifier
+  error - Expected to find ',' - lib\homescreen.dart:468:19 - expected_token
+  error - The argument for the named parameter 'backgroundColor' was already specified - lib\homescreen.dart:472:19 - duplicate_named_argument
+  error - Expected to find ',' - lib\homescreen.dart:478:19 - expected_token
+  error - Expected to find ';' - lib\homescreen.dart:485:17 - expected_token
+  error - Expected an identifier - lib\homescreen.dart:485:18 - missing_identifier
+  error - Unexpected text ';' - lib\homescreen.dart:485:18 - unexpected_token
+warning - The label 'child' isn't used - lib\homescreen.dart:486:17 - unused_label
+  error - Expected to find ';' - lib\homescreen.dart:489:17 - expected_token
+  error - Expected an identifier - lib\homescreen.dart:489:18 - missing_identifier
+  error - Unexpected text ';' - lib\homescreen.dart:489:18 - unexpected_token
+  error - Expected to find '}' - lib\homescreen.dart:490:15 - expected_token
+  error - Undefined name 'admin' - lib\homescreen.dart:539:2 - undefined_identifier
+  error - Undefined name 'panel' - lib\homescreen.dart:539:8 - undefined_identifier
+   info - Missing type annotation - lib\homescreen.dart:549:13 - strict_top_level_inference
+   info - The variable name 'Row' isn't a lowerCamelCase identifier - lib\homescreen.dart:549:13 - non_constant_identifier_names
+   info - Missing type annotation - lib\homescreen.dart:550:15 - strict_top_level_inference
+  error - Named parameters must be enclosed in curly braces ('{' and '}') - lib\homescreen.dart:550:23 - named_parameter_outside_group
+  error - Using a colon as the separator before a default value is no longer supported - lib\homescreen.dart:550:23 - obsolete_colon_for_default_value
+  error - The default value of an optional parameter must be constant - lib\homescreen.dart:550:25 - non_constant_default_value
+  error - Undefined name 'price' - lib\homescreen.dart:553:19 - undefined_identifier
+  error - A function body must be provided - lib\homescreen.dart:560:14 - missing_function_body
+  error - Expected a class member - lib\homescreen.dart:560:14 - expected_class_member
+   info - Missing type annotation - lib\homescreen.dart:561:13 - strict_top_level_inference
+warning - The declaration '_buildInfoRow' isn't referenced - lib\homescreen.dart:561:13 - unused_element
+  error - Icons.people_outline isn't a type - lib\homescreen.dart:561:27 - not_a_type
+  error - Expected an identifier - lib\homescreen.dart:561:47 - missing_identifier
+  error - A function body must be provided - lib\homescreen.dart:561:55 - missing_function_body
+  error - Expected a class member - lib\homescreen.dart:561:55 - expected_class_member
+   info - Missing type annotation - lib\homescreen.dart:562:13 - strict_top_level_inference
+warning - The declaration '_buildInfoRow' isn't referenced - lib\homescreen.dart:562:13 - unused_element
+  error - The name '_buildInfoRow' is already defined - lib\homescreen.dart:562:13 - duplicate_definition
+  error - Icons.access_time isn't a type - lib\homescreen.dart:562:27 - not_a_type
+  error - Expected an identifier - lib\homescreen.dart:562:44 - missing_identifier
+  error - A function body must be provided - lib\homescreen.dart:562:51 - missing_function_body
+  error - Expected a class member - lib\homescreen.dart:562:51 - expected_class_member
+  error - Expected a class member - lib\homescreen.dart:563:11 - expected_class_member
+  error - Expected a class member - lib\homescreen.dart:563:12 - expected_class_member
+  error - Expected a class member - lib\homescreen.dart:564:9 - expected_class_member
+  error - Expected a class member - lib\homescreen.dart:564:10 - expected_class_member
+  error - Expected a class member - lib\homescreen.dart:565:7 - expected_class_member
+  error - Expected a class member - lib\homescreen.dart:565:8 - expected_class_member
+  error - Expected a class member - lib\homescreen.dart:566:5 - expected_class_member
+  error - Expected a class member - lib\homescreen.dart:566:6 - expected_class_member
+warning - The declaration '_buildInfoRow' isn't referenced - lib\homescreen.dart:569:10 - unused_element
+   info - An uninitialized variable should have an explicit type annotation - lib\homescreen.dart:581:2 - prefer_typing_uninitialized_variables
+   info - Missing type annotation - lib\homescreen.dart:581:2 - strict_top_level_inference
+  error - Expected to find ';' - lib\homescreen.dart:581:2 - expected_token
+  error - The declaration named 'main' must be a function - lib\homescreen.dart:581:2 - main_is_not_function
+  error - Variables must be declared using the keywords 'const', 'final', 'var' or a type name - lib\homescreen.dart:581:2 - missing_const_final_var_or_type
+  error - Expected a method, getter, setter or operator declaration - lib\homescreen.dart:582:1 - expected_executable
 

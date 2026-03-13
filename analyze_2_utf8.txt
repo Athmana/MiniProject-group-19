@@ -1,35 +1,34 @@
-﻿Analyzing gowayanad...                                          
+﻿Resolving dependencies...
+Downloading packages...
+  _flutterfire_internals 1.3.66 (1.3.67 available)
+  cloud_firestore 6.1.2 (6.1.3 available)
+  cloud_firestore_platform_interface 7.0.6 (7.0.7 available)
+  cloud_firestore_web 5.1.2 (5.1.3 available)
+  firebase_auth 6.1.4 (6.2.0 available)
+  firebase_auth_platform_interface 8.1.6 (8.1.7 available)
+  firebase_auth_web 6.1.2 (6.1.3 available)
+  firebase_core 4.4.0 (4.5.0 available)
+  firebase_core_web 3.4.0 (3.5.0 available)
+  flutter_polyline_points 2.1.0 (3.1.0 available)
+  geocoding_android 4.0.1 (5.0.0 available)
+  geocoding_platform_interface 3.2.0 (5.0.0 available)
+  google_maps_flutter 2.14.2 (2.15.0 available)
+  google_maps_flutter_android 2.19.1 (2.19.2 available)
+  google_maps_flutter_ios 2.17.5 (2.18.0 available)
+  google_maps_flutter_web 0.5.14+3 (0.6.1 available)
+  matcher 0.12.18 (0.12.19 available)
+  meta 1.17.0 (1.18.1 available)
+  test_api 0.7.8 (0.7.10 available)
+  win32 5.15.0 (6.0.0 available)
+Got dependencies!
+20 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing gowayanad...                                          
 
-warning - Unused import: 'package:csv/csv.dart' - lib\admin_panel.dart:4:8 - unused_import
-  error - The method 'CsvToListConverter' isn't defined for the type '_AdminPanelState' - lib\admin_panel.dart:39:24 - undefined_method
-   info - Don't invoke 'print' in production code - lib\admin_panel.dart:76:17 - avoid_print
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\driver\driverridestartedscreen.dart:84:41 - deprecated_member_use
-   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\driver\driverridestartedscreen.dart:160:40 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\driver\driverridestartedscreen.dart:168:50 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps - lib\driver\homepage.dart:87:22 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\driver\riderpickupscreen.dart:185:40 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\driver\riderpickupscreen.dart:195:50 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\driverreachedscreen.dart:175:33 - use_build_context_synchronously
-   info - Don't invoke 'print' in production code - lib\homepage.dart:49:7 - avoid_print
-   info - Don't use 'BuildContext's across async gaps - lib\homepage.dart:69:49 - use_build_context_synchronously
-   info - Invalid use of a private type in a public API - lib\loginscreen.dart:10:3 - library_private_types_in_public_api
-   info - Invalid use of a private type in a public API - lib\registerscreen.dart:8:3 - library_private_types_in_public_api
-   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\ridecompleted.dart:181:31 - use_build_context_synchronously
-   info - Don't invoke 'print' in production code - lib\services\auth_services.dart:66:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\auth_services.dart:77:9 - avoid_print
-   info - Don't use 'BuildContext's across async gaps - lib\services\auth_services.dart:78:40 - use_build_context_synchronously
-   info - Don't invoke 'print' in production code - lib\services\auth_services.dart:80:9 - avoid_print
-   info - Don't use 'BuildContext's across async gaps - lib\services\auth_services.dart:81:40 - use_build_context_synchronously
-   info - Don't invoke 'print' in production code - lib\services\auth_services.dart:84:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:34:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:85:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:98:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:113:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:127:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:145:7 - avoid_print
-   info - Don't invoke 'print' in production code - lib\services\ride_service.dart:162:7 - avoid_print
-   info - Invalid use of a private type in a public API - lib\services\user_add.dart:8:3 - library_private_types_in_public_api
-   info - Don't use 'BuildContext's across async gaps - lib\services\user_add.dart:29:9 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps - lib\services\user_add.dart:31:21 - use_build_context_synchronously
-   info - Don't use 'BuildContext's across async gaps - lib\services\user_add.dart:34:9 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\driver\riderpickupscreen.dart:208:42 - use_build_context_synchronously
+  error - The name 'CabBookingHome' isn't a class - lib\homepage.dart:170:51 - creation_with_non_type
+warning - The value of the field '_statusMessage' isn't used - lib\homescreen.dart:21:11 - unused_field
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\homescreen.dart:195:31 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\homescreen.dart:203:50 - use_build_context_synchronously
+  error - The method 'updateDriverLocation' isn't defined for the type 'RideService' - lib\services\tracking_service.dart:27:20 - undefined_method
 

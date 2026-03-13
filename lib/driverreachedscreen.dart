@@ -26,29 +26,21 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
   }
 
   void _listenToRideStatus() {
-    _rideSubscription = _rideService.listenToRide(widget.rideId).listen((
-      snapshot,
-    ) {
+    _rideSubscription = _rideService.listenToRide(widget.rideId).listen((snapshot) {
       if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
         if (mounted) {
           setState(() {
-            _rideData = snapshot.data() as Map<String, dynamic>;
+            _rideData = data;
           });
         }
-        final data = snapshot.data() as Map<String, dynamic>;
-        setState(() {
-          _rideData = data;
-        });
         if (data['status'] == 'completed') {
           if (mounted) {
             _rideSubscription?.cancel();
             Navigator.pushReplacement(
               context,
-              // The next screen in Rider flow was RideStarted, but skipping straight to Payment
-              // since our 'COMPLETE RIDE' triggers the 'completed' status.
               MaterialPageRoute(
-                builder: (context) =>
-                    ReachedLocationScreen(rideId: widget.rideId),
+                builder: (context) => ReachedLocationScreen(rideId: widget.rideId),
               ),
             );
           }
@@ -69,7 +61,7 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Top Map Area (Placeholder)
+          // Top Map Area
           SizedBox(
             height: MediaQuery.of(context).size.height * 0.4,
             width: double.infinity,
@@ -117,7 +109,7 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    "Your White Maruti Swift is at the pickup point",
+                    "Your vehicle has arrived at the pickup point",
                     style: TextStyle(color: Colors.grey),
                   ),
 
@@ -143,13 +135,9 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
- admin-panel
-                      (_rideData?['ridePin']?.toString() ?? "4821")
+                      (_rideData?['ridePin']?.toString() ?? "0000")
                           .split('')
                           .join(' '),
-
-                      _rideData?['otp']?.split('').join(' ') ?? "0 0 0 0",
- main
                       style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
@@ -179,8 +167,7 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed:
-                              null, // Rider waits for Driver to enter OTP
+                          onPressed: null, // Rider waits for Driver to verify PIN
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             backgroundColor: const Color(0xFF2D62ED),

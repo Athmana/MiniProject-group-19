@@ -167,7 +167,7 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const CabBookingHome(),
+                      builder: (context) => const EmergencyRideHome(),
                     ),
                   );
                 },

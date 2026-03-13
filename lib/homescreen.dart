@@ -1,41 +1,24 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/services/location_service.dart';
-import 'package:gowayanad/services/map_service.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:gowayanad/waitingfordriverscreen.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
 
-class CabBookingHome extends StatefulWidget {
-  const CabBookingHome({super.key});
+class EmergencyRideHome extends StatefulWidget {
+  const EmergencyRideHome({super.key});
 
   @override
-  State<CabBookingHome> createState() => _CabBookingHomeState();
+  State<EmergencyRideHome> createState() => _EmergencyRideHomeState();
 }
 
-class _CabBookingHomeState extends State<CabBookingHome> {
+class _EmergencyRideHomeState extends State<EmergencyRideHome> {
   Position? _currentPosition;
   bool _isLoadingLocation = true;
-
   final TextEditingController _destinationController = TextEditingController();
   String? _selectedVehicleType;
-  String? _selectedVehiclePrice;
-
-  GoogleMapController? _mapController;
-  List<LatLng> _routePoints = [];
-  LatLng? _destinationLocation;
-  Timer? _debounce;
-
-  double? _calculatedDistance;
-  final Map<String, String> _vehiclePrices = {
-    "Bike": "...",
-    "Auto": "...",
-    "Car": "...",
-    "Ambulance": "Free",
-  };
-  bool _isCalculatingFare = false;
+  String? _statusMessage;
 
   @override
   void initState() {
@@ -56,106 +39,14 @@ class _CabBookingHomeState extends State<CabBookingHome> {
       if (mounted) {
         setState(() {
           _isLoadingLocation = false;
+          _statusMessage = "Could not get your location. Please check GPS.";
         });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to get location: $e')));
       }
     }
-  }
-
-  Future<void> _calculateFares(String destination) async {
-    if (destination.isEmpty || _currentPosition == null) return;
-
-    setState(() {
-      _isCalculatingFare = true;
-    });
-
-    try {
-      final MapService mapService = MapService();
-      final pickup = LatLng(
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
-      );
-
-      // 1. Geocode destination ONCE
-      List<Location> locations = await locationFromAddress(destination);
-      if (locations.isEmpty || !mounted) {
-        if (mounted) setState(() => _isCalculatingFare = false);
-        return;
-      }
-
-      final dest = LatLng(locations[0].latitude, locations[0].longitude);
-      setState(() => _destinationLocation = dest);
-
-      // 2. Calculate straight-line distance locally (no second API call)
-      //    and fetch polyline IN PARALLEL for speed
-      final results = await Future.wait([
-        mapService.getPolylinePoints(pickup, dest),
-        Future.value(
-          Geolocator.distanceBetween(
-                pickup.latitude,
-                pickup.longitude,
-                dest.latitude,
-                dest.longitude,
-              ) /
-              1000, // metres → km
-        ),
-      ]);
-
-      if (!mounted) return;
-
-      final points = results[0] as List<LatLng>;
-      final double distanceInKm = results[1] as double;
-
-      // 3. Update map
-      setState(() => _routePoints = points);
-      if (_mapController != null && points.isNotEmpty) {
-        _mapController!.animateCamera(
-          CameraUpdate.newLatLngBounds(_getBounds(pickup, dest), 50),
-        );
-      }
-
-      // 4. Update fares
-      if (distanceInKm > 0 && mounted) {
-        setState(() {
-          _calculatedDistance = distanceInKm;
-          _vehiclePrices["Bike"] = (30 + (8 * distanceInKm)).toStringAsFixed(0);
-          _vehiclePrices["Auto"] = (50 + (12 * distanceInKm)).toStringAsFixed(
-            0,
-          );
-          _vehiclePrices["Car"] = (100 + (18 * distanceInKm)).toStringAsFixed(
-            0,
-          );
-          _vehiclePrices["Ambulance"] = "Free";
-          _isCalculatingFare = false;
-          if (_selectedVehicleType != null) {
-            _selectedVehiclePrice = _vehiclePrices[_selectedVehicleType];
-          }
-        });
-      } else {
-        if (mounted) setState(() => _isCalculatingFare = false);
-      }
-    } catch (e) {
-      debugPrint("Error calculating fares: $e");
-      if (mounted) setState(() => _isCalculatingFare = false);
-    }
-  }
-
-  LatLngBounds _getBounds(LatLng p1, LatLng p2) {
-    double south = p1.latitude < p2.latitude ? p1.latitude : p2.latitude;
-    double west = p1.longitude < p2.longitude ? p1.longitude : p2.longitude;
-    double north = p1.latitude > p2.latitude ? p1.latitude : p2.latitude;
-    double east = p1.longitude > p2.longitude ? p1.longitude : p2.longitude;
-    return LatLngBounds(
-      southwest: LatLng(south, west),
-      northeast: LatLng(north, east),
-    );
   }
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _destinationController.dispose();
     super.dispose();
   }
@@ -167,150 +58,83 @@ class _CabBookingHomeState extends State<CabBookingHome> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
-              onPressed: () => Navigator.pop(context),
-            ),
+        title: const Text(
+          "GoWayanad",
+          style: TextStyle(
+            color: Color(0xFF2D62ED),
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
           ),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              "Book Your Ride",
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            Text(
-              "Emergency Service",
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-          ],
-        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_outline, color: Colors.black),
+            onPressed: () {},
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Map Preview
-            SizedBox(
-              height: 250,
-              width: double.infinity,
-              child: ClipRRect(
+            // Hero Banner
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF2D62ED), Color(0xFF5386FF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 borderRadius: BorderRadius.circular(16),
-                child: _currentPosition == null
-                    ? const Center(child: CircularProgressIndicator())
-                    : GoogleMap(
-                        initialCameraPosition: CameraPosition(
-                          target: LatLng(
-                            _currentPosition!.latitude,
-                            _currentPosition!.longitude,
-                          ),
-                          zoom: 14,
-                        ),
-                        markers: {
-                          if (_currentPosition != null)
-                            Marker(
-                              markerId: const MarkerId('pickup'),
-                              position: LatLng(
-                                _currentPosition!.latitude,
-                                _currentPosition!.longitude,
-                              ),
-                              infoWindow: const InfoWindow(
-                                title: 'Pickup Location',
-                              ),
-                              icon: BitmapDescriptor.defaultMarkerWithHue(
-                                BitmapDescriptor.hueAzure,
-                              ),
-                            ),
-                          if (_destinationLocation != null)
-                            Marker(
-                              markerId: const MarkerId('destination'),
-                              position: _destinationLocation!,
-                              infoWindow: const InfoWindow(
-                                title: 'Destination',
-                              ),
-                              icon: BitmapDescriptor.defaultMarkerWithHue(
-                                BitmapDescriptor.hueRed,
-                              ),
-                            ),
-                        },
-                        polylines: {
-                          if (_routePoints.isNotEmpty)
-                            Polyline(
-                              polylineId: const PolylineId('route'),
-                              points: _routePoints,
-                              color: const Color(0xFF2D62ED),
-                              width: 5,
-                            ),
-                        },
-                        myLocationEnabled: true,
-                        zoomControlsEnabled: false,
-                        mapToolbarEnabled: false,
-                        onMapCreated: (controller) =>
-                            _mapController = controller,
-                      ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    "Need a ride?",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Select destination and vehicle to start your emergency ride.",
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                ],
               ),
             ),
-
             const SizedBox(height: 24),
+
             // Destination Input
+            const Text(
+              "Where to?",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _destinationController,
-              onChanged: (value) {
-                // Debounce: wait 800ms after user stops typing before calling API
-                _debounce?.cancel();
-                if (value.length > 3) {
-                  _debounce = Timer(const Duration(milliseconds: 800), () {
-                    _calculateFares(value);
-                  });
-                }
-              },
               decoration: InputDecoration(
                 hintText: "Enter destination address",
-                suffixIcon: _isCalculatingFare
-                    ? const Padding(
-                        padding: EdgeInsets.all(12.0),
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : (_calculatedDistance != null
-                          ? Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Text(
-                                "${_calculatedDistance!.toStringAsFixed(1)} km",
-                                style: const TextStyle(
-                                  color: Colors.blue,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            )
-                          : null),
-                prefixIcon: const Icon(
-                  Icons.near_me_outlined,
-                  color: Colors.cyan,
-                ),
+                prefixIcon: const Icon(Icons.location_on, color: Colors.red),
+                filled: true,
+                fillColor: Colors.grey.shade100,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.blue, width: 2),
+                  borderSide: BorderSide.none,
                 ),
               ),
             ),
             const SizedBox(height: 24),
-            // Vehicle Selection Grid
+
+            // Vehicle Selection
             const Text(
-              "Select Vehicle Type",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              "Select Vehicle",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             const SizedBox(height: 16),
             GridView.count(
@@ -319,174 +143,81 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               crossAxisCount: 2,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 0.8,
+              childAspectRatio: 1.3,
               children: [
-                _buildVehicleCard(
-                  title: "Bike",
-                  desc: "Quick emergency response",
-                  price: _vehiclePrices["Bike"] ?? "...",
-                  seats: "1 seat",
-                  time: "1-2 min",
-                  icon: Icons.directions_bike,
-                ),
-                _buildVehicleCard(
-                  title: "Auto",
-                  desc: "Quick emergency response",
-                  price: _vehiclePrices["Auto"] ?? "...",
-                  seats: "3 seats",
-                  time: "2-4 min",
-                  icon: Icons.electric_rickshaw,
-                ),
-                _buildVehicleCard(
-                  title: "Car",
-                  desc: "Comfortable transport",
-                  price: _vehiclePrices["Car"] ?? "...",
-                  seats: "4 seats",
-                  time: "3-5 min",
-                  icon: Icons.directions_car,
-                ),
-                _buildVehicleCard(
-                  title: "Ambulance",
-                  desc: "Medical emergency",
-                  price: _vehiclePrices["Ambulance"] ?? "Free",
-                  seats: "2 seats",
-                  time: "1-2 min",
-                  icon: Icons.medical_services,
-                ),
+                _buildVehicleCard("Bike", "Quick response", Icons.directions_bike),
+                _buildVehicleCard("Auto", "Best for city", Icons.electric_rickshaw),
+                _buildVehicleCard("Car", "Comfortable", Icons.directions_car),
+                _buildVehicleCard("Ambulance", "Emergency", Icons.medical_services),
               ],
             ),
+
             const SizedBox(height: 32),
-            // Confirm Ride Button
+
+            // Request Button
             SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-admin-panel
                 onPressed: (_isLoadingLocation || _selectedVehicleType == null)
                     ? null
                     : () async {
-
-                onPressed:
-                    (_currentPosition != null &&
-                        _destinationController.text.isNotEmpty &&
-                        _selectedVehicleType != null &&
-                        _selectedVehiclePrice != null &&
-                        _selectedVehiclePrice != "..." &&
-                        !_isCalculatingFare &&
-                        !_isLoadingLocation)
-                    ? () async {
- main
-                        if (_currentPosition == null) {
+                        final String dest = _destinationController.text.trim();
+                        if (dest.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Location is required to book a ride',
-                              ),
-                            ),
+                            const SnackBar(content: Text("Please enter destination")),
                           );
                           return;
                         }
 
-                        if (_destinationController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Please enter a destination address',
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-
-                        if (_selectedVehicleType == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please select a vehicle type'),
-                            ),
-                          );
-                          return;
-                        }
-
-                        double destLat = 0.0;
-                        double destLng = 0.0;
+                        // Geocode destination
                         try {
-                          List<Location> locations = await locationFromAddress(
-                            _destinationController.text.trim(),
+                          List<Location> locations = await locationFromAddress(dest);
+                          if (locations.isEmpty) throw Exception("No location found");
+                          
+                          final double dLat = locations.first.latitude;
+                          final double dLng = locations.first.longitude;
+                          final double pLat = _currentPosition!.latitude;
+                          final double pLng = _currentPosition!.longitude;
+
+                          final String? rideId = await RideService().requestRide(
+                            pickupLocation: "Current Location",
+                            pickupLat: pLat,
+                            pickupLng: pLng,
+                            destination: dest,
+                            destLat: dLat,
+                            destLng: dLng,
+                            vehicleType: _selectedVehicleType!,
                           );
-                          if (locations.isNotEmpty) {
-                            destLat = locations.first.latitude;
-                            destLng = locations.first.longitude;
+
+                          if (rideId != null && mounted) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => WaitingForDriverScreen(rideId: rideId),
+                              ),
+                            );
                           }
                         } catch (e) {
-                          if (context.mounted) {
+                          if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Could not find destination location: $e',
-                                ),
-                              ),
-                            );
-                          }
-                          return;
-                        }
-
-                        final String? rideId = await RideService().requestRide(
-                          pickupLocation:
-                              "Lat: ${_currentPosition!.latitude}, Lng: ${_currentPosition!.longitude}",
-                          pickupLat: _currentPosition!.latitude,
-                          pickupLng: _currentPosition!.longitude,
-                          destination: _destinationController.text.trim(),
-                          destinationLat:
-                              _destinationLocation?.latitude ?? destLat,
-                          destinationLng:
-                              _destinationLocation?.longitude ?? destLng,
-                          vehicleType: _selectedVehicleType!,
-                          price: _selectedVehiclePrice!,
-                          distance: _calculatedDistance ?? 0.0,
-                        );
-
-                        if (rideId != null && context.mounted) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  WaitingForDriverScreen(rideId: rideId),
-                            ),
-                          );
-                        } else {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Failed to request ride'),
-                              ),
+                              SnackBar(content: Text("Error: ${e.toString()}")),
                             );
                           }
                         }
-                      }
-                    : null,
+                      },
                 style: ElevatedButton.styleFrom(
- admin-panel
-                  backgroundColor: _selectedVehicleType != null
-                      ? const Color(0xFF2855D3) // Dark Blue when selected
-                      : const Color(0xFF94B5F9), // Light blue when disabled
-
-                  backgroundColor:
-                      (_selectedVehicleType != null &&
-                          _destinationController.text.trim().isNotEmpty)
-                      ? const Color(0xFF2855D3)
-                      : const Color(0xFF94B5F9),
- main
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: const Color(0xFF94B5F9),
-                  disabledForegroundColor: Colors.white70,
+                  backgroundColor: const Color(0xFF2D62ED),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  elevation: 0,
                 ),
-                child: const Text(
-                  "Confirm Emergency Ride",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                child: _isLoadingLocation
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
+                        "Confirm Emergency Ride",
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
               ),
             ),
           ],
@@ -495,88 +226,40 @@ admin-panel
     );
   }
 
-  Widget _buildVehicleCard({
-    required String title,
-    required String desc,
-    required String price,
-    required String seats,
-    required String time,
-    required IconData icon,
-  }) {
-    final bool isSelected = _selectedVehicleType == title;
-
+  Widget _buildVehicleCard(String type, String desc, IconData icon) {
+    bool isSelected = _selectedVehicleType == type;
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedVehicleType = title;
-          _selectedVehiclePrice = _vehiclePrices[title] ?? price;
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+      onTap: () => setState(() => _selectedVehicleType = type),
+      child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFE8F0FF) : Colors.white,
-          border: Border.all(
-            color: isSelected ? Colors.blue : Colors.grey.shade200,
-            width: isSelected ? 2 : 1,
-          ),
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF2D62ED) : Colors.grey.shade200,
+            width: 2,
+          ),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 32, color: Colors.blueGrey),
-            const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Icon(icon, size: 30, color: isSelected ? const Color(0xFF2D62ED) : Colors.grey),
+            const SizedBox(height: 8),
+            Text(
+              type,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isSelected ? const Color(0xFF2D62ED) : Colors.black,
+              ),
+            ),
             Text(
               desc,
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-              maxLines: 2,
+              style: const TextStyle(fontSize: 10, color: Colors.grey),
+              textAlign: TextAlign.center,
             ),
-            const Spacer(),
- admin-panel
-            // Replaced price and seat info with just seats as requested
-            // (Wait, the user said "Keep only the vehicle icon, vehicle name, and description."
-            // So I will remove seats too just to be safe, or keep it if it looks better but they said "Keep ONLY")
           ],
         ),
       ),
     );
   }
-
-            Row(
-              children: [
-                const Icon(Icons.currency_rupee, size: 14, color: Colors.blue),
-                Text(
-                  price.replaceAll('₹', ''),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ],
-            ),
-            _buildInfoRow(Icons.people_outline, seats),
-            _buildInfoRow(Icons.access_time, time),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4.0),
-      child: Row(
-        children: [
-          Icon(icon, size: 12, color: Colors.grey),
-          const SizedBox(width: 4),
-          Text(text, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        ],
-      ),
-    );
-  }
- main
 }

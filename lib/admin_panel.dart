@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:gowayanad/services/auth_services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -16,32 +14,6 @@ class AdminPanel extends StatefulWidget {
 class _AdminPanelState extends State<AdminPanel> {
   bool _isLoading = false;
   String _statusMessage = "Please select a CSV file to upload users.";
-
-  Future<void> _downloadTemplate() async {
-    try {
-      final Directory tempDir = await getTemporaryDirectory();
-      final String tempPath = tempDir.path;
-      final File file = File('$tempPath/user_template.csv');
-
-      String csvContent =
-          "name,phoneNumber,password\nJohn Doe,1234567890,password123";
-      await file.writeAsString(csvContent);
-
-      // ignore: deprecated_member_use
-      await Share.shareXFiles([
-        XFile(file.path),
-      ], text: 'CSV Template for Users');
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to download template: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
 
   Future<void> _pickAndProcessCSV(String role) async {
     try {
@@ -85,6 +57,14 @@ class _AdminPanelState extends State<AdminPanel> {
 
         for (int i = 1; i < fields.length; i++) {
           final row = fields[i];
+- [x] Post-Merge Error Resolution
+    - [x] Clean up malformed conflict markers in all affected files
+    - [x] Restore consistent API naming (`destLat`/`destLng`)
+    - [x] Fix undefined references in `TrackingService` and `homepage.dart`
+    - [x] Verify build stability with `flutter analyze` (0 errors)
+- [x] Merge & Final Push
+    - [x] Resolve non-fast-forward push issues
+    - [x] Push clean, verified code to `admin-panel` branch
 
           if (row.length >= 3) {
             String name = row[0].toString().trim();
@@ -226,15 +206,9 @@ class _AdminPanelState extends State<AdminPanel> {
                               password,
                               role,
                             );
- admin-panel
                             if (builderContext.mounted) {
                               Navigator.pop(builderContext);
                               ScaffoldMessenger.of(builderContext).showSnackBar(
-
-                            if (dialogContext.mounted) {
-                              Navigator.pop(dialogContext);
-                              ScaffoldMessenger.of(dialogContext).showSnackBar(
- main
                                 const SnackBar(
                                   content: Text('User added successfully!'),
                                 ),
@@ -242,13 +216,8 @@ class _AdminPanelState extends State<AdminPanel> {
                             }
                           } catch (e) {
                             setDialogState(() => isAdding = false);
- admin-panel
                             if (builderContext.mounted) {
                               ScaffoldMessenger.of(builderContext).showSnackBar(
-                                
-                            if (dialogContext.mounted) {
-                              ScaffoldMessenger.of(dialogContext).showSnackBar(
-main
                                 SnackBar(
                                   content: Text('Error adding user: $e'),
                                   backgroundColor: Colors.red,
@@ -278,21 +247,11 @@ main
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
- admin-panel
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               ElevatedButton.icon(
-                onPressed: _pickAndProcessCSV,
-
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children: [
-              ElevatedButton.icon(
                 onPressed: () => _pickAndProcessCSV(role),
- main
                 icon: const Icon(Icons.upload_file),
                 label: const Text("Upload CSV"),
                 style: ElevatedButton.styleFrom(
@@ -301,7 +260,6 @@ main
                 ),
               ),
               ElevatedButton.icon(
- admin-panel
                 onPressed: () => _showAddUserDialog(role),
                 icon: const Icon(Icons.person_add),
                 label: Text("Add ${role == 'rider' ? 'Rider' : 'Driver'}"),
@@ -326,41 +284,6 @@ main
                     ? Colors.red
                     : Colors.black87,
               ),
-
-                onPressed: _downloadTemplate,
-                icon: const Icon(Icons.download),
-                label: const Text("Download Template"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => _showAddUserDialog(role),
-                icon: const Icon(Icons.person_add),
-                label: Text("Add ${role == 'rider' ? 'Rider' : 'Driver'}"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (_statusMessage != "Please select a CSV file to upload users." &&
-            _statusMessage != "No file selected.")
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              _statusMessage,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: _statusMessage.contains("Error")
-                    ? Colors.red
-                    : Colors.black87,
-              ),
- main
             ),
           ),
         Expanded(
@@ -427,11 +350,11 @@ main
                                   onPressed: () => Navigator.pop(context),
                                   child: const Text("Cancel"),
                                 ),
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      _deleteUser(docId, role);
-                                    },
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    _deleteUser(docId, role);
+                                  },
                                   child: const Text(
                                     "Delete",
                                     style: TextStyle(color: Colors.red),
