@@ -10,21 +10,25 @@ class RideService {
     required double pickupLat,
     required double pickupLng,
     required String destination,
-    required double destLat,
-    required double destLng,
+    required double destinationLat,
+    required double destinationLng,
     required String vehicleType,
+    required String price,
+    required double distance,
   }) async {
     try {
       final String? riderId = FirebaseAuth.instance.currentUser?.uid;
       if (riderId == null) throw Exception("User not logged in");
 
-      double distance = calculateDistance(
+      // Generate a random 4-digit OTP
+      final String otp = (Random().nextInt(9000) + 1000).toString();
+
+      double calculatedDistance = calculateDistance(
         pickupLat,
         pickupLng,
-        destLat,
-        destLng,
+        destinationLat,
+        destinationLng,
       );
-      
       double baseFare;
       double ratePerKm;
       
@@ -53,24 +57,29 @@ class RideService {
       double price = baseFare + (distance * ratePerKm);
       price = double.parse(price.toStringAsFixed(2));
 
-      String ridePin = (1000 + Random().nextInt(9000)).toString();
+      String ridePin = (100000 + Random().nextInt(900000)).toString(); // 6-digit PIN
+      DateTime now = DateTime.now();
+      DateTime expiryTime = now.add(const Duration(minutes: 15));
 
       DocumentReference docRef = await _firestore.collection('rides').add({
         'riderId': riderId,
+        'otp': otp,
         'driverId': null,
-        'status':
-            'pending', // 'pending', 'accepted', 'arrived', 'started', 'completed'
+        'status': 'pending',
         'pickupLocation': pickupLocation,
         'pickupLat': pickupLat,
         'pickupLng': pickupLng,
         'destination': destination,
-        'destLat': destLat,
-        'destLng': destLng,
+        'destinationLat': destinationLat,
+        'destinationLng': destinationLng,
         'vehicleType': vehicleType,
-        'distance': distance,
+        'distance': distance > 0 ? distance : calculatedDistance,
         'price': price,
         'ridePin': ridePin,
+        'pinStatus': 'active',
+        'pinAttempts': 0,
         'createdAt': FieldValue.serverTimestamp(),
+        'pinExpiryAt': Timestamp.fromDate(expiryTime),
       });
       return docRef.id;
     } catch (e) {
@@ -153,10 +162,33 @@ class RideService {
   // 6. Update a generic status (e.g. arrived, completed)
   Future<bool> updateRideStatus(String rideId, String newStatus) async {
     try {
-      await _firestore.collection('rides').doc(rideId).update({
+      Map<String, dynamic> updateData = {
         'status': newStatus,
-        '${newStatus}At':
-            FieldValue.serverTimestamp(), // e.g., arrivedAt, completedAt
+        '${newStatus}At': FieldValue.serverTimestamp(),
+      };
+
+      // If driver arrived, we might want to check for PIN expiry but auto-regeneration
+      // is usually handled by the UI listening to the stream.
+      
+      await _firestore.collection('rides').doc(rideId).update(updateData);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // 6b. Regenerate Ride PIN
+  Future<bool> regenerateRidePin(String rideId) async {
+    try {
+      String newPin = (100000 + Random().nextInt(900000)).toString();
+      DateTime newExpiry = DateTime.now().add(const Duration(minutes: 15));
+
+      await _firestore.collection('rides').doc(rideId).update({
+        'ridePin': newPin,
+        'pinExpiryAt': Timestamp.fromDate(newExpiry),
+        'pinStatus': 'active',
+        'pinAttempts': 0,
+        'pinRefreshedAt': FieldValue.serverTimestamp(),
       });
       return true;
     } catch (e) {
@@ -164,9 +196,78 @@ class RideService {
     }
   }
 
+  // 6c. Verify Ride PIN
+  Future<Map<String, dynamic>> verifyRidePin(String rideId, String enteredPin) async {
+    try {
+      DocumentSnapshot doc = await _firestore.collection('rides').doc(rideId).get();
+      if (!doc.exists) return {'success': false, 'message': 'Ride not found'};
+      
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      String correctPin = data['ridePin']?.toString() ?? "";
+      int attempts = data['pinAttempts'] ?? 0;
+      String pinStatus = data['pinStatus'] ?? 'active';
+      Timestamp? expiry = data['pinExpiryAt'];
+
+      if (pinStatus == 'locked') {
+        return {'success': false, 'message': 'PIN verification locked. Too many attempts.'};
+      }
+
+      if (expiry != null && DateTime.now().isAfter(expiry.toDate())) {
+        await regenerateRidePin(rideId);
+        return {'success': false, 'message': 'PIN expired and has been refreshed.'};
+      }
+
+      if (enteredPin == correctPin) {
+        await _firestore.collection('rides').doc(rideId).update({
+          'status': 'started',
+          'startedAt': FieldValue.serverTimestamp(),
+          'pinStatus': 'used',
+        });
+        return {'success': true};
+      } else {
+        attempts++;
+        if (attempts >= 3) {
+          await _firestore.collection('rides').doc(rideId).update({
+            'pinAttempts': attempts,
+            'pinStatus': 'locked',
+          });
+          return {'success': false, 'message': 'Too many failed attempts. Account locked.'};
+        } else {
+          await _firestore.collection('rides').doc(rideId).update({
+            'pinAttempts': attempts,
+          });
+          return {'success': false, 'message': 'Invalid PIN. ${3 - attempts} attempts remaining.'};
+        }
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Verification error: $e'};
+    }
+  }
+
+  // 7a. Update driver location
+  Future<bool> updateDriverLocation(
+    String rideId,
+    double lat,
+    double lng,
+  ) async {
+    try {
+      await _firestore.collection('rides').doc(rideId).update({
+        'driverLat': lat,
+        'driverLng': lng,
+      });
+      return true;
+    } catch (e) {
+      // debugPrint("Error updating driver location: $e");
+      return false;
+    }
+  }
+
   // 7. Update payment status
   Future<bool> updatePaymentStatus(String rideId, String paymentStatus) async {
     try {
+      // For demonstration of failure/retry, we can simulate a random failure
+      // if (Random().nextBool()) throw Exception("Payment Gateway Error");
+
       await _firestore.collection('rides').doc(rideId).update({
         'paymentStatus': paymentStatus,
         'paidAt': FieldValue.serverTimestamp(),
@@ -209,4 +310,6 @@ class RideService {
       return null;
     }
   }
+
+  // Removed Google Map related methods (updateGlobalDriverStatus, getOnlineDriversStream)
 }

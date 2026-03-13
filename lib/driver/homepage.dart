@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:gowayanad/driver/driverequestscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
+import 'package:geolocator/geolocator.dart';
 
 class DriverHomePage extends StatefulWidget {
   const DriverHomePage({super.key});
@@ -15,8 +16,10 @@ class DriverHomePage extends StatefulWidget {
 class _DriverHomePageState extends State<DriverHomePage> {
   bool _isOnline = false;
   final RideService _rideService = RideService();
-  StreamSubscription<QuerySnapshot>? _pendingRidesSubscription;
+  StreamSubscription<QuerySnapshot>?
+  _rideSubscription; // Changed from _pendingRidesSubscription
   StreamSubscription<QuerySnapshot>? _completedRidesSubscription;
+  StreamSubscription<Position>? _positionSubscription; // Added
 
   double _totalEarnings = 0.0;
   int _totalRides = 0;
@@ -61,11 +64,14 @@ class _DriverHomePageState extends State<DriverHomePage> {
   }
 
   void _toggleOnlineStatus() {
+    final newStatus = !_isOnline;
+
+    // Update local state first
     setState(() {
-      _isOnline = !_isOnline;
+      _isOnline = newStatus;
     });
 
-    if (_isOnline) {
+    if (newStatus) {
       _startListeningForRides();
     } else {
       _stopListeningForRides();
@@ -73,9 +79,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
   }
 
   void _startListeningForRides() {
-    _pendingRidesSubscription = _rideService.getPendingRides().listen((
-      snapshot,
-    ) {
+    _rideSubscription = _rideService.getPendingRides().listen((snapshot) {
       if (snapshot.docs.isNotEmpty) {
         // For simplicity, grab the first pending ride
         final doc = snapshot.docs.first;
@@ -102,13 +106,14 @@ class _DriverHomePageState extends State<DriverHomePage> {
   }
 
   void _stopListeningForRides() {
-    _pendingRidesSubscription?.cancel();
-    _pendingRidesSubscription = null;
+    _rideSubscription?.cancel();
+    _rideSubscription = null;
   }
 
   @override
   void dispose() {
-    _stopListeningForRides();
+    _rideSubscription?.cancel();
+    _positionSubscription?.cancel();
     _completedRidesSubscription?.cancel();
     super.dispose();
   }
@@ -228,37 +233,65 @@ class _DriverHomePageState extends State<DriverHomePage> {
             ),
           ),
 
-          // 4. Bottom Statistics Card
-          Positioned(
-            bottom: 30,
-            left: 20,
-            right: 20,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 15)],
+          // 4. Bottom Statistics & Recent Rides
+          Positioned.fill(
+            top: 180,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(
+                left: 20,
+                right: 20,
+                bottom: 30,
+                top: 10,
               ),
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildDriverStat("4.9", "Rating", Icons.star),
-                      _buildDriverStat(
-                        _totalRides.toString(),
-                        "Rides",
-                        Icons.directions_car,
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black12, blurRadius: 15),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildDriverStat("4.9", "Rating", Icons.star),
+                            _buildDriverStat(
+                              _totalRides.toString(),
+                              "Rides",
+                              Icons.directions_car,
+                            ),
+                            _buildDriverStat(
+                              "---",
+                              "Online",
+                              Icons.access_time,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      "RECENT RIDES",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        letterSpacing: 1.2,
+                        color: Colors.grey,
                       ),
-                      _buildDriverStat("2h 20m", "Online", Icons.access_time),
-                    ],
+                    ),
                   ),
-                  const Divider(height: 30),
-                  const Text(
-                    "Waiting for emergency requests...",
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
-                  ),
+                  const SizedBox(height: 12),
+
+                  _buildRecentRidesSection(),
                 ],
               ),
             ),
@@ -279,6 +312,158 @@ class _DriverHomePageState extends State<DriverHomePage> {
         ),
         Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
       ],
+    );
+  }
+
+  Widget _buildRecentRidesSection() {
+    final driverId =
+        FirebaseAuth.instance.currentUser?.uid ?? 'anonymous_driver';
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: _rideService.getDriverCompletedRides(driverId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20.0),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        final docs = snapshot.data?.docs ?? [];
+
+        if (docs.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(40.0),
+            child: Text(
+              "No recent rides yet",
+              style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: docs.length,
+          itemBuilder: (context, index) {
+            final ride = docs[index].data() as Map<String, dynamic>;
+            return _buildRideHistoryCard(ride);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildRideHistoryCard(Map<String, dynamic> ride) {
+    final rating = (ride['rating'] ?? 0.0).toDouble();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  "COMPLETED",
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Text(
+                "₹${ride['price'] ?? '0'}",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D62ED),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(Icons.my_location, size: 16, color: Colors.blue),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  ride['pickupLocation'] ?? "Unknown",
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.only(left: 7.5),
+            child: Icon(Icons.more_vert, size: 14, color: Colors.grey),
+          ),
+          Row(
+            children: [
+              const Icon(Icons.location_on, size: 16, color: Colors.red),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  ride['destination'] ?? "Unknown",
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          if (rating > 0) ...[
+            const Divider(height: 24),
+            Row(
+              children: [
+                const Text(
+                  "Rider Rating: ",
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                ...List.generate(
+                  5,
+                  (i) => Icon(
+                    Icons.star,
+                    size: 14,
+                    color: i < rating ? Colors.orange : Colors.grey.shade300,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  rating.toStringAsFixed(1),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

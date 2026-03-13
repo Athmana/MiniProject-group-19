@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'reachedlocationscreen.dart';
-import 'ridestartedscreen.dart';
+import 'package:gowayanad/reachedlocationscreen.dart';
 import 'services/ride_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
 
 class DriverReachedScreen extends StatefulWidget {
@@ -19,6 +17,9 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
   final RideService _rideService = RideService();
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
+  bool _isPinVisible = false;
+  Timer? _countdownTimer;
+  String _timeLeft = "15:00";
 
   @override
   void initState() {
@@ -31,19 +32,19 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
       snapshot,
     ) {
       if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
         if (mounted) {
           setState(() {
-            _rideData = snapshot.data() as Map<String, dynamic>;
+            _rideData = data;
           });
+          _startCountdown();
         }
-        final data = snapshot.data() as Map<String, dynamic>;
         if (data['status'] == 'completed') {
           if (mounted) {
             _rideSubscription?.cancel();
+            _countdownTimer?.cancel();
             Navigator.pushReplacement(
               context,
-              // The next screen in Rider flow was RideStarted, but skipping straight to Payment
-              // since our 'COMPLETE RIDE' triggers the 'completed' status.
               MaterialPageRoute(
                 builder: (context) =>
                     ReachedLocationScreen(rideId: widget.rideId),
@@ -55,9 +56,40 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
     });
   }
 
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    final expiry = _rideData?['pinExpiryAt'] as Timestamp?;
+    if (expiry == null) return;
+
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      final now = DateTime.now();
+      final difference = expiry.toDate().difference(now);
+
+      if (difference.isNegative) {
+        timer.cancel();
+        if (mounted) {
+          setState(() {
+            _timeLeft = "Expired";
+          });
+          _rideService.regenerateRidePin(widget.rideId);
+        }
+      } else {
+        final minutes = difference.inMinutes;
+        final seconds = difference.inSeconds % 60;
+        if (mounted) {
+          setState(() {
+            _timeLeft =
+                "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
+          });
+        }
+      }
+    });
+  }
+
   @override
   void dispose() {
     _rideSubscription?.cancel();
+    _countdownTimer?.cancel();
     super.dispose();
   }
 
@@ -67,32 +99,34 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Top Map Area (Placeholder)
+          // Top Status Area (Replacing Map)
           SizedBox(
             height: MediaQuery.of(context).size.height * 0.4,
             width: double.infinity,
-            child: _rideData == null
-                ? const Center(child: CircularProgressIndicator())
-                : GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: LatLng(
-                        _rideData!['pickupLat'] as double? ?? 11.6094,
-                        _rideData!['pickupLng'] as double? ?? 76.0828,
-                      ),
-                      zoom: 15,
+            child: Container(
+              color: const Color(0xFFE8F5E9),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_outline,
+                      size: 100,
+                      color: Colors.green,
                     ),
-                    markers: {
-                      Marker(
-                        markerId: const MarkerId('pickup'),
-                        position: LatLng(
-                          _rideData!['pickupLat'] as double? ?? 11.6094,
-                          _rideData!['pickupLng'] as double? ?? 76.0828,
-                        ),
-                        infoWindow: const InfoWindow(title: 'Pickup Location'),
+                    const SizedBox(height: 16),
+                    Text(
+                      _rideData != null ? "Driver Arrived" : "Finalizing...",
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
                       ),
-                    },
-                    myLocationEnabled: true,
-                  ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
 
           Expanded(
@@ -115,39 +149,77 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    "Your White Maruti Swift is at the pickup point",
+                    "Your vehicle is at the pickup point",
                     style: TextStyle(color: Colors.grey),
                   ),
 
                   const SizedBox(height: 30),
 
                   // Security PIN Section
-                  const Text(
-                    "SHARE THIS PIN WITH DRIVER",
-                    style: TextStyle(
-                      letterSpacing: 1.2,
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "SHARE THIS PIN WITH DRIVER",
+                        style: TextStyle(
+                          letterSpacing: 1.2,
+                          fontSize: 10,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        _timeLeft == "Expired" ? "PIN Expired" : "Expires: $_timeLeft",
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: _timeLeft == "Expired" ? Colors.red : Colors.blue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5FE),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      (_rideData?['ridePin']?.toString() ?? "4821")
-                          .split('')
-                          .join(' '),
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 8,
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _isPinVisible = !_isPinVisible;
+                      });
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5FE),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF2D62ED).withOpacity(0.1)),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            _isPinVisible
+                                ? (_rideData?['ridePin']?.toString() ?? "------")
+                                    .split('')
+                                    .join(' ')
+                                : "• • • • • •",
+                            style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 8,
+                              color: Color(0xFF2D62ED),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _isPinVisible ? "Tap to hide" : "Tap to reveal",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -173,28 +245,14 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () async {
-                            bool success = await _rideService.updateRideStatus(
-                              widget.rideId,
-                              'started',
-                            );
-                            if (!context.mounted) return;
-                            if (success) {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      RideStartedScreen(rideId: widget.rideId),
-                                ),
-                              );
-                            }
-                          },
+                          onPressed:
+                              null, // Rider waits for Driver to enter OTP
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             backgroundColor: const Color(0xFF2D62ED),
                           ),
                           child: const Text(
-                            "I'm in the Car",
+                            "Waiting for Driver...",
                             style: TextStyle(color: Colors.white),
                           ),
                         ),

@@ -1,0 +1,65 @@
+[debug] [2026-03-07T17:24:01.399Z] ----------------------------------------------------------------------
+[debug] [2026-03-07T17:24:01.403Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\athma\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions --debug
+[debug] [2026-03-07T17:24:01.404Z] CLI Version:   15.9.0
+[debug] [2026-03-07T17:24:01.404Z] Platform:      win32
+[debug] [2026-03-07T17:24:01.404Z] Node Version:  v22.13.1
+[debug] [2026-03-07T17:24:01.405Z] Time:          Sat Mar 07 2026 22:54:01 GMT+0530 (India Standard Time)
+[debug] [2026-03-07T17:24:01.405Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-03-07T17:24:03.814Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-03-07T17:24:03.816Z] > authorizing via signed-in user (athmanaajay86@gmail.com)
+[debug] [2026-03-07T17:24:03.817Z] [iam] checking project gowayanad-fc860 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2026-03-07T17:24:03.820Z] Checked if tokens are valid: true, expires at: 1772907708953
+[debug] [2026-03-07T17:24:03.820Z] Checked if tokens are valid: true, expires at: 1772907708953
+[debug] [2026-03-07T17:24:03.823Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/gowayanad-fc860:testIamPermissions [none]
+[debug] [2026-03-07T17:24:03.823Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/gowayanad-fc860:testIamPermissions  x-goog-user-project=gowayanad-fc860
+[debug] [2026-03-07T17:24:03.825Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/gowayanad-fc860:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-03-07T17:24:05.613Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/gowayanad-fc860:testIamPermissions 200
+[debug] [2026-03-07T17:24:05.615Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/gowayanad-fc860:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-03-07T17:24:05.616Z] Checked if tokens are valid: true, expires at: 1772907708953
+[debug] [2026-03-07T17:24:05.618Z] Checked if tokens are valid: true, expires at: 1772907708953
+[debug] [2026-03-07T17:24:05.620Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/gowayanad-fc860/serviceAccounts/gowayanad-fc860@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-03-07T17:24:05.624Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/gowayanad-fc860/serviceAccounts/gowayanad-fc860@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-03-07T17:24:07.232Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/gowayanad-fc860/serviceAccounts/gowayanad-fc860@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2026-03-07T17:24:07.233Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/gowayanad-fc860/serviceAccounts/gowayanad-fc860@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'gowayanad-fc860'...
+[info] 
+[info] i  deploying functions 
+[debug] [2026-03-07T17:24:07.240Z] Checked if tokens are valid: true, expires at: 1772907708953
+[debug] [2026-03-07T17:24:07.240Z] Checked if tokens are valid: true, expires at: 1772907708953
+[debug] [2026-03-07T17:24:07.240Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/gowayanad-fc860 [none]
+[debug] [2026-03-07T17:24:07.563Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/gowayanad-fc860 200
+[debug] [2026-03-07T17:24:07.564Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/gowayanad-fc860 {"projectNumber":"1051419841136","projectId":"gowayanad-fc860","lifecycleState":"ACTIVE","name":"GoWayanad","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2026-02-16T10:37:24.955856Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[debug] [2026-03-07T17:24:07.568Z] Checked if tokens are valid: true, expires at: 1772907708953
+[debug] [2026-03-07T17:24:07.568Z] Checked if tokens are valid: true, expires at: 1772907708953
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2026-03-07T17:24:07.570Z] Checked if tokens are valid: true, expires at: 1772907708953
+[debug] [2026-03-07T17:24:07.570Z] Checked if tokens are valid: true, expires at: 1772907708953
+[debug] [2026-03-07T17:24:07.571Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/gowayanad-fc860/services/cloudbuild.googleapis.com [none]
+[debug] [2026-03-07T17:24:07.571Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/gowayanad-fc860/services/cloudbuild.googleapis.com  x-goog-user-project=gowayanad-fc860
+[debug] [2026-03-07T17:24:07.574Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/gowayanad-fc860/services/artifactregistry.googleapis.com [none]
+[debug] [2026-03-07T17:24:07.575Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/gowayanad-fc860/services/artifactregistry.googleapis.com  x-goog-user-project=gowayanad-fc860
+[debug] [2026-03-07T17:24:09.284Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/gowayanad-fc860/services/cloudbuild.googleapis.com 200
+[debug] [2026-03-07T17:24:09.285Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/gowayanad-fc860/services/cloudbuild.googleapis.com [omitted]
+[warn] !  functions: missing required API cloudbuild.googleapis.com. Enabling now... 
+[debug] [2026-03-07T17:24:09.287Z] Checked if tokens are valid: true, expires at: 1772907708953
+[debug] [2026-03-07T17:24:09.287Z] Checked if tokens are valid: true, expires at: 1772907708953
+[debug] [2026-03-07T17:24:09.288Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/gowayanad-fc860/services/cloudbuild.googleapis.com:enable [none]
+[debug] [2026-03-07T17:24:09.288Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/gowayanad-fc860/services/cloudbuild.googleapis.com:enable  x-goog-user-project=gowayanad-fc860
+[debug] [2026-03-07T17:24:09.291Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/gowayanad-fc860/services/artifactregistry.googleapis.com 200
+[debug] [2026-03-07T17:24:09.292Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/gowayanad-fc860/services/artifactregistry.googleapis.com [omitted]
+[warn] !  artifactregistry: missing required API artifactregistry.googleapis.com. Enabling now... 
+[debug] [2026-03-07T17:24:09.293Z] Checked if tokens are valid: true, expires at: 1772907708953
+[debug] [2026-03-07T17:24:09.293Z] Checked if tokens are valid: true, expires at: 1772907708953
+[debug] [2026-03-07T17:24:09.294Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/gowayanad-fc860/services/artifactregistry.googleapis.com:enable [none]
+[debug] [2026-03-07T17:24:09.296Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/gowayanad-fc860/services/artifactregistry.googleapis.com:enable  x-goog-user-project=gowayanad-fc860
+[debug] [2026-03-07T17:24:09.669Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/gowayanad-fc860/services/artifactregistry.googleapis.com:enable 400
+[debug] [2026-03-07T17:24:09.670Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/gowayanad-fc860/services/artifactregistry.googleapis.com:enable [omitted]
+[error] 
+[error] Error: Your project gowayanad-fc860 must be on the Blaze (pay-as-you-go) plan to complete this command. Required API artifactregistry.googleapis.com can't be enabled until the upgrade is complete. To upgrade, visit the following URL:
+
+https://console.firebase.google.com/project/gowayanad-fc860/usage/details

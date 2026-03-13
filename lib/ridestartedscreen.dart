@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/reachedlocationscreen.dart';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'dart:async';
@@ -28,10 +27,12 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
   void _listenToRideStatus() {
     _rideSubscription = _rideService.listenToRide(widget.rideId).listen((
       snapshot,
-    ) {
+    ) async {
       if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
+
         setState(() {
-          _rideData = snapshot.data() as Map<String, dynamic>;
+          _rideData = data;
         });
 
         if (_driverName == null && _rideData?['driverId'] != null) {
@@ -43,6 +44,7 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
             }
           });
         }
+
         if (_rideData?['status'] == 'completed') {
           if (mounted) {
             _rideSubscription?.cancel();
@@ -67,125 +69,155 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Trip in Progress"),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        actions: [
-          // SOS Safety Button
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: CircleAvatar(
-              backgroundColor: Colors.red.shade50,
-              child: IconButton(
-                icon: const Icon(Icons.sos, color: Colors.red),
-                onPressed: () {},
+      body: Stack(
+        children: [
+          // 1. Background Status Area (Replacing Map)
+          Positioned.fill(
+            child: Container(
+              color: const Color(0xFFF1F5FE),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.local_taxi,
+                      size: 80,
+                      color: Color(0xFF2D62ED),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _rideData != null ? "Trip in Progress" : "Connecting...",
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "Please stay safe during the ride",
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Live Progress Indicator
-          LinearProgressIndicator(
-            value: 0.4, // Simulate 40% trip completion
-            backgroundColor: Colors.blue.shade50,
-            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF2D62ED)),
-          ),
 
-          Expanded(
+          // 2. Top Info Bar (Floating)
+          SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.all(16.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text("ETA", style: TextStyle(color: Colors.grey)),
-                          Text(
-                            "12 Mins",
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Icon(
-                        Icons.navigation_outlined,
-                        size: 40,
-                        color: Colors.blue,
-                      ),
-                    ],
-                  ),
-
-                  const Divider(height: 40),
-
-                  const Text(
-                    "Heading To",
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                  Text(
-                    _rideData?['destination'] ?? "Loading destination...",
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Driver Info during trip
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const CircleAvatar(child: Icon(Icons.person)),
-                    title: Text(_driverName ?? "Loading driver..."),
-                    subtitle: const Text("Driving you safely"),
-                    trailing: IconButton(
-                      icon: const Icon(
-                        Icons.share_location,
-                        color: Color(0xFF2D62ED),
-                      ),
-                      onPressed: () {
-                        // Normally shares location, disabled navigation here
-                        // as Stream handles it.
-                      }, // Share trip status
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Security Notice
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black12, blurRadius: 10),
+                      ],
                     ),
                     child: Row(
-                      children: const [
-                        Icon(
-                          Icons.shield_outlined,
-                          size: 16,
-                          color: Colors.grey,
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            "Your ride is protected by GoWayanad Safety",
-                            style: TextStyle(fontSize: 11),
-                          ),
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              "Arriving to your Destination",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            ),
+                            Text(
+                              _rideData?['destination'] ?? "Loading...",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+
+          // 3. Bottom Driver Card (Floating)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 30,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 15)],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const CircleAvatar(
+                        radius: 25,
+                        child: Icon(Icons.person),
+                      ),
+                      title: Text(
+                        _driverName ?? "Driver Loading...",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        _rideData?['vehicleType'] ?? "Vehicle Info",
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.call, color: Colors.green),
+                            onPressed: () {},
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.message,
+                              color: Color(0xFF2D62ED),
+                            ),
+                            onPressed: () {},
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Fare Estimate",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                        Text(
+                          "₹${_rideData?['price'] ?? '0'}",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
