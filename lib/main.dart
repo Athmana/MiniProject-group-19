@@ -17,7 +17,7 @@ void main() async {
       routes: {
         '/': (context) => const AuthWrapper(),
         '/login': (context) => const LoginScreen(),
-        '/userHome': (context) => EmergencyRideHome(),
+        '/riderHome': (context) => const EmergencyRideHome(),
         '/driverHome': (context) => DriverHomePage(),
       },
     ),

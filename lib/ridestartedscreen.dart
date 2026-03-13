@@ -134,7 +134,7 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
                               ),
                             ),
                             Text(
-                              _rideData?['destination'] ?? "Loading...",
+                              _rideData?['destinationLocation'] ?? "Loading...",
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -208,7 +208,7 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
                           style: TextStyle(color: Colors.grey),
                         ),
                         Text(
-                          "₹${_rideData?['price'] ?? '0'}",
+                          "₹${_rideData?['fareAmount'] ?? '0'}",
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 18,

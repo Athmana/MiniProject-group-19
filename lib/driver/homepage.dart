@@ -42,7 +42,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
           for (var doc in snapshot.docs) {
             final data = doc.data() as Map<String, dynamic>;
             // Try parsing the price (might be stored as String or number depending on request)
-            final priceRaw = data['price'];
+            final priceRaw = data['fareAmount'];
             if (priceRaw != null) {
               if (priceRaw is num) {
                 earnings += priceRaw.toDouble();
@@ -388,7 +388,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
                 ),
               ),
               Text(
-                "₹${ride['price'] ?? '0'}",
+                "₹${ride['fareAmount'] ?? '0'}",
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF2D62ED),
@@ -424,7 +424,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  ride['destination'] ?? "Unknown",
+                  ride['destinationLocation'] ?? "Unknown",
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,

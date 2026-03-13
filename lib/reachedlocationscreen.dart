@@ -146,11 +146,11 @@ class _ReachedLocationScreenState extends State<ReachedLocationScreen> {
                       if (snapshot.hasData && snapshot.data!.exists) {
                         final data =
                             snapshot.data!.data() as Map<String, dynamic>;
-                        destination = data['destination'] ?? "Unknown";
+                        destination = data['destinationLocation'] ?? "Unknown";
                         // If price lacks symbol, add it.
-                        price = "₹${data['price'] ?? '0'}";
+                        price = "₹${data['fareAmount'] ?? '0'}";
 
-                        final double distance = (data['distance'] ?? 0.0)
+                        final double distance = (data['distanceKm'] ?? 0.0)
                             .toDouble();
                         distanceText = "${distance.toStringAsFixed(1)} km";
 

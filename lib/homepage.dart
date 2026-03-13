@@ -221,7 +221,7 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                     final rideData = doc.data() as Map<String, dynamic>;
 
                     // Safely extract price
-                    final rawPrice = rideData['price'];
+                    final rawPrice = rideData['fareAmount'];
                     String displayPrice = "N/A";
                     if (rawPrice != null) {
                       displayPrice = "₹$rawPrice";
@@ -237,7 +237,7 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
 
                     return _buildRecentRideCard(
                       rideData['vehicleType'] ?? "Unknown",
-                      rideData['destination'] ?? "Unknown Destination",
+                      rideData['destinationLocation'] ?? "Unknown Destination",
                       displayTime,
                       "5.0", // Hardcoded rating for now
                       displayPrice,

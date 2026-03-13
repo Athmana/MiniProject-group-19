@@ -92,14 +92,14 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
               : "DROP-OFF LOCATION";
           final String targetAddress = isHeadingToPickup
               ? (data['pickupLocation'] ?? 'Loading...')
-              : (data['destination'] ?? 'Loading...');
+              : (data['destinationLocation'] ?? 'Loading...');
 
           final double targetLat = isHeadingToPickup
               ? (data['pickupLat'] ?? 0.0)
-              : (data['destLat'] ?? 0.0);
+              : (data['destinationLat'] ?? 0.0);
           final double targetLng = isHeadingToPickup
               ? (data['pickupLng'] ?? 0.0)
-              : (data['destLng'] ?? 0.0);
+              : (data['destinationLng'] ?? 0.0);
 
           // Get rider details
           if (_riderName == null && data['riderId'] != null) {

@@ -119,7 +119,7 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                         ),
                       ),
                       Text(
-                        "₹${widget.rideData['price'] ?? '0'}",
+                        "₹${widget.rideData['fareAmount'] ?? '0'}",
                         style: const TextStyle(
                           color: Color(0xFF2D62ED),
                           fontWeight: FontWeight.bold,
@@ -138,7 +138,7 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                   _buildLocationInfo(
                     Icons.location_on,
                     "Destination",
-                    widget.rideData['destination'] ?? "S. Bathery",
+                    widget.rideData['destinationLocation'] ?? "S. Bathery",
                   ),
                   const SizedBox(height: 32),
 

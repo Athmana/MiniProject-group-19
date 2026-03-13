@@ -80,8 +80,9 @@ class _CabBookingHomeState extends State<CabBookingHome> {
       final destLat = locations[0].latitude;
       final destLng = locations[0].longitude;
 
-      // Simple straight-line distance calculation since we removed Map API routes
-      final double distanceInKm =
+      // Estimating actual route distance using a circuity factor (1.4x straight-line)
+      // as a placeholder for a routing API call.
+      final double straightLineDistance =
           Geolocator.distanceBetween(
             _currentPosition!.latitude,
             _currentPosition!.longitude,
@@ -89,28 +90,25 @@ class _CabBookingHomeState extends State<CabBookingHome> {
             destLng,
           ) /
           1000;
+      
+      final double distanceInKm = straightLineDistance * 1.4;
 
       if (!mounted) return;
 
       if (distanceInKm > 0) {
         setState(() {
           _calculatedDistance = distanceInKm;
-          _vehiclePrices["Bike"] = (30 + (8 * distanceInKm)).toStringAsFixed(0);
-          _vehiclePrices["Auto"] = (50 + (12 * distanceInKm)).toStringAsFixed(
-            0,
-          );
-          _vehiclePrices["Car"] = (100 + (18 * distanceInKm)).toStringAsFixed(
-            0,
-          );
-          _vehiclePrices["Ambulance"] = (300 + (20 * distanceInKm)).toStringAsFixed(
-            0,
-          );
+          _vehiclePrices["Bike"] = RideService.calculateFare(distanceInKm, "Bike").toStringAsFixed(0);
+          _vehiclePrices["Auto"] = RideService.calculateFare(distanceInKm, "Auto").toStringAsFixed(0);
+          _vehiclePrices["Car"] = RideService.calculateFare(distanceInKm, "Car").toStringAsFixed(0);
+          _vehiclePrices["Ambulance"] = RideService.calculateFare(distanceInKm, "Ambulance").toStringAsFixed(0);
           _isCalculatingFare = false;
           if (_selectedVehicleType != null) {
             _selectedVehiclePrice = _vehiclePrices[_selectedVehicleType];
           }
         });
-      } else {
+      }
+ else {
         if (mounted) setState(() => _isCalculatingFare = false);
       }
     } catch (e) {
@@ -339,7 +337,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
                           destinationLat: destLat,
                           destinationLng: destLng,
                           vehicleType: _selectedVehicleType!,
-                          price: _selectedVehiclePrice!,
+                          price: double.parse(_selectedVehiclePrice!),
                           distance: _calculatedDistance ?? 0.0,
                         );
 

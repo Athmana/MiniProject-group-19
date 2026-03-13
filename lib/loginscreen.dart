@@ -322,7 +322,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         Row(
           children: [
             Expanded(
-              child: _buildRoleCard('rider', 'User', Icons.person_outline),
+              child: _buildRoleCard('rider', 'Rider', Icons.person_outline),
             ),
             const SizedBox(width: 16),
             Expanded(

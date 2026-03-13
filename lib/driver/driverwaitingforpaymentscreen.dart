@@ -34,7 +34,7 @@ class _DriverWaitingPaymentScreenState
         final data = snapshot.data() as Map<String, dynamic>;
         if (mounted) {
           setState(() {
-            _price = "₹${data['price'] ?? '0'}";
+            _price = "₹${data['fareAmount'] ?? '0'}";
           });
         }
 
