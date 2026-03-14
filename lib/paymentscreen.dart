@@ -161,7 +161,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
           if (_isProcessing)
             Container(
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -194,7 +194,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF2D62ED).withOpacity(0.05) : null,
+          color: isSelected
+              ? const Color(0xFF2D62ED).withValues(alpha: 0.05)
+              : null,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? const Color(0xFF2D62ED) : Colors.grey.shade200,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/riderpickupscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class DriverRequestScreen extends StatefulWidget {
   final String rideId;
@@ -18,23 +17,11 @@ class DriverRequestScreen extends StatefulWidget {
 }
 
 class _DriverRequestScreenState extends State<DriverRequestScreen> {
-  GoogleMapController? mapController;
-  Set<Marker> markers = {};
   String? _riderName;
 
   @override
   void initState() {
     super.initState();
-    final lat = widget.rideData['pickupLat'] as double? ?? 11.6094;
-    final lng = widget.rideData['pickupLng'] as double? ?? 76.0828;
-    markers.add(
-      Marker(
-        markerId: const MarkerId('pickup'),
-        position: LatLng(lat, lng),
-        infoWindow: const InfoWindow(title: 'Pickup Location'),
-      ),
-    );
-
     _fetchRiderName();
   }
 
@@ -56,20 +43,30 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
       // Background Map Placeholder
       body: Stack(
         children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height,
-            width: MediaQuery.of(context).size.width,
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: LatLng(
-                  widget.rideData['pickupLat'] as double? ?? 11.6094,
-                  widget.rideData['pickupLng'] as double? ?? 76.0828,
+          Positioned.fill(
+            child: Container(
+              color: Colors.cyan.shade50,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.notification_important_rounded,
+                      size: 120,
+                      color: Colors.cyan.shade200,
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      "New Ride Request",
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.cyan.shade800,
+                      ),
+                    ),
+                  ],
                 ),
-                zoom: 15,
               ),
-              markers: markers,
-              onMapCreated: (controller) => mapController = controller,
-              myLocationEnabled: true,
             ),
           ),
 

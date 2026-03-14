@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/reachedlocationscreen.dart';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/services/ride_service.dart';
-import 'package:gowayanad/services/map_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 
 class RideStartedScreen extends StatefulWidget {
   final String rideId;
@@ -17,14 +15,10 @@ class RideStartedScreen extends StatefulWidget {
 
 class _RideStartedScreenState extends State<RideStartedScreen> {
   final RideService _rideService = RideService();
-  final MapService _mapService = MapService();
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
   String? _driverName;
-
-  GoogleMapController? _mapController;
-  List<LatLng> _routePoints = [];
-  LatLng? _driverLocation;
+  String? _driverPhone;
 
   @override
   void initState() {
@@ -38,9 +32,6 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
     ) async {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
-        final prevDriverLat = _rideData?['driverLat'];
-        final prevDriverLng = _rideData?['driverLng'];
-
         setState(() {
           _rideData = data;
         });
@@ -50,39 +41,13 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
             if (mounted && user != null) {
               setState(() {
                 _driverName = user['fullName'] ?? "Driver";
+                _driverPhone = user['phoneNumber'];
               });
             }
           });
         }
 
-        // Handle Driver Location and Polylines (Trip to Destination)
-        final currentDriverLat = data['driverLat'];
-        final currentDriverLng = data['driverLng'];
-
-        if (currentDriverLat != null && currentDriverLng != null) {
-          final newLoc = LatLng(currentDriverLat, currentDriverLng);
-
-          if (_driverLocation == null ||
-              currentDriverLat != prevDriverLat ||
-              currentDriverLng != prevDriverLng) {
-            setState(() {
-              _driverLocation = newLoc;
-            });
-
-            // Fetch Route from CURRENT (Driver) to DESTINATION
-            // In a real app we might geocode the destination once, but here it's in rideData
-            // Actually, we need destination Lat/Lng in rideData.
-            // Looking at CabBookingHome, it doesn't store destination Lat/Lng yet!
-            // I should have added that in CabBookingHome.
-
-            // For now, let's use the pickup and destination names if we had to,
-            // but it's better to store Lat/Lng in Firestore.
-
-            // Wait, I'll use the pickup as a fallback for now if destination lat/lng is missing,
-            // but I should fix RideService/CabBookingHome to store destination coordinates.
-          }
-        }
-
+        // Monitor status only
         if (_rideData?['status'] == 'completed') {
           if (mounted) {
             _rideSubscription?.cancel();
@@ -98,6 +63,29 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
     });
   }
 
+  Future<void> _makeCall() async {
+    if (_driverPhone == null || _driverPhone!.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Driver phone number not available")),
+        );
+      }
+      return;
+    }
+
+    final Uri launchUri = Uri(scheme: 'tel', path: _driverPhone);
+
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Could not launch phone dialer")),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _rideSubscription?.cancel();
@@ -110,43 +98,37 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
       body: Stack(
         children: [
           // 1. Full Screen Map Tracking
+          // 1. Clean Background info
           Positioned.fill(
-            child: _rideData == null
-                ? const Center(child: CircularProgressIndicator())
-                : GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: LatLng(
-                        _rideData!['pickupLat'] as double? ?? 11.6094,
-                        _rideData!['pickupLng'] as double? ?? 76.0828,
-                      ),
-                      zoom: 15,
+            child: Container(
+              color: Colors.green.shade50,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.directions_car_filled_rounded,
+                      size: 100,
+                      color: Colors.green.shade200,
                     ),
-                    markers: {
-                      if (_driverLocation != null)
-                        Marker(
-                          markerId: const MarkerId('driver'),
-                          position: _driverLocation!,
-                          icon: BitmapDescriptor.defaultMarkerWithHue(
-                            BitmapDescriptor.hueAzure,
-                          ),
-                          infoWindow: const InfoWindow(title: "Your Ride"),
-                        ),
-                      Marker(
-                        markerId: const MarkerId('pickup'),
-                        position: LatLng(
-                          _rideData!['pickupLat'] as double? ?? 11.6094,
-                          _rideData!['pickupLng'] as double? ?? 76.0828,
-                        ),
-                        icon: BitmapDescriptor.defaultMarkerWithHue(
-                          BitmapDescriptor.hueGreen,
-                        ),
-                        infoWindow: const InfoWindow(title: "Pickup Point"),
+                    const SizedBox(height: 16),
+                    Text(
+                      "Trip in Progress",
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green.shade800,
                       ),
-                    },
-                    myLocationEnabled: true,
-                    zoomControlsEnabled: false,
-                    onMapCreated: (controller) => _mapController = controller,
-                  ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "Enjoy your ride with Go Wayanad",
+                      style: TextStyle(color: Colors.green, fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
 
           // 2. Top Info Bar (Floating)
@@ -218,35 +200,58 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const CircleAvatar(
-                        radius: 25,
-                        child: Icon(Icons.person),
-                      ),
-                      title: Text(
-                        _driverName ?? "Driver Loading...",
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        _rideData?['vehicleType'] ?? "Vehicle Info",
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.call, color: Colors.green),
-                            onPressed: () {},
+                    Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 25,
+                          child: Icon(Icons.person),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _driverName ?? "Driver Loading...",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Text(
+                                _rideData?['vehicleType'] ?? "Vehicle Info",
+                                style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.message,
-                              color: Color(0xFF2D62ED),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: _driverPhone != null ? _makeCall : null,
+                          icon: const Icon(Icons.call, size: 18),
+                          label: const Text(
+                            "Call Driver",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
                             ),
-                            onPressed: () {},
                           ),
-                        ],
-                      ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2E7D32),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            elevation: 0,
+                          ),
+                        ),
+                      ],
                     ),
                     const Divider(),
                     Row(

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'paymentscreen.dart';
 import 'services/ride_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 
 class DriverReachedScreen extends StatefulWidget {
   final String rideId;
@@ -18,6 +18,8 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
   final RideService _rideService = RideService();
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
+  String? _driverName;
+  String? _driverPhone;
 
   @override
   void initState() {
@@ -34,6 +36,17 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
         setState(() {
           _rideData = data;
         });
+
+        if (_driverName == null && data['driverId'] != null) {
+          _rideService.getUserDetails(data['driverId']).then((user) {
+            if (mounted && user != null) {
+              setState(() {
+                _driverName = user['fullName'] ?? "Driver";
+                _driverPhone = user['phoneNumber'];
+              });
+            }
+          });
+        }
         if (data['status'] == 'completed') {
           if (mounted) {
             _rideSubscription?.cancel();
@@ -51,6 +64,81 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
     });
   }
 
+  Future<void> _makeCall() async {
+    if (_driverPhone == null || _driverPhone!.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Driver phone number not available")),
+        );
+      }
+      return;
+    }
+
+    final Uri launchUri = Uri(scheme: 'tel', path: _driverPhone);
+
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Could not launch phone dialer")),
+        );
+      }
+    }
+  }
+
+  Widget _buildDriverCallSection() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundColor: Color(0xFFF1F5FE),
+            child: Icon(Icons.person, color: Color(0xFF2D62ED)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _driverName ?? "Driver",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  "Arrived outside",
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: _driverPhone != null ? _makeCall : null,
+            icon: const Icon(Icons.call, size: 18),
+            label: const Text(
+              "Call Driver",
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2E7D32),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              elevation: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _rideSubscription?.cancel();
@@ -64,31 +152,37 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
       body: Column(
         children: [
           // Top Map Area (Placeholder)
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.4,
+          Container(
+            height: MediaQuery.of(context).size.height * 0.35,
             width: double.infinity,
-            child: _rideData == null
-                ? const Center(child: CircularProgressIndicator())
-                : GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: LatLng(
-                        _rideData!['pickupLat'] as double? ?? 11.6094,
-                        _rideData!['pickupLng'] as double? ?? 76.0828,
-                      ),
-                      zoom: 15,
-                    ),
-                    markers: {
-                      Marker(
-                        markerId: const MarkerId('pickup'),
-                        position: LatLng(
-                          _rideData!['pickupLat'] as double? ?? 11.6094,
-                          _rideData!['pickupLng'] as double? ?? 76.0828,
-                        ),
-                        infoWindow: const InfoWindow(title: 'Pickup Location'),
-                      ),
-                    },
-                    myLocationEnabled: true,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.green.shade400, Colors.green.shade700],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.check_circle_outline,
+                  size: 80,
+                  color: Colors.white,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _rideData?['status'] == 'arrived'
+                      ? "Driver is Here!"
+                      : "Arrived",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
                   ),
+                ),
+              ],
+            ),
           ),
 
           Expanded(
@@ -110,11 +204,12 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    "Your White Maruti Swift is at the pickup point",
-                    style: TextStyle(color: Colors.grey),
+                  Text(
+                    "Your vehicle is at the pickup point",
+                    style: const TextStyle(color: Colors.grey),
                   ),
-
+                  const SizedBox(height: 16),
+                  if (_rideData?['driverId'] != null) _buildDriverCallSection(),
                   const SizedBox(height: 30),
 
                   // Security PIN Section

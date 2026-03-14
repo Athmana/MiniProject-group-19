@@ -3,9 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/ridestartedscreen.dart';
 import 'package:gowayanad/driverreachedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:gowayanad/services/map_service.dart';
 import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 
 class DriverFoundScreen extends StatefulWidget {
   final String rideId;
@@ -18,14 +17,10 @@ class DriverFoundScreen extends StatefulWidget {
 
 class _DriverFoundScreenState extends State<DriverFoundScreen> {
   final RideService _rideService = RideService();
-  final MapService _mapService = MapService();
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
   String? _driverName;
-
-  GoogleMapController? _mapController;
-  List<LatLng> _routePoints = [];
-  LatLng? _driverLocation;
+  String? _driverPhone;
 
   @override
   void initState() {
@@ -39,9 +34,6 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
     ) async {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
-        final prevDriverLat = _rideData?['driverLat'];
-        final prevDriverLng = _rideData?['driverLng'];
-
         setState(() {
           _rideData = data;
         });
@@ -51,53 +43,13 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
             if (mounted && user != null) {
               setState(() {
                 _driverName = user['fullName'] ?? "Driver";
+                _driverPhone = user['phoneNumber'];
               });
             }
           });
         }
 
-        // Handle Driver Location and Polylines
-        final currentDriverLat = data['driverLat'];
-        final currentDriverLng = data['driverLng'];
-
-        if (currentDriverLat != null && currentDriverLng != null) {
-          final newLoc = LatLng(currentDriverLat, currentDriverLng);
-
-          if (_driverLocation == null ||
-              currentDriverLat != prevDriverLat ||
-              currentDriverLng != prevDriverLng) {
-            setState(() {
-              _driverLocation = newLoc;
-            });
-
-            // Fetch Route from Driver to Pickup
-            final pickupLoc = LatLng(
-              data['pickupLat'] as double? ?? 11.6094,
-              data['pickupLng'] as double? ?? 76.0828,
-            );
-
-            final points = await _mapService.getPolylinePoints(
-              newLoc,
-              pickupLoc,
-            );
-            if (mounted) {
-              setState(() {
-                _routePoints = points;
-              });
-
-              // Adjust camera to show both
-              if (_mapController != null) {
-                _mapController!.animateCamera(
-                  CameraUpdate.newLatLngBounds(
-                    _getBounds(newLoc, pickupLoc),
-                    50,
-                  ),
-                );
-              }
-            }
-          }
-        }
-
+        // Monitor status only
         if (_rideData?['status'] == 'arrived') {
           if (mounted) {
             _rideSubscription?.cancel();
@@ -124,15 +76,27 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
     });
   }
 
-  LatLngBounds _getBounds(LatLng p1, LatLng p2) {
-    double south = p1.latitude < p2.latitude ? p1.latitude : p2.latitude;
-    double west = p1.longitude < p2.longitude ? p1.longitude : p2.longitude;
-    double north = p1.latitude > p2.latitude ? p1.latitude : p2.latitude;
-    double east = p1.longitude > p2.longitude ? p1.longitude : p2.longitude;
-    return LatLngBounds(
-      southwest: LatLng(south, west),
-      northeast: LatLng(north, east),
-    );
+  Future<void> _makeCall() async {
+    if (_driverPhone == null || _driverPhone!.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Driver phone number not available")),
+        );
+      }
+      return;
+    }
+
+    final Uri launchUri = Uri(scheme: 'tel', path: _driverPhone);
+
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Could not launch phone dialer")),
+        );
+      }
+    }
   }
 
   @override
@@ -157,59 +121,37 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
         child: Column(
           children: [
             // 1. Map / Header Section
-            SizedBox(
-              height: 200,
+            Container(
+              height: 180,
               width: double.infinity,
-              child: _rideData == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : GoogleMap(
-                      initialCameraPosition: CameraPosition(
-                        target: LatLng(
-                          _rideData!['pickupLat'] as double? ?? 11.6094,
-                          _rideData!['pickupLng'] as double? ?? 76.0828,
-                        ),
-                        zoom: 15,
-                      ),
-                      markers: {
-                        Marker(
-                          markerId: const MarkerId('pickup'),
-                          position: LatLng(
-                            _rideData!['pickupLat'] as double? ?? 11.6094,
-                            _rideData!['pickupLng'] as double? ?? 76.0828,
-                          ),
-                          infoWindow: const InfoWindow(
-                            title: 'Pickup Location',
-                          ),
-                          icon: BitmapDescriptor.defaultMarkerWithHue(
-                            BitmapDescriptor.hueRed,
-                          ),
-                        ),
-                        if (_driverLocation != null)
-                          Marker(
-                            markerId: const MarkerId('driver'),
-                            position: _driverLocation!,
-                            infoWindow: const InfoWindow(
-                              title: 'Driver Location',
-                            ),
-                            icon: BitmapDescriptor.defaultMarkerWithHue(
-                              BitmapDescriptor.hueAzure,
-                            ),
-                          ),
-                      },
-                      polylines: {
-                        if (_routePoints.isNotEmpty)
-                          Polyline(
-                            polylineId: const PolylineId('route'),
-                            points: _routePoints,
-                            color: const Color(0xFF2D62ED),
-                            width: 5,
-                          ),
-                      },
-                      myLocationEnabled: true,
-                      zoomControlsEnabled: false,
-                      mapToolbarEnabled: false,
-                      onMapCreated: (controller) => _mapController = controller,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.cyan.shade400, Colors.cyan.shade700],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.airport_shuttle,
+                    size: 60,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _rideData?['status'] == 'arrived'
+                        ? "Driver is Here"
+                        : "Driver is coming...",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
+                ],
+              ),
             ),
 
             Padding(
@@ -375,19 +317,20 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
             ),
           ),
           ElevatedButton.icon(
-            onPressed: () {
-              // Manual Navigation for testing if needed, though replaced by stream listener
-              // Navigator.of(context).push(MaterialPageRoute(
-              //     builder: (context) => DriverReachedScreen(rideId: widget.rideId)));
-            },
+            onPressed: _driverPhone != null ? _makeCall : null,
             icon: const Icon(Icons.call, size: 18),
-            label: const Text("Call"),
+            label: const Text(
+              "Call Driver",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.cyan,
+              backgroundColor: const Color(0xFF2E7D32), // Professional Green
               foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(30), // Fully rounded
               ),
+              elevation: 2,
             ),
           ),
         ],

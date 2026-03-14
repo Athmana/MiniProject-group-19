@@ -2,10 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/homescreen.dart';
-import 'package:gowayanad/services/location_service.dart';
 import 'package:gowayanad/services/ride_service.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class EmergencyRideHome extends StatefulWidget {
@@ -28,32 +25,14 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
   }
 
   Future<void> _fetchAddress() async {
-    try {
-      Position position = await LocationService().getCurrentLocation();
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-
-      if (placemarks.isNotEmpty && mounted) {
-        Placemark place = placemarks[0];
-        setState(() {
-          _currentCity =
-              place.locality ?? place.subAdministrativeArea ?? "Unknown City";
-          _currentState =
-              "${place.administrativeArea ?? 'Unknown State'}, ${place.country ?? ''}";
-          _isLoadingLocation = false;
-        });
-      }
-    } catch (e) {
-      print("Error fetching location: $e");
-      if (mounted) {
-        setState(() {
-          _currentCity = "Sulthan Bathery";
-          _currentState = "Wayanad, Kerala (Mocked)";
-          _isLoadingLocation = false;
-        });
-      }
+    // Geocoding removed to simplify app and remove map dependencies.
+    // Using mocked location for Wayanad area.
+    if (mounted) {
+      setState(() {
+        _currentCity = "Sulthan Bathery";
+        _currentState = "Wayanad, Kerala (App Default)";
+        _isLoadingLocation = false;
+      });
     }
   }
 

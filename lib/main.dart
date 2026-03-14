@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/homepage.dart';
 import 'package:gowayanad/firebase_options.dart';
 import 'package:gowayanad/homepage.dart';
-import 'package:gowayanad/loginscreen.dart';
+import 'package:gowayanad/auth_screen.dart';
+import 'package:gowayanad/welcomescreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,7 +17,7 @@ void main() async {
       initialRoute: '/',
       routes: {
         '/': (context) => const AuthWrapper(),
-        '/login': (context) => const LoginScreen(),
+        '/login': (context) => const AuthScreen(isLogin: true),
         '/userHome': (context) => EmergencyRideHome(),
         '/driverHome': (context) => DriverHomePage(),
       },
@@ -68,7 +69,7 @@ class AuthWrapper extends StatelessWidget {
         }
 
         // User is NOT logged in
-        return const LoginScreen();
+        return const WelcomeScreen();
       },
     );
   }

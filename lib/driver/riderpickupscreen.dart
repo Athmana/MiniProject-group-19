@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:gowayanad/driver/driverotpscreen.dart';
+import 'package:gowayanad/driver/driverridestartedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class DriverToPickupScreen extends StatefulWidget {
   final String rideId;
@@ -19,6 +19,15 @@ class DriverToPickupScreen extends StatefulWidget {
 
 class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
   String? _riderName;
+  String? _riderPhone;
+  bool _hasArrived = false;
+  final List<TextEditingController> _controllers = List.generate(
+    4,
+    (_) => TextEditingController(),
+  );
+  final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
@@ -32,8 +41,81 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
       if (mounted && user != null) {
         setState(() {
           _riderName = user['fullName'];
+          _riderPhone = user['phoneNumber'];
         });
       }
+    }
+  }
+
+  Future<void> _makePhoneCall() async {
+    if (_riderPhone == null || _riderPhone!.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Rider phone number not available")),
+        );
+      }
+      return;
+    }
+
+    final Uri launchUri = Uri(scheme: 'tel', path: _riderPhone);
+
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Could not launch phone dialer")),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
+    for (var node in _focusNodes) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  void _verifyOtp() async {
+    String enteredOtp = _controllers.map((c) => c.text).join();
+    if (enteredOtp.length < 4) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Please enter 4-digit OTP")));
+      return;
+    }
+
+    String correctOtp = widget.rideData['otp'] ?? "0000";
+
+    if (enteredOtp == correctOtp) {
+      setState(() => _isLoading = true);
+      bool success = await RideService().updateRideStatus(
+        widget.rideId,
+        'started',
+      );
+
+      if (success && mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) =>
+                DriverRideStartedScreen(rideId: widget.rideId),
+          ),
+        );
+      } else if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Failed to start ride")));
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Invalid OTP. Please try again.")),
+      );
     }
   }
 
@@ -42,29 +124,31 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Map View (Full Screen)
-          SizedBox(
-            height: MediaQuery.of(context).size.height,
-            width: MediaQuery.of(context).size.width,
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: LatLng(
-                  widget.rideData['pickupLat'] as double? ?? 11.6094,
-                  widget.rideData['pickupLng'] as double? ?? 76.0828,
+          // 1. Clean Background
+          Positioned.fill(
+            child: Container(
+              color: Colors.cyan.shade50,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.navigation_rounded,
+                      size: 100,
+                      color: Colors.cyan.shade200,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "Navigation active",
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.cyan.shade800,
+                      ),
+                    ),
+                  ],
                 ),
-                zoom: 15,
               ),
-              markers: {
-                Marker(
-                  markerId: const MarkerId('pickup'),
-                  position: LatLng(
-                    widget.rideData['pickupLat'] as double? ?? 11.6094,
-                    widget.rideData['pickupLng'] as double? ?? 76.0828,
-                  ),
-                  infoWindow: const InfoWindow(title: 'Pickup Location'),
-                ),
-              },
-              myLocationEnabled: true,
             ),
           ),
 
@@ -158,72 +242,162 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                           ],
                         ),
                       ),
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(
-                          Icons.call,
-                          color: Colors.green,
-                          size: 28,
+                      ElevatedButton.icon(
+                        onPressed: _riderPhone != null ? _makePhoneCall : null,
+                        icon: const Icon(Icons.call, size: 18),
+                        label: const Text(
+                          "Call Rider",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2E7D32),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          elevation: 0,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
 
-                  // Main Action Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 60,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        // Logic to notify user: "Driver has reached"
-                        bool success = await RideService().updateRideStatus(
-                          widget.rideId,
-                          'arrived',
-                        );
-                        if (!context.mounted) return;
-                        if (success) {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (context) => DriverOtpScreen(
-                                rideId: widget.rideId,
-                                correctOtp:
-                                    widget.rideData['otp'] ??
-                                    "0000", // Dynamic OTP
-                              ),
-                            ),
+                  // Main Action Section
+                  if (!_hasArrived)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 60,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          // Logic to notify user: "Driver has reached"
+                          bool success = await RideService().updateRideStatus(
+                            widget.rideId,
+                            'arrived',
                           );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Failed to update status to arrived',
+                          if (!context.mounted) return;
+                          if (success) {
+                            setState(() {
+                              _hasArrived = true;
+                            });
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Failed to update status to arrived',
+                                ),
                               ),
-                            ),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          "REACHED PICKUP LOCATION",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
-                      child: const Text(
-                        "REACHED PICKUP LOCATION",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                    )
+                  else
+                    Column(
+                      children: [
+                        const Text(
+                          "Enter Passenger PIN",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: List.generate(4, (index) => _otpBox(index)),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _verifyOtp,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    "VERIFY & START RIDE",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _otpBox(int index) {
+    return SizedBox(
+      width: 50,
+      height: 50,
+      child: TextField(
+        controller: _controllers[index],
+        focusNode: _focusNodes[index],
+        textAlign: TextAlign.center,
+        keyboardType: TextInputType.number,
+        maxLength: 1,
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        decoration: InputDecoration(
+          counterText: "",
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF2D62ED), width: 2),
+          ),
+        ),
+        onChanged: (value) {
+          if (value.isNotEmpty && index < 3) {
+            _focusNodes[index + 1].requestFocus();
+          } else if (value.isEmpty && index > 0) {
+            _focusNodes[index - 1].requestFocus();
+          }
+        },
       ),
     );
   }

@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/services/location_service.dart';
-import 'package:gowayanad/services/map_service.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:gowayanad/waitingfordriverscreen.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:gowayanad/utils/fare_calculator.dart';
 
 class CabBookingHome extends StatefulWidget {
   const CabBookingHome({super.key});
@@ -23,9 +22,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
   String? _selectedVehicleType;
   String? _selectedVehiclePrice;
 
-  GoogleMapController? _mapController;
-  List<LatLng> _routePoints = [];
-  LatLng? _destinationLocation;
   Timer? _debounce;
 
   double? _calculatedDistance;
@@ -33,7 +29,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
     "Bike": "...",
     "Auto": "...",
     "Car": "...",
-    "Ambulance": "Free",
+    "Ambulance": "...",
   };
   bool _isCalculatingFare = false;
 
@@ -72,85 +68,59 @@ class _CabBookingHomeState extends State<CabBookingHome> {
     });
 
     try {
-      final MapService mapService = MapService();
-      final pickup = LatLng(
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
-      );
-
-      // 1. Geocode destination ONCE
+      // 1. Get coordinates for destination
       List<Location> locations = await locationFromAddress(destination);
-      if (locations.isEmpty || !mounted) {
-        if (mounted) setState(() => _isCalculatingFare = false);
-        return;
-      }
+      if (locations.isNotEmpty) {
+        Location destLocation = locations.first;
 
-      final dest = LatLng(locations[0].latitude, locations[0].longitude);
-      setState(() => _destinationLocation = dest);
-
-      // 2. Calculate straight-line distance locally (no second API call)
-      //    and fetch polyline IN PARALLEL for speed
-      final results = await Future.wait([
-        mapService.getPolylinePoints(pickup, dest),
-        Future.value(
-          Geolocator.distanceBetween(
-                pickup.latitude,
-                pickup.longitude,
-                dest.latitude,
-                dest.longitude,
-              ) /
-              1000, // metres → km
-        ),
-      ]);
-
-      if (!mounted) return;
-
-      final points = results[0] as List<LatLng>;
-      final double distanceInKm = results[1] as double;
-
-      // 3. Update map
-      setState(() => _routePoints = points);
-      if (_mapController != null && points.isNotEmpty) {
-        _mapController!.animateCamera(
-          CameraUpdate.newLatLngBounds(_getBounds(pickup, dest), 50),
+        // 2. Calculate distance in kilometers
+        double distanceInMeters = Geolocator.distanceBetween(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          destLocation.latitude,
+          destLocation.longitude,
         );
-      }
+        double distanceInKm = distanceInMeters / 1000;
 
-      // 4. Update fares
-      if (distanceInKm > 0 && mounted) {
+        if (!mounted) return;
+
         setState(() {
           _calculatedDistance = distanceInKm;
-          _vehiclePrices["Bike"] = (30 + (8 * distanceInKm)).toStringAsFixed(0);
-          _vehiclePrices["Auto"] = (50 + (12 * distanceInKm)).toStringAsFixed(
-            0,
-          );
-          _vehiclePrices["Car"] = (100 + (18 * distanceInKm)).toStringAsFixed(
-            0,
-          );
-          _vehiclePrices["Ambulance"] = "Free";
+
+          // 3. Use FareCalculator for all types
+          // Note: UI uses "Car" but calculator expects "Cab" or "Car"
+          _vehiclePrices["Bike"] = FareCalculator.calculateFare(
+            "Bike",
+            distanceInKm,
+          ).toStringAsFixed(0);
+          _vehiclePrices["Auto"] = FareCalculator.calculateFare(
+            "Auto",
+            distanceInKm,
+          ).toStringAsFixed(0);
+          _vehiclePrices["Car"] = FareCalculator.calculateFare(
+            "Cab",
+            distanceInKm,
+          ).toStringAsFixed(0); // Using "Cab" rate for "Car"
+          _vehiclePrices["Ambulance"] = FareCalculator.calculateFare(
+            "Ambulance",
+            distanceInKm,
+          ).toStringAsFixed(0);
+
           _isCalculatingFare = false;
+
           if (_selectedVehicleType != null) {
             _selectedVehiclePrice = _vehiclePrices[_selectedVehicleType];
           }
         });
-      } else {
-        if (mounted) setState(() => _isCalculatingFare = false);
       }
     } catch (e) {
-      print("Error calculating fares: $e");
-      if (mounted) setState(() => _isCalculatingFare = false);
+      if (mounted) {
+        setState(() {
+          _isCalculatingFare = false;
+        });
+        print("Geocoding error: $e");
+      }
     }
-  }
-
-  LatLngBounds _getBounds(LatLng p1, LatLng p2) {
-    double south = p1.latitude < p2.latitude ? p1.latitude : p2.latitude;
-    double west = p1.longitude < p2.longitude ? p1.longitude : p2.longitude;
-    double north = p1.latitude > p2.latitude ? p1.latitude : p2.latitude;
-    double east = p1.longitude > p2.longitude ? p1.longitude : p2.longitude;
-    return LatLngBounds(
-      southwest: LatLng(south, west),
-      northeast: LatLng(north, east),
-    );
   }
 
   @override
@@ -204,63 +174,38 @@ class _CabBookingHomeState extends State<CabBookingHome> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 1. Map Preview
-            SizedBox(
-              height: 250,
+            Container(
+              height: 200,
               width: double.infinity,
-              child: ClipRRect(
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
                 borderRadius: BorderRadius.circular(16),
-                child: _currentPosition == null
-                    ? const Center(child: CircularProgressIndicator())
-                    : GoogleMap(
-                        initialCameraPosition: CameraPosition(
-                          target: LatLng(
-                            _currentPosition!.latitude,
-                            _currentPosition!.longitude,
-                          ),
-                          zoom: 14,
-                        ),
-                        markers: {
-                          if (_currentPosition != null)
-                            Marker(
-                              markerId: const MarkerId('pickup'),
-                              position: LatLng(
-                                _currentPosition!.latitude,
-                                _currentPosition!.longitude,
-                              ),
-                              infoWindow: const InfoWindow(
-                                title: 'Pickup Location',
-                              ),
-                              icon: BitmapDescriptor.defaultMarkerWithHue(
-                                BitmapDescriptor.hueAzure,
-                              ),
-                            ),
-                          if (_destinationLocation != null)
-                            Marker(
-                              markerId: const MarkerId('destination'),
-                              position: _destinationLocation!,
-                              infoWindow: const InfoWindow(
-                                title: 'Destination',
-                              ),
-                              icon: BitmapDescriptor.defaultMarkerWithHue(
-                                BitmapDescriptor.hueRed,
-                              ),
-                            ),
-                        },
-                        polylines: {
-                          if (_routePoints.isNotEmpty)
-                            Polyline(
-                              polylineId: const PolylineId('route'),
-                              points: _routePoints,
-                              color: const Color(0xFF2D62ED),
-                              width: 5,
-                            ),
-                        },
-                        myLocationEnabled: true,
-                        zoomControlsEnabled: false,
-                        mapToolbarEnabled: false,
-                        onMapCreated: (controller) =>
-                            _mapController = controller,
-                      ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.directions_car_rounded,
+                    size: 64,
+                    color: Colors.green.shade700,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    "Ready to Ride",
+                    style: TextStyle(
+                      color: Colors.green.shade900,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  Text(
+                    "Your location is verified",
+                    style: TextStyle(
+                      color: Colors.green.shade700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -361,46 +306,79 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed:
-                    (_currentPosition != null &&
-                        _destinationController.text.isNotEmpty &&
-                        _selectedVehicleType != null &&
-                        _selectedVehiclePrice != null &&
-                        _selectedVehiclePrice != "..." &&
-                        !_isCalculatingFare)
-                    ? () async {
-                        final String? rideId = await RideService().requestRide(
-                          pickupLocation:
-                              "Lat: ${_currentPosition!.latitude}, Lng: ${_currentPosition!.longitude}",
-                          pickupLat: _currentPosition!.latitude,
-                          pickupLng: _currentPosition!.longitude,
-                          destination: _destinationController.text.trim(),
-                          destinationLat: _destinationLocation?.latitude ?? 0.0,
-                          destinationLng:
-                              _destinationLocation?.longitude ?? 0.0,
-                          vehicleType: _selectedVehicleType!,
-                          price: _selectedVehiclePrice!,
-                          distance: _calculatedDistance ?? 0.0,
-                        );
+                onPressed: () async {
+                  if (_currentPosition == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Fetching location... please wait'),
+                      ),
+                    );
+                    return;
+                  }
+                  if (_destinationController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a destination'),
+                      ),
+                    );
+                    return;
+                  }
+                  if (_isCalculatingFare) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Calculating fares... please wait'),
+                      ),
+                    );
+                    return;
+                  }
+                  if (_selectedVehiclePrice == "..." ||
+                      _selectedVehiclePrice == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Please enter a valid destination to calculate fares',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  if (_selectedVehicleType == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please select a vehicle type'),
+                      ),
+                    );
+                    return;
+                  }
 
-                        if (rideId != null && context.mounted) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  WaitingForDriverScreen(rideId: rideId),
-                            ),
-                          );
-                        } else {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Failed to request ride'),
-                              ),
-                            );
-                          }
-                        }
-                      }
-                    : null,
+                  final String? rideId = await RideService().requestRide(
+                    pickupLocation:
+                        "Lat: ${_currentPosition!.latitude}, Lng: ${_currentPosition!.longitude}",
+                    pickupLat: _currentPosition!.latitude,
+                    pickupLng: _currentPosition!.longitude,
+                    destination: _destinationController.text.trim(),
+                    destinationLat: 0.0,
+                    destinationLng: 0.0,
+                    vehicleType: _selectedVehicleType!,
+                    price: _selectedVehiclePrice!,
+                    distance: _calculatedDistance ?? 0.0,
+                  );
+
+                  if (rideId != null && context.mounted) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            WaitingForDriverScreen(rideId: rideId),
+                      ),
+                    );
+                  } else {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Failed to request ride')),
+                      );
+                    }
+                  }
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF94B5F9),
                   foregroundColor: Colors.white,
@@ -467,7 +445,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               children: [
                 const Icon(Icons.currency_rupee, size: 14, color: Colors.blue),
                 Text(
-                  price.replaceAll('₹', ''),
+                  price,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
