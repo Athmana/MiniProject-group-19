@@ -5,8 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/homepage.dart';
 import 'package:gowayanad/firebase_options.dart';
 import 'package:gowayanad/homepage.dart';
+import 'package:gowayanad/auth_screen.dart';
+import 'package:gowayanad/welcomescreen.dart';
 import 'package:gowayanad/homescreen.dart';
-import 'package:gowayanad/loginscreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,9 +18,11 @@ void main() async {
       initialRoute: '/',
       routes: {
         '/': (context) => const AuthWrapper(),
+        '/login': (context) => const AuthScreen(isLogin: true),
+        '/signup': (context) => const AuthScreen(isLogin: false),
         '/riderHome': (context) => const EmergencyRideHome(),
         '/riderBooking': (context) => const RiderBookingScreen(),
-        '/driverHome': (context) => DriverHomePage(),
+        '/driverHome': (context) => const DriverHomePage(),
       },
     ),
   );
@@ -74,13 +77,13 @@ class AuthWrapper extends StatelessWidget {
               }
 
               // Fallback if document doesn't exist (e.g., deleted from Firestore but auth remains)
-              return const LoginScreen();
+              return const WelcomeScreen();
             },
           );
         }
 
         // User is NOT logged in
-        return const LoginScreen();
+        return const WelcomeScreen();
       },
     );
   }

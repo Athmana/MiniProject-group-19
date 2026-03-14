@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/driver/driverwaitingforpaymentscreen.dart';
@@ -16,14 +17,14 @@ class DriverRideStartedScreen extends StatefulWidget {
 class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
   final RideService _rideService = RideService();
   String? _riderName;
+  String? _riderPhone;
 
   Future<void> _startRide() async {
-    await FirebaseFirestore.instance
-        .collection('rides')
-        .doc(widget.rideId)
-        .update({"status": "started"});
-
-    if (mounted) {
+    bool success = await _rideService.updateRideStatus(
+      widget.rideId,
+      "started",
+    );
+    if (success && mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Ride Started")));
@@ -31,15 +32,11 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
   }
 
   Future<void> _endRide() async {
-    await FirebaseFirestore.instance
-        .collection('rides')
-        .doc(widget.rideId)
-        .update({
-          "status": "completed",
-          "completedAt": FieldValue.serverTimestamp(),
-        });
-
-    if (mounted) {
+    bool success = await _rideService.updateRideStatus(
+      widget.rideId,
+      "completed",
+    );
+    if (success && mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) =>
@@ -57,14 +54,30 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
     }
   }
 
+  Future<void> _makeCall() async {
+    if (_riderPhone == null || _riderPhone!.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Rider phone number not available")),
+        );
+      }
+      return;
+    }
+
+    final Uri launchUri = Uri(scheme: 'tel', path: _riderPhone);
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
-          "Trip Navigation",
-          style: TextStyle(color: Colors.black),
+          "Trip Progress",
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -117,9 +130,11 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
           if (_riderName == null && data['riderId'] != null) {
             _rideService.getUserDetails(data['riderId']).then((riderData) {
               if (mounted) {
-                setState(
-                  () => _riderName = riderData?['name'] ?? riderData?['fullName'] ?? "Valued Rider",
-                );
+                setState(() {
+                  _riderName =
+                      riderData?['fullName'] ?? riderData?['name'] ?? "Rider";
+                  _riderPhone = riderData?['phoneNumber'];
+                });
               }
             });
           }
@@ -138,6 +153,7 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
                   decoration: BoxDecoration(
                     color: Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
                   ),
                   child: Row(
                     children: [
@@ -151,26 +167,52 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "RIDER",
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "RIDER",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                          Text(
-                            _riderName ?? "Loading...",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                            Text(
+                              _riderName ?? "Loading...",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
+                      if (_riderPhone != null)
+                        ElevatedButton.icon(
+                          onPressed: _makeCall,
+                          icon: const Icon(
+                            Icons.call,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                          label: const Text(
+                            "Call",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2E7D32),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -183,6 +225,13 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF2D62ED),
                     borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2D62ED).withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,7 +255,7 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
+                                color: Colors.white.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: const Row(
@@ -231,7 +280,7 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       Text(
                         targetAddress,
                         style: const TextStyle(
@@ -280,182 +329,50 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
                 const Spacer(),
 
                 // Action Buttons
-                if (status == "accepted")
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            bool? confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text("Cancel Ride"),
-                                content: const Text(
-                                  "Are you sure you want to cancel this ride?",
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text("No"),
-                                  ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    child: const Text(
-                                      "Yes, Cancel",
-                                      style: TextStyle(color: Colors.red),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-
-                            if (confirm == true) {
-                              bool success = await RideService().cancelRide(
-                                widget.rideId,
-                              );
-                              if (success && mounted) {
-                                Navigator.of(
-                                  context,
-                                ).popUntil((route) => route.isFirst);
-                              } else if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Failed to cancel ride'),
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            side: const BorderSide(color: Colors.redAccent),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text(
-                            "CANCEL",
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                if (status == "accepted" || status == "arrived")
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: _startRide,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2D62ED),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton(
-                          onPressed: _startRide,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2D62ED),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text(
-                            "START TRIP",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.white,
-                            ),
-                          ),
+                      child: const Text(
+                        "START TRIP",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.white,
                         ),
                       ),
-                    ],
+                    ),
                   ),
 
                 if (status == "started")
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            bool? confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text("Cancel Ride"),
-                                content: const Text(
-                                  "Are you sure you want to cancel this ride although it has already started?",
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text("No"),
-                                  ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    child: const Text(
-                                      "Yes, Cancel",
-                                      style: TextStyle(color: Colors.red),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-
-                            if (confirm == true) {
-                              bool success = await RideService().cancelRide(
-                                widget.rideId,
-                              );
-                              if (success && mounted) {
-                                Navigator.of(
-                                  context,
-                                ).popUntil((route) => route.isFirst);
-                              } else if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Failed to cancel ride'),
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            side: const BorderSide(color: Colors.redAccent),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text(
-                            "CANCEL",
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: _endRide,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton(
-                          onPressed: _endRide,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.redAccent,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text(
-                            "COMPLETE RIDE",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.white,
-                            ),
-                          ),
+                      child: const Text(
+                        "COMPLETE RIDE",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.white,
                         ),
                       ),
-                    ],
+                    ),
                   ),
 
                 const SizedBox(height: 20),

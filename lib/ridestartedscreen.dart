@@ -3,6 +3,7 @@ import 'package:gowayanad/reachedlocationscreen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 
 class RideStartedScreen extends StatefulWidget {
   final String rideId;
@@ -17,6 +18,7 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
   String? _driverName;
+  String? _driverPhone;
 
   @override
   void initState() {
@@ -30,7 +32,6 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
     ) async {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
-
         setState(() {
           _rideData = data;
         });
@@ -39,7 +40,8 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
           _rideService.getUserDetails(_rideData!['driverId']).then((user) {
             if (mounted && user != null) {
               setState(() {
-                _driverName = user['name'] ?? user['fullName'] ?? "Driver";
+                _driverName = user['fullName'] ?? user['name'] ?? "Driver";
+                _driverPhone = user['phoneNumber'];
               });
             }
           });
@@ -68,6 +70,22 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
     });
   }
 
+  Future<void> _makeCall() async {
+    if (_driverPhone == null || _driverPhone!.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Driver phone number not available")),
+        );
+      }
+      return;
+    }
+
+    final Uri launchUri = Uri(scheme: 'tel', path: _driverPhone);
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    }
+  }
+
   @override
   void dispose() {
     _rideSubscription?.cancel();
@@ -79,7 +97,7 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Background Status Area (Replacing Map)
+          // 1. Background Status Area
           Positioned.fill(
             child: Container(
               color: const Color(0xFFF1F5FE),
@@ -96,16 +114,18 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
                     Text(
                       _rideData != null ? "Trip in Progress" : "Connecting...",
                       style: const TextStyle(
-                        fontSize: 20,
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black54,
+                        color: Colors.black87,
                       ),
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      "Please stay safe during the ride",
-                      style: TextStyle(color: Colors.grey),
+                      "Enjoy your ride with Go Wayanad",
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
                     ),
+                    const SizedBox(height: 12),
+                    const CircularProgressIndicator(strokeWidth: 2),
                   ],
                 ),
               ),
@@ -116,46 +136,50 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black12, blurRadius: 10),
-                      ],
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              "Arriving to your Destination",
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on, color: Color(0xFF2D62ED)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            "DESTINATION",
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
                             ),
-                            Text(
-                              _rideData?['destinationLocation'] ?? "Loading...",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            _rideData?['destinationLocation'] ?? "Loading...",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
                             ),
-                          ],
-                        ),
-                      ],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -168,58 +192,78 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 15)],
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, -5),
+                    ),
+                  ],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const CircleAvatar(
-                        radius: 25,
-                        child: Icon(Icons.person),
-                      ),
-                      title: Text(
-                        _driverName ?? "Driver Loading...",
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        _rideData?['vehicleType'] ?? "Vehicle Info",
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.call, color: Colors.green),
-                            onPressed: () {},
+                    Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 25,
+                          backgroundColor: Color(0xFFEBF2FF),
+                          child: Icon(Icons.person, color: Color(0xFF2D62ED)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _driverName ?? "Driver Loading...",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              Text(
+                                _rideData?['vehicleType'] ?? "Vehicle Info",
+                                style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
+                        ),
+                        if (_driverPhone != null)
                           IconButton(
-                            icon: const Icon(
-                              Icons.message,
-                              color: Color(0xFF2D62ED),
+                            onPressed: _makeCall,
+                            icon: const Icon(Icons.call, color: Colors.white),
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFF2E7D32),
+                              padding: const EdgeInsets.all(12),
                             ),
-                            onPressed: () {},
                           ),
-                        ],
-                      ),
+                      ],
                     ),
-                    const Divider(),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Divider(height: 1),
+                    ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          "Fare Estimate",
-                          style: TextStyle(color: Colors.grey),
+                          "Fare Amount",
+                          style: TextStyle(color: Colors.grey, fontSize: 16),
                         ),
                         Text(
                           "₹${_rideData?['fareAmount'] ?? '0'}",
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 18,
+                            fontSize: 22,
+                            color: Color(0xFF2D62ED),
                           ),
                         ),
                       ],

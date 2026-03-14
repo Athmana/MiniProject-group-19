@@ -7,7 +7,10 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_auth
   firebase_core
   geolocator_windows
+<<<<<<< HEAD
+=======
   share_plus
+>>>>>>> ea9affd213dc5726aeb9d216a72f6bb5be3e0ef3
   url_launcher_windows
 )
 

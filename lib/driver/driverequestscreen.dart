@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/riderpickupscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
-import 'dart:async';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DriverRequestScreen extends StatefulWidget {
@@ -21,16 +22,36 @@ class DriverRequestScreen extends StatefulWidget {
 class _DriverRequestScreenState extends State<DriverRequestScreen> {
   String? _riderName;
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
+  GoogleMapController? mapController;
+  Set<Marker> markers = {};
 
   @override
   void initState() {
     super.initState();
     _fetchRiderName();
     _listenToRideStatus();
+    _initMarkers();
+  }
+
+  void _initMarkers() {
+    final lat = widget.rideData['pickupLat'] as double? ?? 11.6094;
+    final lng = widget.rideData['pickupLng'] as double? ?? 76.0828;
+
+    setState(() {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('pickup'),
+          position: LatLng(lat, lng),
+          infoWindow: const InfoWindow(title: 'Pickup Location'),
+        ),
+      );
+    });
   }
 
   void _listenToRideStatus() {
-    _rideSubscription = RideService().listenToRide(widget.rideId).listen((snapshot) {
+    _rideSubscription = RideService().listenToRide(widget.rideId).listen((
+      snapshot,
+    ) {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
         if (data['status'] == 'cancelled') {
@@ -58,7 +79,7 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
       final user = await RideService().getUserDetails(riderId);
       if (mounted && user != null) {
         setState(() {
-          _riderName = user['fullName'];
+          _riderName = user['fullName'] ?? user['name'];
         });
       }
     }
@@ -70,37 +91,20 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // 1. Background Status Area (Replacing Map)
-          Positioned.fill(
-            child: Container(
-              color: const Color(0xFFE3F2FD),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.notifications_active,
-                      size: 80,
-                      color: Color(0xFF2D62ED),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      "New Ride Request",
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black54,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "Pickup: ${widget.rideData['pickupLocation'] ?? 'Remote Location'}",
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                  ],
+          SizedBox(
+            height: MediaQuery.of(context).size.height,
+            width: MediaQuery.of(context).size.width,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: LatLng(
+                  widget.rideData['pickupLat'] as double? ?? 11.6094,
+                  widget.rideData['pickupLng'] as double? ?? 76.0828,
                 ),
+                zoom: 15,
               ),
+              markers: markers,
+              onMapCreated: (controller) => mapController = controller,
+              myLocationEnabled: true,
             ),
           ),
 
@@ -133,20 +137,20 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                               ),
                             ),
                             Row(
-                              children: [
-                                const Icon(
+                              children: const [
+                                Icon(
                                   Icons.star,
                                   color: Colors.orange,
                                   size: 16,
                                 ),
-                                const Text(" 4.8  •  Cash Payment"),
+                                Text(" 4.8  •  Cash Payment"),
                               ],
                             ),
                           ],
                         ),
                       ),
                       Text(
-                        "₹${widget.rideData['fareAmount'] ?? '0'}",
+                        "₹${widget.rideData['fareAmount'] ?? widget.rideData['price'] ?? '0'}",
                         style: const TextStyle(
                           color: Color(0xFF2D62ED),
                           fontWeight: FontWeight.bold,
@@ -165,7 +169,9 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                   _buildLocationInfo(
                     Icons.location_on,
                     "Destination",
-                    widget.rideData['destinationLocation'] ?? "S. Bathery",
+                    widget.rideData['destinationLocation'] ??
+                        widget.rideData['destination'] ??
+                        "S. Bathery",
                   ),
                   const SizedBox(height: 32),
 

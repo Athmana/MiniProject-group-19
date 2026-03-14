@@ -4,6 +4,7 @@ import 'package:gowayanad/ridestartedscreen.dart';
 import 'package:gowayanad/driverreachedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 
 class DriverFoundScreen extends StatefulWidget {
   final String rideId;
@@ -19,6 +20,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
   String? _driverName;
+  String? _driverPhone;
   bool _isPinVisible = false;
   Timer? _countdownTimer;
   String _timeLeft = "15:00";
@@ -35,7 +37,6 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
     ) async {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
-
         setState(() {
           _rideData = data;
         });
@@ -46,7 +47,8 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
           _rideService.getUserDetails(_rideData!['driverId']).then((user) {
             if (mounted && user != null) {
               setState(() {
-                _driverName = user['name'] ?? user['fullName'] ?? "Driver";
+                _driverName = user['fullName'] ?? user['name'] ?? "Driver";
+                _driverPhone = user['phoneNumber'];
               });
             }
           });
@@ -54,8 +56,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
 
         if (_rideData?['status'] == 'arrived') {
           if (mounted) {
-            _rideSubscription?.cancel();
-            _countdownTimer?.cancel();
+            _stopTimers();
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -66,8 +67,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
           }
         } else if (_rideData?['status'] == 'started') {
           if (mounted) {
-            _rideSubscription?.cancel();
-            _countdownTimer?.cancel();
+            _stopTimers();
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -77,8 +77,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
           }
         } else if (_rideData?['status'] == 'cancelled') {
           if (mounted) {
-            _rideSubscription?.cancel();
-            _countdownTimer?.cancel();
+            _stopTimers();
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Ride was cancelled.')),
             );
@@ -119,11 +118,31 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
     });
   }
 
-  @override
-  void dispose() {
+  void _stopTimers() {
     _rideSubscription?.cancel();
     _countdownTimer?.cancel();
+  }
+
+  @override
+  void dispose() {
+    _stopTimers();
     super.dispose();
+  }
+
+  Future<void> _makeCall() async {
+    if (_driverPhone == null || _driverPhone!.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Driver phone number not available")),
+        );
+      }
+      return;
+    }
+
+    final Uri launchUri = Uri(scheme: 'tel', path: _driverPhone);
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    }
   }
 
   @override
@@ -135,44 +154,51 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
         elevation: 0,
         title: const Text(
           "Tracking Ride",
-          style: TextStyle(color: Colors.black),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // 1. Header Section (Replacing Map)
+            // 1. Map / Header Section
             Container(
               height: 200,
               width: double.infinity,
-              color: const Color(0xFFE3F2FD),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.local_taxi,
-                      size: 60,
-                      color: Color(0xFF2D62ED),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _driverName != null
-                          ? "$_driverName is on the way"
-                          : "Connecting with Driver...",
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      "Expected soon at your pickup location",
-                      style: TextStyle(color: Colors.grey, fontSize: 13),
-                    ),
-                  ],
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [const Color(0xFF2D62ED), const Color(0xFF5386FF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.airport_shuttle,
+                    size: 60,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _rideData?['status'] == 'arrived'
+                        ? "Driver is Here"
+                        : "Driver is coming...",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _driverName != null
+                        ? "$_driverName is on the way"
+                        : "Connecting with Driver...",
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                ],
               ),
             ),
 
@@ -197,8 +223,8 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                     children: [
                       Expanded(
                         child: _buildLocationCard(
-                          "Pickup Location",
-                          _rideData?['pickupLocation'] ?? "Kalpetta Main Road",
+                          "Pickup",
+                          _rideData?['pickupLocation'] ?? "Kalpetta",
                           "Wayanad, Kerala",
                         ),
                       ),
@@ -207,8 +233,9 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                         child: _buildLocationCard(
                           "Destination",
                           _rideData?['destinationLocation'] ??
-                              "Sulthan Bathery Hospital",
-                          "Distance calculated",
+                              _rideData?['destination'] ??
+                              "S. Bathery",
+                          "Distance: ${(_rideData?['distanceKm'] ?? _rideData?['distance'] ?? 0).toStringAsFixed(1)} KM",
                         ),
                       ),
                     ],
@@ -230,7 +257,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                   _buildTimelineItem("Driver Found", "Completed", isDone: true),
                   _buildTimelineItem(
                     _rideData?['status'] == 'arrived'
-                        ? "Driver has arrived outside"
+                        ? "Driver has arrived"
                         : "Driver is on the way",
                     _rideData?['status'] == 'arrived'
                         ? "Waiting for you"
@@ -249,7 +276,6 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
 
   Widget _buildSuccessBanner() {
     bool isArrived = _rideData?['status'] == 'arrived';
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -265,9 +291,9 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
       child: Row(
         children: [
           Icon(
-            isArrived ? Icons.info : Icons.check_circle,
+            isArrived ? Icons.info_outline : Icons.check_circle_outline,
             color: isArrived ? Colors.orange : Colors.green,
-            size: 20,
+            size: 24,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -285,7 +311,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                   isArrived
                       ? "${_driverName ?? 'Driver'} is waiting outside for you."
                       : "${_driverName ?? 'Driver'} is on the way",
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
                 ),
               ],
             ),
@@ -297,7 +323,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
 
   Widget _buildPinSection() {
     bool isExpired = _timeLeft == "Expired";
-    String ridePin = _rideData?['ridePin']?.toString() ?? "------";
+    String otp = _rideData?['otp']?.toString() ?? "----";
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -314,7 +340,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                "Ride PIN",
+                "Ride OTP",
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -322,7 +348,10 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: isExpired ? Colors.red.shade50 : Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(20),
@@ -336,7 +365,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      isExpired ? "PIN Expired" : "Expires in: $_timeLeft",
+                      isExpired ? "Expired" : "Expires in: $_timeLeft",
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -348,25 +377,23 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           GestureDetector(
-            onTap: () {
-              setState(() {
-                _isPinVisible = !_isPinVisible;
-              });
-            },
+            onTap: () => setState(() => _isPinVisible = !_isPinVisible),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
                 color: const Color(0xFFF1F5FE),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF2D62ED).withOpacity(0.1)),
+                border: Border.all(
+                  color: const Color(0xFF2D62ED).withOpacity(0.1),
+                ),
               ),
               child: Column(
                 children: [
                   Text(
-                    _isPinVisible ? ridePin.split('').join(' ') : "• • • • • •",
+                    _isPinVisible ? otp.split('').join(' ') : "• • • •",
                     style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
@@ -377,24 +404,17 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                   const SizedBox(height: 8),
                   Text(
                     _isPinVisible ? "Tap to hide" : "Tap to reveal",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
-          Text(
-            "Share this PIN with the driver to start your ride.",
+          const Text(
+            "Share this OTP with the driver to start your ride.",
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(fontSize: 13, color: Colors.grey),
           ),
         ],
       ),
@@ -415,8 +435,8 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
         children: [
           const CircleAvatar(
             radius: 30,
-            backgroundColor: Colors.blue,
-            child: Icon(Icons.person, color: Colors.white, size: 35),
+            backgroundColor: Color(0xFFEBF2FF),
+            child: Icon(Icons.person, color: Color(0xFF2D62ED), size: 35),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -431,9 +451,9 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                   ),
                 ),
                 Row(
-                  children: [
-                    const Icon(Icons.star, color: Colors.orange, size: 16),
-                    const Text(
+                  children: const [
+                    Icon(Icons.star, color: Colors.orange, size: 16),
+                    Text(
                       " 4.9",
                       style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
@@ -447,15 +467,22 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
             ),
           ),
           ElevatedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.call, size: 18),
-            label: const Text("Call"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.cyan,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+            onPressed: _driverPhone != null ? _makeCall : null,
+            icon: const Icon(Icons.call, size: 18, color: Colors.white),
+            label: const Text(
+              "Call Driver",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2E7D32),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              elevation: 0,
             ),
           ),
         ],
@@ -474,24 +501,20 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                label == "Pickup Location" ? Icons.my_location : Icons.near_me,
-                size: 14,
-                color: Colors.grey,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-            ],
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.grey,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             title,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           Text(sub, style: const TextStyle(fontSize: 11, color: Colors.grey)),
         ],
@@ -511,21 +534,23 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
         Column(
           children: [
             Container(
-              width: 24,
-              height: 24,
+              width: 20,
+              height: 20,
               decoration: BoxDecoration(
-                color: isDone ? Colors.blue : Colors.white,
+                color: isDone ? const Color(0xFF2D62ED) : Colors.white,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isDone ? Colors.blue : Colors.grey.shade300,
+                  color: isDone
+                      ? const Color(0xFF2D62ED)
+                      : Colors.grey.shade300,
                 ),
               ),
               child: isDone
-                  ? const Icon(Icons.check, size: 16, color: Colors.white)
+                  ? const Icon(Icons.check, size: 12, color: Colors.white)
                   : null,
             ),
             if (!isLast)
-              Container(width: 2, height: 40, color: Colors.grey.shade300),
+              Container(width: 2, height: 30, color: Colors.grey.shade300),
           ],
         ),
         const SizedBox(width: 12),
@@ -536,6 +561,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
               title,
               style: TextStyle(
                 fontWeight: isDone ? FontWeight.bold : FontWeight.normal,
+                fontSize: 14,
               ),
             ),
             Text(
