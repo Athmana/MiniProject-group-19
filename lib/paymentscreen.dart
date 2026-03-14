@@ -103,7 +103,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     if (snapshot.hasData && snapshot.data!.exists) {
                       final data =
                           snapshot.data!.data() as Map<String, dynamic>;
-                      price = "₹${data['price'] ?? '0'}";
+                      price = "₹${data['fareAmount'] ?? '0'}";
                     }
                     return Text(
                       price,
@@ -124,6 +124,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   "Card",
                   Icons.credit_card_rounded,
                   "Credit / Debit Card",
+                ),
+                _paymentTile(
+                  "Wallet",
+                  Icons.account_balance_wallet_outlined,
+                  "Digital Wallet",
                 ),
                 _paymentTile("Cash", Icons.money_rounded, "Cash on Arrival"),
                 if (_errorMessage != null)

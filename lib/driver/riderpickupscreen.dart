@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/driverridestartedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DriverToPickupScreen extends StatefulWidget {
   final String rideId;
@@ -28,10 +31,71 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
   final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
   bool _isLoading = false;
 
+  StreamSubscription<DocumentSnapshot>? _rideSubscription;
+  Map<String, dynamic>? _currentRideData;
+  GoogleMapController? _mapController;
+  Set<Marker> _markers = {};
+
   @override
   void initState() {
     super.initState();
+    _currentRideData = widget.rideData;
     _fetchRiderName();
+    _listenToRideStatus();
+    _initMarkers();
+  }
+
+  void _initMarkers() {
+    final lat = widget.rideData['pickupLat'] as double? ?? 11.6094;
+    final lng = widget.rideData['pickupLng'] as double? ?? 76.0828;
+
+    setState(() {
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('pickup'),
+          position: LatLng(lat, lng),
+          infoWindow: const InfoWindow(title: 'Pickup Location'),
+        ),
+      );
+    });
+  }
+
+  void _listenToRideStatus() {
+    _rideSubscription = RideService().listenToRide(widget.rideId).listen((
+      snapshot,
+    ) {
+      if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
+        setState(() {
+          _currentRideData = data;
+          if (data['status'] == 'arrived') {
+            _hasArrived = true;
+          }
+        });
+
+        if (data['status'] == 'cancelled') {
+          if (mounted) {
+            _rideSubscription?.cancel();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Rider cancelled the trip')),
+            );
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _rideSubscription?.cancel();
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
+    for (var node in _focusNodes) {
+      node.dispose();
+    }
+    super.dispose();
   }
 
   void _fetchRiderName() async {
@@ -40,7 +104,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
       final user = await RideService().getUserDetails(riderId);
       if (mounted && user != null) {
         setState(() {
-          _riderName = user['fullName'];
+          _riderName = user['fullName'] ?? user['name'] ?? "Rider";
           _riderPhone = user['phoneNumber'];
         });
       }
@@ -70,17 +134,6 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    for (var controller in _controllers) {
-      controller.dispose();
-    }
-    for (var node in _focusNodes) {
-      node.dispose();
-    }
-    super.dispose();
-  }
-
   void _verifyOtp() async {
     String enteredOtp = _controllers.map((c) => c.text).join();
     if (enteredOtp.length < 4) {
@@ -90,31 +143,20 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
       return;
     }
 
-    String correctOtp = widget.rideData['otp'] ?? "0000";
+    setState(() => _isLoading = true);
 
-    if (enteredOtp == correctOtp) {
-      setState(() => _isLoading = true);
-      bool success = await RideService().updateRideStatus(
-        widget.rideId,
-        'started',
+    final result = await RideService().verifyRidePin(widget.rideId, enteredOtp);
+
+    if (result['success'] == true && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => DriverRideStartedScreen(rideId: widget.rideId),
+        ),
       );
-
-      if (success && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) =>
-                DriverRideStartedScreen(rideId: widget.rideId),
-          ),
-        );
-      } else if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Failed to start ride")));
-      }
-    } else {
+    } else if (mounted) {
+      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Invalid OTP. Please try again.")),
+        SnackBar(content: Text(result['message'] ?? "Failed to start ride")),
       );
     }
   }
@@ -124,35 +166,25 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Clean Background
-          Positioned.fill(
-            child: Container(
-              color: Colors.cyan.shade50,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.navigation_rounded,
-                      size: 100,
-                      color: Colors.cyan.shade200,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      "Navigation active",
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.cyan.shade800,
-                      ),
-                    ),
-                  ],
+          // 1. Map View
+          SizedBox(
+            height: MediaQuery.of(context).size.height,
+            width: MediaQuery.of(context).size.width,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: LatLng(
+                  widget.rideData['pickupLat'] as double? ?? 11.6094,
+                  widget.rideData['pickupLng'] as double? ?? 76.0828,
                 ),
+                zoom: 15,
               ),
+              markers: _markers,
+              onMapCreated: (controller) => _mapController = controller,
+              myLocationEnabled: true,
             ),
           ),
 
-          // 2. Top Navigation Info (Floating Card)
+          // 2. Navigation Info
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -161,7 +193,9 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF2D62ED),
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 10),
+                  ],
                 ),
                 child: Row(
                   children: [
@@ -171,31 +205,25 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
-                            "400m - Turn Right",
-                            style: TextStyle(
+                            _hasArrived ? "Rider is Here" : "Heading to Pickup",
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           Text(
-                            "Towards Kalpetta Main Road",
-                            style: TextStyle(
+                            _hasArrived
+                                ? "Verify OTP to start trip"
+                                : "Follow the map to reach the passenger",
+                            style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 14,
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    const Text(
-                      "4 min",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
                       ),
                     ),
                   ],
@@ -204,7 +232,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
             ),
           ),
 
-          // 3. Bottom Passenger Info & Arrival Button
+          // 3. Passenger Info & Start Button
           Align(
             alignment: Alignment.bottomCenter,
             child: Container(
@@ -233,11 +261,13 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                               ),
                             ),
                             Text(
-                              "Pickup: ${widget.rideData['pickupLocation'] ?? 'Destination'}",
+                              "Pickup: ${_currentRideData?['pickupLocation'] ?? 'Remote Location'}",
                               style: const TextStyle(
                                 color: Colors.grey,
                                 fontSize: 14,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
@@ -250,6 +280,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
@@ -269,14 +300,12 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Main Action Section
                   if (!_hasArrived)
                     SizedBox(
                       width: double.infinity,
                       height: 60,
                       child: ElevatedButton(
                         onPressed: () async {
-                          // Logic to notify user: "Driver has reached"
                           bool success = await RideService().updateRideStatus(
                             widget.rideId,
                             'arrived',
@@ -316,7 +345,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                     Column(
                       children: [
                         const Text(
-                          "Enter Passenger PIN",
+                          "Enter Passenger OTP",
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

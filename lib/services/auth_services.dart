@@ -13,32 +13,40 @@ class AuthService {
       password: password,
     );
 
-    // Save role to Firestore
-    await _firestore.collection('users').doc(result.user!.uid).set({
+    String collectionName = (role == 'driver') ? 'drivers' : 'riders';
+
+    await _firestore.collection(collectionName).doc(result.user!.uid).set({
       'email': email,
-      'role': role, // 'user' or 'driver'
+      'role': role,
+      'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
-  // Sign Up with Phone and Password (up to 3 accounts per number)
+  // Sign Up with Phone and Password
   Future<void> signUpWithPhone(
     String name,
     String phone,
     String password,
     String role,
   ) async {
-    // Check for existing accounts with this phone number
-    final existingUsers = await _firestore
-        .collection('users')
+    // Check for existing accounts with this phone number across both collections
+    final riderQuery = await _firestore
+        .collection('riders')
+        .where('phone', isEqualTo: phone)
+        .get();
+    final driverQuery = await _firestore
+        .collection('drivers')
         .where('phone', isEqualTo: phone)
         .get();
 
-    if (existingUsers.docs.length >= 3) {
+    int totalExisting = riderQuery.docs.length + driverQuery.docs.length;
+
+    if (totalExisting >= 3) {
       throw Exception("Phone number limit exceeded (Maximum 3 accounts).");
     }
 
-    // Generate a unique pseudo-email by appending an index
-    int index = existingUsers.docs.length + 1;
+    // Generate a unique pseudo-email
+    int index = totalExisting + 1;
     String pseudoEmail = "${phone}_$index@gowayanad.app";
 
     // Create user in Firebase Auth
@@ -47,19 +55,23 @@ class AuthService {
       password: password,
     );
 
+    String collectionName = (role == 'driver') ? 'drivers' : 'riders';
+
     // Save details to Firestore
-    await _firestore.collection('users').doc(result.user!.uid).set({
+    await _firestore.collection(collectionName).doc(result.user!.uid).set({
+      'fullName': name,
       'name': name,
       'phone': phone,
-      'internalEmail': pseudoEmail, // Store for login lookup
-      'password': password, // Note: plain text as requested for testing
-      'role': role, // 'rider' or 'driver'
+      'phoneNumber': phone,
+      'internalEmail': pseudoEmail,
+      'role': role,
+      'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
   // Login and Route
   Future<void> loginAndRoute(
-    String identifier, // Phone Number
+    String identifier,
     String password,
     BuildContext context,
   ) async {
@@ -69,21 +81,29 @@ class AuthService {
       // Handle phone number identifier
       bool isPhone = RegExp(r'^\+?[0-9]+$').hasMatch(identifier);
       if (isPhone) {
-        // Find all accounts with this phone
-        final userQuery = await _firestore
-            .collection('users')
+        // Search in both collections
+        final riderQuery = await _firestore
+            .collection('riders')
+            .where('phone', isEqualTo: identifier)
+            .get();
+        final driverQuery = await _firestore
+            .collection('drivers')
             .where('phone', isEqualTo: identifier)
             .get();
 
-        if (userQuery.docs.isEmpty) {
+        List<DocumentSnapshot> allDocs = [
+          ...riderQuery.docs,
+          ...driverQuery.docs,
+        ];
+
+        if (allDocs.isEmpty) {
           throw Exception("No account found for this phone number.");
         }
 
-        // Attempt login for each account (since there could be up to 3)
-        for (var doc in userQuery.docs) {
-          final data = doc.data();
-          final email =
-              data['internalEmail'] ?? data['email']; // migration support
+        // Try login for each pseudo-account
+        for (var doc in allDocs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final email = data['internalEmail'] ?? data['email'];
           if (email != null) {
             try {
               await _auth.signInWithEmailAndPassword(
@@ -91,9 +111,8 @@ class AuthService {
                 password: password,
               );
               loginEmail = email;
-              break; // Success!
+              break;
             } catch (e) {
-              // Try next one
               continue;
             }
           }
@@ -103,28 +122,39 @@ class AuthService {
           throw Exception("Invalid phone or password.");
         }
       } else {
-        // Standard email login (if used)
+        // Standard email login
         await _auth.signInWithEmailAndPassword(
           email: identifier,
           password: password,
         );
       }
 
-      // Fetch user role from Firestore (using the current user)
+      // After successful login, determine role and navigate
       User? user = _auth.currentUser;
-      if (user == null) throw Exception("Failed to retrieve user.");
+      if (user == null) throw Exception("Auth failed.");
 
+      String? role;
       DocumentSnapshot userDoc = await _firestore
-          .collection('users')
+          .collection('riders')
           .doc(user.uid)
           .get();
-
-      String role = userDoc['role'];
-
-      if (role == 'driver') {
-        Navigator.pushReplacementNamed(context, '/driverHome');
+      if (userDoc.exists) {
+        role = 'rider';
       } else {
-        Navigator.pushReplacementNamed(context, '/userHome');
+        userDoc = await _firestore.collection('drivers').doc(user.uid).get();
+        if (userDoc.exists) {
+          role = 'driver';
+        }
+      }
+
+      if (role == null) throw Exception("User role not found.");
+
+      if (context.mounted) {
+        if (role == 'driver') {
+          Navigator.pushReplacementNamed(context, '/driverHome');
+        } else {
+          Navigator.pushReplacementNamed(context, '/riderHome');
+        }
       }
     } catch (e) {
       if (context.mounted) {
@@ -135,35 +165,23 @@ class AuthService {
     }
   }
 
-  // Verify if phone exists for recovery
-  Future<bool> checkPhoneExists(String phone) async {
-    final query = await _firestore
-        .collection('users')
-        .where('phone', isEqualTo: phone)
-        .limit(1)
-        .get();
-    return query.docs.isNotEmpty;
-  }
-
-  // Reset password for all accounts with this phone
+  // Reset password logic (simplified for pseudo-accounts)
   Future<void> resetPasswordByPhone(String phone, String newPassword) async {
-    final query = await _firestore
-        .collection('users')
+    // Find all accounts in both collections
+    final riderQuery = await _firestore
+        .collection('riders')
+        .where('phone', isEqualTo: phone)
+        .get();
+    final driverQuery = await _firestore
+        .collection('drivers')
         .where('phone', isEqualTo: phone)
         .get();
 
-    for (var doc in query.docs) {
-      // Update Firestore
-      await _firestore.collection('users').doc(doc.id).update({
-        'password': newPassword,
-      });
-
-      // Update Firebase Auth password if we can re-authenticate or if we use admin SDK
-      // Since this is a mini project, we might just update Firestore and
-      // rely on the fact that for pseudo-accounts, the user "source of truth"
-      // in their app logic is the phone+password combo they track.
-      // However, to keep Auth in sync, we'd need the current user logged in.
-      // For now, we update Firestore which handles the 'plain text' tracking.
+    for (var doc in [...riderQuery.docs, ...driverQuery.docs]) {
+      await doc.reference.update({'password': newPassword});
+      // Updating actual Firebase Auth password requires re-authentication,
+      // which we can't do here without the user logged in.
+      // But we can update the internal tracking.
     }
   }
 }

@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/riderpickupscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DriverRequestScreen extends StatefulWidget {
   final String rideId;
@@ -18,11 +21,56 @@ class DriverRequestScreen extends StatefulWidget {
 
 class _DriverRequestScreenState extends State<DriverRequestScreen> {
   String? _riderName;
+  StreamSubscription<DocumentSnapshot>? _rideSubscription;
+  GoogleMapController? mapController;
+  Set<Marker> markers = {};
 
   @override
   void initState() {
     super.initState();
     _fetchRiderName();
+    _listenToRideStatus();
+    _initMarkers();
+  }
+
+  void _initMarkers() {
+    final lat = widget.rideData['pickupLat'] as double? ?? 11.6094;
+    final lng = widget.rideData['pickupLng'] as double? ?? 76.0828;
+
+    setState(() {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('pickup'),
+          position: LatLng(lat, lng),
+          infoWindow: const InfoWindow(title: 'Pickup Location'),
+        ),
+      );
+    });
+  }
+
+  void _listenToRideStatus() {
+    _rideSubscription = RideService().listenToRide(widget.rideId).listen((
+      snapshot,
+    ) {
+      if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
+        if (data['status'] == 'cancelled') {
+          if (mounted) {
+            _rideSubscription?.cancel();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Rider cancelled the request')),
+            );
+            Navigator.of(context).pop();
+          }
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _rideSubscription?.cancel();
+    super.dispose();
   }
 
   void _fetchRiderName() async {
@@ -31,7 +79,7 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
       final user = await RideService().getUserDetails(riderId);
       if (mounted && user != null) {
         setState(() {
-          _riderName = user['fullName'];
+          _riderName = user['fullName'] ?? user['name'];
         });
       }
     }
@@ -40,157 +88,127 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Background Map Placeholder
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
-          Positioned.fill(
-            child: Container(
-              color: Colors.cyan.shade50,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.notification_important_rounded,
-                      size: 120,
-                      color: Colors.cyan.shade200,
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      "New Ride Request",
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.cyan.shade800,
-                      ),
-                    ),
-                  ],
+          SizedBox(
+            height: MediaQuery.of(context).size.height,
+            width: MediaQuery.of(context).size.width,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: LatLng(
+                  widget.rideData['pickupLat'] as double? ?? 11.6094,
+                  widget.rideData['pickupLng'] as double? ?? 76.0828,
                 ),
+                zoom: 15,
               ),
+              markers: markers,
+              onMapCreated: (controller) => mapController = controller,
+              myLocationEnabled: true,
             ),
           ),
 
-          // The Request Popup
+          // 2. Request Details Card
           Align(
             alignment: Alignment.bottomCenter,
             child: Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                  ),
-                ],
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20)],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Header: Service Type & Price
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          "🚨 EMERGENCY RIDE",
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
+                      const CircleAvatar(radius: 25, child: Icon(Icons.person)),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _riderName ?? "New Customer",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                            Row(
+                              children: const [
+                                Icon(
+                                  Icons.star,
+                                  color: Colors.orange,
+                                  size: 16,
+                                ),
+                                Text(" 4.8  •  Cash Payment"),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            "₹${widget.rideData['price'] ?? '599.00'}",
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D62ED),
-                            ),
-                          ),
-                          Text(
-                            _riderName ?? "Unknown Rider",
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        "₹${widget.rideData['fareAmount'] ?? widget.rideData['price'] ?? '0'}",
+                        style: const TextStyle(
+                          color: Color(0xFF2D62ED),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                        ),
                       ),
                     ],
                   ),
-                  const Divider(height: 30),
-
-                  // Pickup & Dropoff Timeline
-                  _buildRouteInfo(
-                    Icons.my_location,
-                    Colors.blue,
-                    "Pickup",
-                    widget.rideData['pickupLocation'] ?? "Kalpetta Main Road",
-                  ),
-                  const SizedBox(height: 16),
-                  _buildRouteInfo(
-                    Icons.location_on,
-                    Colors.red,
-                    "Dropoff",
-                    widget.rideData['destination'] ??
-                        "Sulthan Bathery Hospital",
-                  ),
-
                   const SizedBox(height: 24),
+                  _buildLocationInfo(
+                    Icons.my_location,
+                    "Pickup",
+                    widget.rideData['pickupLocation'] ?? "Kalpetta",
+                  ),
+                  const Divider(height: 32),
+                  _buildLocationInfo(
+                    Icons.location_on,
+                    "Destination",
+                    widget.rideData['destinationLocation'] ??
+                        widget.rideData['destination'] ??
+                        "S. Bathery",
+                  ),
+                  const SizedBox(height: 32),
 
-                  // Action Buttons
+                  // Accept/Decline Buttons
                   Row(
                     children: [
                       Expanded(
-                        child: TextButton(
+                        child: OutlinedButton(
                           onPressed: () => Navigator.pop(context),
-                          style: TextButton.styleFrom(
+                          style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
+                            side: const BorderSide(color: Colors.redAccent),
                           ),
                           child: const Text(
-                            "IGNORE",
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            "Decline",
+                            style: TextStyle(color: Colors.redAccent),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 16),
                       Expanded(
-                        flex: 2,
                         child: ElevatedButton(
                           onPressed: () async {
                             bool success = await RideService().acceptRide(
                               widget.rideId,
                             );
-                            if (success && context.mounted) {
-                              Navigator.of(context).pushReplacement(
-                                MaterialPageRoute(
-                                  builder: (context) => DriverToPickupScreen(
-                                    rideId: widget.rideId,
-                                    rideData: widget.rideData,
+                            if (context.mounted) {
+                              if (success) {
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (context) => DriverToPickupScreen(
+                                      rideId: widget.rideId,
+                                      rideData: widget.rideData,
+                                    ),
                                   ),
-                                ),
-                              );
-                            } else {
-                              if (context.mounted) {
+                                );
+                              } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text('Failed to accept ride'),
@@ -200,20 +218,12 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2D62ED),
-                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 0,
+                            backgroundColor: const Color(0xFF2D62ED),
                           ),
                           child: const Text(
-                            "ACCEPT REQUEST",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            "Accept Ride",
+                            style: TextStyle(color: Colors.white),
                           ),
                         ),
                       ),
@@ -228,30 +238,24 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
     );
   }
 
-  Widget _buildRouteInfo(
-    IconData icon,
-    Color color,
-    String title,
-    String subtitle,
-  ) {
+  Widget _buildLocationInfo(IconData icon, String label, String address) {
     return Row(
       children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(width: 12),
+        Icon(icon, color: Colors.grey, size: 20),
+        const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
+                label,
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
               Text(
-                subtitle,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                address,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

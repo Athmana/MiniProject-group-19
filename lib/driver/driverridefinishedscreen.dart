@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:gowayanad/driver/homepage.dart';
 
 class DriverRideFinishedScreen extends StatelessWidget {
   final String rideId;
@@ -29,9 +30,9 @@ class DriverRideFinishedScreen extends StatelessWidget {
 
           if (snapshot.hasData && snapshot.data!.exists) {
             final data = snapshot.data!.data() as Map<String, dynamic>;
-            price = "₹${data['price'] ?? '0'}";
+            price = "₹${data['fareAmount'] ?? '0'}";
 
-            final double distance = (data['distance'] ?? 0.0).toDouble();
+            final double distance = (data['distanceKm'] ?? 0.0).toDouble();
             distanceText = "${distance.toStringAsFixed(1)} km";
 
             // Assuming driver gets 85% of the fare, or just show full for now
@@ -165,7 +166,12 @@ class DriverRideFinishedScreen extends StatelessWidget {
                   height: 56,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.popUntil(context, (route) => route.isFirst);
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (context) => const DriverHomePage(),
+                        ),
+                        (route) => false,
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2D62ED),

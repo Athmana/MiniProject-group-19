@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'paymentscreen.dart';
+import 'ridestartedscreen.dart';
 import 'services/ride_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
@@ -33,31 +33,40 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
     ) {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
-        setState(() {
-          _rideData = data;
-        });
+        if (mounted) {
+          setState(() {
+            _rideData = data;
+          });
+        }
 
         if (_driverName == null && data['driverId'] != null) {
           _rideService.getUserDetails(data['driverId']).then((user) {
             if (mounted && user != null) {
               setState(() {
-                _driverName = user['fullName'] ?? "Driver";
+                _driverName = user['fullName'] ?? user['name'] ?? "Driver";
                 _driverPhone = user['phoneNumber'];
               });
             }
           });
         }
-        if (data['status'] == 'completed') {
+
+        if (data['status'] == 'started') {
           if (mounted) {
             _rideSubscription?.cancel();
             Navigator.pushReplacement(
               context,
-              // The next screen in Rider flow was RideStarted, but skipping straight to Payment
-              // since our 'COMPLETE RIDE' triggers the 'completed' status.
               MaterialPageRoute(
-                builder: (context) => PaymentScreen(rideId: widget.rideId),
+                builder: (context) => RideStartedScreen(rideId: widget.rideId),
               ),
             );
+          }
+        } else if (data['status'] == 'cancelled') {
+          if (mounted) {
+            _rideSubscription?.cancel();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Ride was cancelled.')),
+            );
+            Navigator.of(context).popUntil((route) => route.isFirst);
           }
         }
       }
@@ -75,68 +84,9 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
     }
 
     final Uri launchUri = Uri(scheme: 'tel', path: _driverPhone);
-
     if (await canLaunchUrl(launchUri)) {
       await launchUrl(launchUri);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Could not launch phone dialer")),
-        );
-      }
     }
-  }
-
-  Widget _buildDriverCallSection() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade100),
-      ),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            backgroundColor: Color(0xFFF1F5FE),
-            child: Icon(Icons.person, color: Color(0xFF2D62ED)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _driverName ?? "Driver",
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  "Arrived outside",
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          ElevatedButton.icon(
-            onPressed: _driverPhone != null ? _makeCall : null,
-            icon: const Icon(Icons.call, size: 18),
-            label: const Text(
-              "Call Driver",
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2E7D32),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-              ),
-              elevation: 0,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -149,138 +99,232 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          // Top Map Area (Placeholder)
-          Container(
-            height: MediaQuery.of(context).size.height * 0.35,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.green.shade400, Colors.green.shade700],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.check_circle_outline,
-                  size: 80,
-                  color: Colors.white,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  _rideData?['status'] == 'arrived'
-                      ? "Driver is Here!"
-                      : "Arrived",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(24),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Status Area
+            Container(
+              height: MediaQuery.of(context).size.height * 0.35,
+              width: double.infinity,
               decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+                gradient: LinearGradient(
+                  colors: [Color(0xFF2E7D32), Color(0xFF4CAF50)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
               ),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  const Icon(
+                    Icons.check_circle_outline,
+                    size: 80,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(height: 16),
                   const Text(
-                    "Driver has Reached!",
+                    "Driver is Here!",
                     style: TextStyle(
-                      fontSize: 22,
+                      color: Colors.white,
+                      fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Colors.green,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    "Your vehicle is at the pickup point",
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_rideData?['driverId'] != null) _buildDriverCallSection(),
-                  const SizedBox(height: 30),
-
-                  // Security PIN Section
                   const Text(
-                    "SHARE THIS PIN WITH DRIVER",
-                    style: TextStyle(
-                      letterSpacing: 1.2,
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5FE),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      _rideData?['otp']?.split('').join(' ') ?? "0 0 0 0",
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 8,
-                      ),
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Action Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {},
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            side: const BorderSide(color: Colors.redAccent),
-                          ),
-                          child: const Text(
-                            "Cancel Ride",
-                            style: TextStyle(color: Colors.redAccent),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed:
-                              null, // Rider waits for Driver to enter OTP
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            backgroundColor: const Color(0xFF2D62ED),
-                          ),
-                          child: const Text(
-                            "Waiting for Driver...",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ],
+                    "Your vehicle has arrived",
+                    style: TextStyle(color: Colors.white70, fontSize: 16),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                ),
+                child: Column(
+                  children: [
+                    // Driver Card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade100),
+                      ),
+                      child: Row(
+                        children: [
+                          const CircleAvatar(
+                            radius: 25,
+                            backgroundColor: Color(0xFFEBF2FF),
+                            child: Icon(Icons.person, color: Color(0xFF2D62ED)),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _driverName ?? "Loading...",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const Text(
+                                  "Your Driver",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_driverPhone != null)
+                            IconButton(
+                              onPressed: _makeCall,
+                              icon: const Icon(
+                                Icons.call,
+                                color: Color(0xFF2E7D32),
+                              ),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.green.shade50,
+                                padding: const EdgeInsets.all(12),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Security PIN Section
+                    const Text(
+                      "VERIFICATION OTP",
+                      style: TextStyle(
+                        letterSpacing: 1.2,
+                        fontSize: 13,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      "Share this with your driver to start the trip",
+                      style: TextStyle(fontSize: 14, color: Colors.black54),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 20,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5FE),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFF2D62ED).withOpacity(0.1),
+                        ),
+                      ),
+                      child: Text(
+                        (_rideData?['otp']?.toString() ?? "----")
+                            .split('')
+                            .join('  '),
+                        style: const TextStyle(
+                          fontSize: 40,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 4,
+                          color: Color(0xFF2D62ED),
+                        ),
+                      ),
+                    ),
+
+                    const Spacer(),
+
+                    // Action Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () async {
+                              final bool? confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text("Cancel Ride"),
+                                  content: const Text(
+                                    "Are you sure you want to cancel this ride?",
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                      child: const Text("No"),
+                                    ),
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
+                                      child: const Text(
+                                        "Yes, Cancel",
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true) {
+                                await _rideService.cancelRide(widget.rideId);
+                                if (mounted) {
+                                  Navigator.of(
+                                    context,
+                                  ).popUntil((route) => route.isFirst);
+                                }
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              side: const BorderSide(color: Colors.redAccent),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              "Cancel Ride",
+                              style: TextStyle(
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: null,
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              disabledBackgroundColor: Colors.grey.shade200,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              "Waiting to Start...",
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

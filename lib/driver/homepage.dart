@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:gowayanad/driver/driverequestscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
+import 'package:geolocator/geolocator.dart';
 
 class DriverHomePage extends StatefulWidget {
   const DriverHomePage({super.key});
@@ -15,8 +16,10 @@ class DriverHomePage extends StatefulWidget {
 class _DriverHomePageState extends State<DriverHomePage> {
   bool _isOnline = false;
   final RideService _rideService = RideService();
-  StreamSubscription<QuerySnapshot>? _pendingRidesSubscription;
+  StreamSubscription<QuerySnapshot>?
+  _rideSubscription; // Changed from _pendingRidesSubscription
   StreamSubscription<QuerySnapshot>? _completedRidesSubscription;
+  StreamSubscription<Position>? _positionSubscription; // Added
 
   double _totalEarnings = 0.0;
   int _totalRides = 0;
@@ -39,7 +42,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
           for (var doc in snapshot.docs) {
             final data = doc.data() as Map<String, dynamic>;
             // Try parsing the price (might be stored as String or number depending on request)
-            final priceRaw = data['price'];
+            final priceRaw = data['fareAmount'];
             if (priceRaw != null) {
               if (priceRaw is num) {
                 earnings += priceRaw.toDouble();
@@ -61,11 +64,14 @@ class _DriverHomePageState extends State<DriverHomePage> {
   }
 
   void _toggleOnlineStatus() {
+    final newStatus = !_isOnline;
+
+    // Update local state first
     setState(() {
-      _isOnline = !_isOnline;
+      _isOnline = newStatus;
     });
 
-    if (_isOnline) {
+    if (newStatus) {
       _startListeningForRides();
     } else {
       _stopListeningForRides();
@@ -73,9 +79,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
   }
 
   void _startListeningForRides() {
-    _pendingRidesSubscription = _rideService.getPendingRides().listen((
-      snapshot,
-    ) {
+    _rideSubscription = _rideService.getPendingRides().listen((snapshot) {
       if (snapshot.docs.isNotEmpty) {
         // For simplicity, grab the first pending ride
         final doc = snapshot.docs.first;
@@ -84,29 +88,32 @@ class _DriverHomePageState extends State<DriverHomePage> {
         // Prevent showing multiple dialogues for the same or older rides
         _stopListeningForRides();
 
-        Navigator.of(context)
-            .push(
-              MaterialPageRoute(
-                builder: (context) =>
-                    DriverRequestScreen(rideId: doc.id, rideData: data),
-              ),
-            )
-            .then((_) {
-              // Restart listening when returned, if still online
-              if (_isOnline) _startListeningForRides();
-            });
+        if (mounted) {
+          Navigator.of(context)
+              .push(
+                MaterialPageRoute(
+                  builder: (context) =>
+                      DriverRequestScreen(rideId: doc.id, rideData: data),
+                ),
+              )
+              .then((_) {
+                // Restart listening when returned, if still online
+                if (_isOnline) _startListeningForRides();
+              });
+        }
       }
     });
   }
 
   void _stopListeningForRides() {
-    _pendingRidesSubscription?.cancel();
-    _pendingRidesSubscription = null;
+    _rideSubscription?.cancel();
+    _rideSubscription = null;
   }
 
   @override
   void dispose() {
-    _stopListeningForRides();
+    _rideSubscription?.cancel();
+    _positionSubscription?.cancel();
     _completedRidesSubscription?.cancel();
     super.dispose();
   }
@@ -381,7 +388,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
                 ),
               ),
               Text(
-                "₹${ride['price'] ?? '0'}",
+                "₹${ride['fareAmount'] ?? '0'}",
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF2D62ED),
@@ -417,7 +424,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  ride['destination'] ?? "Unknown",
+                  ride['destinationLocation'] ?? "Unknown",
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,

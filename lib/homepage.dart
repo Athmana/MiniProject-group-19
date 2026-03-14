@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:gowayanad/homescreen.dart';
+import 'package:gowayanad/services/location_service.dart';
 import 'package:gowayanad/services/ride_service.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:gowayanad/homescreen.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class EmergencyRideHome extends StatefulWidget {
@@ -25,14 +28,31 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
   }
 
   Future<void> _fetchAddress() async {
-    // Geocoding removed to simplify app and remove map dependencies.
-    // Using mocked location for Wayanad area.
-    if (mounted) {
-      setState(() {
-        _currentCity = "Sulthan Bathery";
-        _currentState = "Wayanad, Kerala (App Default)";
-        _isLoadingLocation = false;
-      });
+    try {
+      Position position = await LocationService().getCurrentLocation();
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty && mounted) {
+        Placemark place = placemarks[0];
+        setState(() {
+          _currentCity =
+              place.locality ?? place.subAdministrativeArea ?? "Unknown City";
+          _currentState =
+              "${place.administrativeArea ?? 'Unknown State'}, ${place.country ?? ''}";
+          _isLoadingLocation = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _currentCity = "Sulthan Bathery";
+          _currentState = "Wayanad, Kerala (App Default)";
+          _isLoadingLocation = false;
+        });
+      }
     }
   }
 
@@ -45,9 +65,15 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
           IconButton(
             onPressed: () async {
               await FirebaseAuth.instance.signOut();
-              Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+              if (context.mounted) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/',
+                  (route) => false,
+                );
+              }
             },
-            icon: Icon(Icons.logout),
+            icon: const Icon(Icons.logout),
           ),
         ],
         backgroundColor: Colors.white,
@@ -96,31 +122,33 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Current Location",
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 13,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Current Location",
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 13,
+                          ),
                         ),
-                      ),
-                      Text(
-                        _isLoadingLocation ? "Loading..." : _currentCity,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
+                        Text(
+                          _isLoadingLocation ? "Loading..." : _currentCity,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
                         ),
-                      ),
-                      Text(
-                        _currentState,
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 13,
+                        Text(
+                          _currentState,
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 13,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -141,14 +169,18 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const CabBookingHome(),
+                      builder: (context) => const RiderBookingScreen(),
                     ),
                   );
                 },
                 icon: const Icon(Icons.bolt_rounded, color: Colors.white),
                 label: const Text(
                   "Request Emergency Ride",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2D62ED),
@@ -195,7 +227,8 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                     final rideData = doc.data() as Map<String, dynamic>;
 
                     // Safely extract price
-                    final rawPrice = rideData['price'];
+                    final rawPrice =
+                        rideData['fareAmount'] ?? rideData['price'];
                     String displayPrice = "N/A";
                     if (rawPrice != null) {
                       displayPrice = "₹$rawPrice";
@@ -207,11 +240,17 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                       DateTime date = (rideData['completedAt'] as Timestamp)
                           .toDate();
                       displayTime = timeago.format(date);
+                    } else if (rideData['timestamp'] != null) {
+                      DateTime date = (rideData['timestamp'] as Timestamp)
+                          .toDate();
+                      displayTime = timeago.format(date);
                     }
 
                     return _buildRecentRideCard(
                       rideData['vehicleType'] ?? "Unknown",
-                      rideData['destination'] ?? "Unknown Destination",
+                      rideData['destinationLocation'] ??
+                          rideData['destination'] ??
+                          "Unknown Destination",
                       displayTime,
                       "5.0", // Hardcoded rating for now
                       displayPrice,

@@ -34,19 +34,15 @@ class _DriverWaitingPaymentScreenState
         final data = snapshot.data() as Map<String, dynamic>;
         if (mounted) {
           setState(() {
-            _price = "₹${data['price'] ?? '0'}";
+            _price = "₹${data['fareAmount'] ?? '0'}";
           });
         }
 
         if (data['paymentStatus'] == 'completed') {
           if (mounted) {
             _rideSubscription?.cancel();
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) =>
-                    DriverRideFinishedScreen(rideId: widget.rideId),
-              ),
-            );
+            // Show success overlay/dialog before moving to finished screen
+            _showPaymentSuccess();
           }
         }
       }
@@ -190,5 +186,44 @@ class _DriverWaitingPaymentScreenState
         ),
       ),
     );
+  }
+
+  void _showPaymentSuccess() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.check_circle, color: Colors.green, size: 80),
+            const SizedBox(height: 20),
+            const Text(
+              "Payment Completed!",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              "$_riderName has successfully paid $_price",
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Auto navigate after 3 seconds to the summary screen
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => DriverRideFinishedScreen(rideId: widget.rideId),
+          ),
+          (route) => false,
+        );
+      }
+    });
   }
 }

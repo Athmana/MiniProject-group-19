@@ -103,11 +103,11 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
                   }
 
                   final data = snapshot.data!.data() as Map<String, dynamic>;
-                  final String price = "₹${data['price'] ?? '0'}";
+                  final String price = "₹${data['fareAmount'] ?? '0'}";
                   final String vehicle = data['vehicleType'] ?? "Ride";
                   final String pickup = data['pickupLocation'] ?? "Unknown";
                   final String destination =
-                      data['destination'] ?? "Destination";
+                      data['destinationLocation'] ?? "Destination";
 
                   return Container(
                     margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -305,9 +305,15 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
     );
 
     if (mounted) {
-      Navigator.pushReplacement(
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Thank you for your feedback!')),
+      );
+      
+      Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const EmergencyRideHome()),
+        (route) => false,
       );
     }
   }

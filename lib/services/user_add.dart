@@ -5,7 +5,7 @@ class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  _RegisterScreenState createState() => _RegisterScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
@@ -13,9 +13,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
 
   // Default role
-  String _selectedRole = 'user';
+  String _selectedRole = 'rider';
 
-  final List<String> _roles = ['user', 'driver'];
+  final List<String> _roles = ['rider', 'driver'];
 
   void _handleRegister() async {
     try {
@@ -24,15 +24,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _passwordController.text.trim(),
         _selectedRole,
       );
-      // After registration, send them to the login or home
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Registration Successful!")));
-      Navigator.pop(context); // Go back to login
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Registration Successful!")),
+        );
+        Navigator.pop(context); // Go back to login
+      }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
+      }
     }
   }
 

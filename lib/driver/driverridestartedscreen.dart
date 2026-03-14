@@ -1,6 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'driverwaitingforpaymentscreen.dart';
+import 'package:gowayanad/driver/driverwaitingforpaymentscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -14,42 +15,43 @@ class DriverRideStartedScreen extends StatefulWidget {
 }
 
 class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
-  String rideStatus = "accepted";
-  Map<String, dynamic>? _rideData;
+  final RideService _rideService = RideService();
   String? _riderName;
   String? _riderPhone;
 
-  @override
-  void initState() {
-    super.initState();
-    _listenToRide();
+  Future<void> _startRide() async {
+    bool success = await _rideService.updateRideStatus(
+      widget.rideId,
+      "started",
+    );
+    if (success && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Ride Started")));
+    }
   }
 
-  void _listenToRide() {
-    FirebaseFirestore.instance
-        .collection('rides')
-        .doc(widget.rideId)
-        .snapshots()
-        .listen((snapshot) {
-          if (snapshot.exists) {
-            final data = snapshot.data() as Map<String, dynamic>;
-            setState(() {
-              _rideData = data;
-              rideStatus = data['status'] ?? "accepted";
-            });
+  Future<void> _endRide() async {
+    bool success = await _rideService.updateRideStatus(
+      widget.rideId,
+      "completed",
+    );
+    if (success && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) =>
+              DriverWaitingPaymentScreen(rideId: widget.rideId),
+        ),
+      );
+    }
+  }
 
-            if (_riderName == null && data['riderId'] != null) {
-              RideService().getUserDetails(data['riderId']).then((user) {
-                if (mounted && user != null) {
-                  setState(() {
-                    _riderName = user['fullName'];
-                    _riderPhone = user['phoneNumber'];
-                  });
-                }
-              });
-            }
-          }
-        });
+  Future<void> _openNavigation(double lat, double lng) async {
+    final String url =
+        "https://www.google.com/maps/search/?api=1&query=$lat,$lng";
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
   }
 
   Future<void> _makeCall() async {
@@ -63,135 +65,321 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
     }
 
     final Uri launchUri = Uri(scheme: 'tel', path: _riderPhone);
-
     if (await canLaunchUrl(launchUri)) {
       await launchUrl(launchUri);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Could not launch phone dialer")),
-        );
-      }
-    }
-  }
-
-  Future<void> _startRide() async {
-    await FirebaseFirestore.instance
-        .collection('rides')
-        .doc(widget.rideId)
-        .update({"status": "started"});
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("Ride Started")));
-  }
-
-  Future<void> _endRide() async {
-    await FirebaseFirestore.instance
-        .collection('rides')
-        .doc(widget.rideId)
-        .update({"status": "completed"});
-
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => DriverWaitingPaymentScreen(rideId: widget.rideId),
-        ),
-      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Driver Ride")),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            Text(
-              "Current Status: $rideStatus",
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 30),
-            if (_riderName != null)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text(
+          "Trip Progress",
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        automaticallyImplyLeading: false,
+      ),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('rides')
+            .doc(widget.rideId)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+          final status = data['status'] ?? 'accepted';
+
+          if (status == 'cancelled') {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Ride was cancelled')),
+                );
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              }
+            });
+            return const SizedBox.shrink();
+          }
+
+          // Logic for target location
+          final bool isHeadingToPickup =
+              status == 'accepted' || status == 'arrived';
+          final String targetLabel = isHeadingToPickup
+              ? "PICKUP LOCATION"
+              : "DROP-OFF LOCATION";
+          final String targetAddress = isHeadingToPickup
+              ? (data['pickupLocation'] ?? 'Loading...')
+              : (data['destinationLocation'] ?? 'Loading...');
+
+          final double targetLat = isHeadingToPickup
+              ? (data['pickupLat'] ?? 0.0)
+              : (data['destinationLat'] ?? 0.0);
+          final double targetLng = isHeadingToPickup
+              ? (data['pickupLng'] ?? 0.0)
+              : (data['destinationLng'] ?? 0.0);
+
+          // Get rider details
+          if (_riderName == null && data['riderId'] != null) {
+            _rideService.getUserDetails(data['riderId']).then((riderData) {
+              if (mounted) {
+                setState(() {
+                  _riderName =
+                      riderData?['fullName'] ?? riderData?['name'] ?? "Rider";
+                  _riderPhone = riderData?['phoneNumber'];
+                });
+              }
+            });
+          }
+
+          return Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Rider Info Chip
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        backgroundColor: Color(0xFF2D62ED),
+                        radius: 20,
+                        child: Icon(
+                          Icons.person,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "RIDER",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              _riderName ?? "Loading...",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_riderPhone != null)
+                        ElevatedButton.icon(
+                          onPressed: _makeCall,
+                          icon: const Icon(
+                            Icons.call,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                          label: const Text(
+                            "Call",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2E7D32),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    const CircleAvatar(radius: 25, child: Icon(Icons.person)),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+
+                const SizedBox(height: 24),
+
+                // Navigation Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2D62ED),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2D62ED).withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            _riderName!,
+                            targetLabel,
                             style: const TextStyle(
-                              fontSize: 16,
+                              color: Colors.white70,
+                              fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const Text(
-                            "Passenger",
-                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                          GestureDetector(
+                            onTap: () => _openNavigation(targetLat, targetLng),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(
+                                    Icons.directions,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    "NAVIGATE",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: _riderPhone != null ? _makeCall : null,
-                      icon: const Icon(Icons.call, size: 18),
-                      label: const Text(
-                        "Call Rider",
-                        style: TextStyle(
-                          fontSize: 12,
+                      const SizedBox(height: 12),
+                      Text(
+                        targetAddress,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+
+                // Status Indicator
+                Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        status.toUpperCase(),
+                        style: TextStyle(
+                          color: status == 'started'
+                              ? Colors.green
+                              : Colors.blue,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 4,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          color: status == 'started'
+                              ? Colors.green
+                              : Colors.blue,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Spacer(),
+
+                // Action Buttons
+                if (status == "accepted" || status == "arrived")
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: _startRide,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2E7D32),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
+                        backgroundColor: const Color(0xFF2D62ED),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        elevation: 0,
+                      ),
+                      child: const Text(
+                        "START TRIP",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            const Spacer(),
-            if (rideStatus == "accepted")
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _startRide,
-                  child: const Text("START RIDE"),
-                ),
-              ),
-            if (rideStatus == "started")
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  onPressed: _endRide,
-                  child: const Text("END RIDE"),
-                ),
-              ),
-          ],
-        ),
+                  ),
+
+                if (status == "started")
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: _endRide,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        "COMPLETE RIDE",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 20),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

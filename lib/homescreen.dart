@@ -7,31 +7,30 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:gowayanad/utils/fare_calculator.dart';
 
-class CabBookingHome extends StatefulWidget {
-  const CabBookingHome({super.key});
+class RiderBookingScreen extends StatefulWidget {
+  const RiderBookingScreen({super.key});
 
   @override
-  State<CabBookingHome> createState() => _CabBookingHomeState();
+  State<RiderBookingScreen> createState() => _RiderBookingScreenState();
 }
 
-class _CabBookingHomeState extends State<CabBookingHome> {
+class _RiderBookingScreenState extends State<RiderBookingScreen> {
   Position? _currentPosition;
   bool _isLoadingLocation = true;
-
   final TextEditingController _destinationController = TextEditingController();
   String? _selectedVehicleType;
-  String? _selectedVehiclePrice;
+  String? _statusMessage;
 
-  Timer? _debounce;
-
+  // Added for Fare Calculation
+  bool _isCalculatingFare = false;
   double? _calculatedDistance;
   final Map<String, String> _vehiclePrices = {
-    "Bike": "...",
-    "Auto": "...",
-    "Car": "...",
-    "Ambulance": "...",
+    "Bike": "--",
+    "Auto": "--",
+    "Car": "--",
+    "Ambulance": "--",
   };
-  bool _isCalculatingFare = false;
+  String? _selectedVehiclePrice;
 
   @override
   void initState() {
@@ -52,10 +51,8 @@ class _CabBookingHomeState extends State<CabBookingHome> {
       if (mounted) {
         setState(() {
           _isLoadingLocation = false;
+          _statusMessage = "Could not get your location. Please check GPS.";
         });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to get location: $e')));
       }
     }
   }
@@ -65,6 +62,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
 
     setState(() {
       _isCalculatingFare = true;
+      _statusMessage = null;
     });
 
     try {
@@ -80,7 +78,9 @@ class _CabBookingHomeState extends State<CabBookingHome> {
           destLocation.latitude,
           destLocation.longitude,
         );
-        double distanceInKm = distanceInMeters / 1000;
+
+        // Estimating actual route distance using a circuity factor (1.4x straight-line)
+        double distanceInKm = (distanceInMeters / 1000) * 1.4;
 
         if (!mounted) return;
 
@@ -88,7 +88,6 @@ class _CabBookingHomeState extends State<CabBookingHome> {
           _calculatedDistance = distanceInKm;
 
           // 3. Use FareCalculator for all types
-          // Note: UI uses "Car" but calculator expects "Cab" or "Car"
           _vehiclePrices["Bike"] = FareCalculator.calculateFare(
             "Bike",
             distanceInKm,
@@ -100,7 +99,7 @@ class _CabBookingHomeState extends State<CabBookingHome> {
           _vehiclePrices["Car"] = FareCalculator.calculateFare(
             "Cab",
             distanceInKm,
-          ).toStringAsFixed(0); // Using "Cab" rate for "Car"
+          ).toStringAsFixed(0);
           _vehiclePrices["Ambulance"] = FareCalculator.calculateFare(
             "Ambulance",
             distanceInKm,
@@ -112,20 +111,23 @@ class _CabBookingHomeState extends State<CabBookingHome> {
             _selectedVehiclePrice = _vehiclePrices[_selectedVehicleType];
           }
         });
+      } else {
+        throw Exception("No location found for this address");
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isCalculatingFare = false;
+          _statusMessage =
+              "Could not find destination. Try a specific landmark.";
         });
-        print("Geocoding error: $e");
+        debugPrint("Geocoding error: $e");
       }
     }
   }
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _destinationController.dispose();
     super.dispose();
   }
@@ -137,35 +139,17 @@ class _CabBookingHomeState extends State<CabBookingHome> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              "Book Your Ride",
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            Text(
-              "Emergency Service",
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-          ],
+        title: const Text(
+          "GoWayanad",
+          style: TextStyle(
+            color: Color(0xFF2D62ED),
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
         ),
       ),
       body: SingleChildScrollView(
@@ -173,89 +157,95 @@ class _CabBookingHomeState extends State<CabBookingHome> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Map Preview
+            if (_statusMessage != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _statusMessage!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () => setState(() => _statusMessage = null),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Hero Banner
             Container(
-              height: 200,
-              width: double.infinity,
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF2D62ED), Color(0xFF5386FF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.directions_car_rounded,
-                    size: 64,
-                    color: Colors.green.shade700,
-                  ),
-                  const SizedBox(height: 16),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
                   Text(
-                    "Ready to Ride",
+                    "Need a ride?",
                     style: TextStyle(
-                      color: Colors.green.shade900,
+                      color: Colors.white,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      fontSize: 18,
                     ),
                   ),
+                  SizedBox(height: 8),
                   Text(
-                    "Your location is verified",
-                    style: TextStyle(
-                      color: Colors.green.shade700,
-                      fontSize: 14,
-                    ),
+                    "Select destination and vehicle to start your emergency ride.",
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
+
             // Destination Input
+            const Text(
+              "Where to?",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _destinationController,
-              onChanged: (value) {
-                // Debounce: wait 800ms after user stops typing before calling API
-                _debounce?.cancel();
-                if (value.length > 3) {
-                  _debounce = Timer(const Duration(milliseconds: 800), () {
-                    _calculateFares(value);
-                  });
-                }
-              },
+              onSubmitted: (value) => _calculateFares(value),
               decoration: InputDecoration(
                 hintText: "Enter destination address",
-                suffixIcon: _isCalculatingFare
-                    ? const Padding(
-                        padding: EdgeInsets.all(12.0),
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : (_calculatedDistance != null
-                          ? Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Text(
-                                "${_calculatedDistance!.toStringAsFixed(1)} km",
-                                style: const TextStyle(
-                                  color: Colors.blue,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            )
-                          : null),
-                prefixIcon: const Icon(
-                  Icons.near_me_outlined,
-                  color: Colors.cyan,
+                prefixIcon: const Icon(Icons.location_on, color: Colors.red),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: () => _calculateFares(_destinationController.text),
                 ),
+                filled: true,
+                fillColor: Colors.grey.shade100,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.blue, width: 2),
+                  borderSide: BorderSide.none,
                 ),
               ),
             ),
             const SizedBox(height: 24),
-            // Vehicle Selection Grid
+
+            // Vehicle Selection
             const Text(
-              "Select Vehicle Type",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              "Select Vehicle",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             const SizedBox(height: 16),
             GridView.count(
@@ -264,133 +254,107 @@ class _CabBookingHomeState extends State<CabBookingHome> {
               crossAxisCount: 2,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 0.8,
+              childAspectRatio: 1.3,
               children: [
                 _buildVehicleCard(
-                  title: "Bike",
-                  desc: "Quick emergency response",
-                  price: _vehiclePrices["Bike"]!,
-                  seats: "1 seat",
-                  time: "1-2 min",
-                  icon: Icons.directions_bike,
+                  "Bike",
+                  "Quick response",
+                  Icons.directions_bike,
                 ),
                 _buildVehicleCard(
-                  title: "Auto",
-                  desc: "Quick emergency response",
-                  price: _vehiclePrices["Auto"]!,
-                  seats: "3 seats",
-                  time: "2-4 min",
-                  icon: Icons.electric_rickshaw,
+                  "Auto",
+                  "Best for city",
+                  Icons.electric_rickshaw,
                 ),
+                _buildVehicleCard("Car", "Comfortable", Icons.directions_car),
                 _buildVehicleCard(
-                  title: "Car",
-                  desc: "Comfortable transport",
-                  price: _vehiclePrices["Car"]!,
-                  seats: "4 seats",
-                  time: "3-5 min",
-                  icon: Icons.directions_car,
-                ),
-                _buildVehicleCard(
-                  title: "Ambulance",
-                  desc: "Medical emergency",
-                  price: _vehiclePrices["Ambulance"]!,
-                  seats: "2 seats",
-                  time: "1-2 min",
-                  icon: Icons.medical_services,
+                  "Ambulance",
+                  "Emergency",
+                  Icons.medical_services,
                 ),
               ],
             ),
+
             const SizedBox(height: 32),
-            // Confirm Ride Button
+
+            // Request Button
             SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () async {
-                  if (_currentPosition == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Fetching location... please wait'),
-                      ),
-                    );
-                    return;
-                  }
-                  if (_destinationController.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter a destination'),
-                      ),
-                    );
-                    return;
-                  }
-                  if (_isCalculatingFare) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Calculating fares... please wait'),
-                      ),
-                    );
-                    return;
-                  }
-                  if (_selectedVehiclePrice == "..." ||
-                      _selectedVehiclePrice == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Please enter a valid destination to calculate fares',
+                onPressed:
+                    (_isLoadingLocation ||
+                        _isCalculatingFare ||
+                        _selectedVehicleType == null ||
+                        _selectedVehiclePrice == null)
+                    ? null
+                    : () async {
+                        final String dest = _destinationController.text.trim();
+                        if (dest.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Please enter destination"),
+                            ),
+                          );
+                          return;
+                        }
+
+                        setState(() => _isCalculatingFare = true);
+
+                        try {
+                          final String? rideId = await RideService()
+                              .requestRide(
+                                pickupLocation: "Current Location",
+                                pickupLat: _currentPosition!.latitude,
+                                pickupLng: _currentPosition!.longitude,
+                                destination: dest,
+                                destinationLat:
+                                    0.0, // Should ideally be from Geocoding
+                                destinationLng: 0.0,
+                                vehicleType: _selectedVehicleType!,
+                                distance: _calculatedDistance ?? 0.0,
+                                price:
+                                    double.tryParse(_selectedVehiclePrice!) ??
+                                    0.0,
+                              );
+
+                          if (rideId != null && mounted) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    WaitingForDriverScreen(rideId: rideId),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Error: ${e.toString()}")),
+                            );
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() => _isCalculatingFare = false);
+                          }
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2D62ED),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: (_isLoadingLocation || _isCalculatingFare)
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
+                        "Confirm Emergency Ride",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
-                    );
-                    return;
-                  }
-                  if (_selectedVehicleType == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please select a vehicle type'),
-                      ),
-                    );
-                    return;
-                  }
-
-                  final String? rideId = await RideService().requestRide(
-                    pickupLocation:
-                        "Lat: ${_currentPosition!.latitude}, Lng: ${_currentPosition!.longitude}",
-                    pickupLat: _currentPosition!.latitude,
-                    pickupLng: _currentPosition!.longitude,
-                    destination: _destinationController.text.trim(),
-                    destinationLat: 0.0,
-                    destinationLng: 0.0,
-                    vehicleType: _selectedVehicleType!,
-                    price: _selectedVehiclePrice!,
-                    distance: _calculatedDistance ?? 0.0,
-                  );
-
-                  if (rideId != null && context.mounted) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            WaitingForDriverScreen(rideId: rideId),
-                      ),
-                    );
-                  } else {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Failed to request ride')),
-                      );
-                    }
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF94B5F9),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  "Confirm Emergency Ride",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
               ),
             ),
           ],
@@ -399,77 +363,58 @@ class _CabBookingHomeState extends State<CabBookingHome> {
     );
   }
 
-  Widget _buildVehicleCard({
-    required String title,
-    required String desc,
-    required String price,
-    required String seats,
-    required String time,
-    required IconData icon,
-  }) {
-    final bool isSelected = _selectedVehicleType == title;
+  Widget _buildVehicleCard(String type, String desc, IconData icon) {
+    bool isSelected = _selectedVehicleType == type;
+    String price = _vehiclePrices[type] ?? "--";
 
     return GestureDetector(
       onTap: () {
         setState(() {
-          _selectedVehicleType = title;
-          // Always grab the latest calculated price from _vehiclePrices
-          // to avoid the card capturing the stale "..." before fares load
-          _selectedVehiclePrice = _vehiclePrices[title] ?? price;
+          _selectedVehicleType = type;
+          _selectedVehiclePrice = price != "--" ? price : null;
         });
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+      child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFE8F0FF) : Colors.white,
-          border: Border.all(
-            color: isSelected ? Colors.blue : Colors.grey.shade200,
-            width: isSelected ? 2 : 1,
-          ),
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF2D62ED) : Colors.grey.shade200,
+            width: 2,
+          ),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 32, color: Colors.blueGrey),
-            const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Icon(
+              icon,
+              size: 30,
+              color: isSelected ? const Color(0xFF2D62ED) : Colors.grey,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              type,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isSelected ? const Color(0xFF2D62ED) : Colors.black,
+              ),
+            ),
+            if (price != "--")
+              Text(
+                "₹$price",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D62ED),
+                ),
+              ),
             Text(
               desc,
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-              maxLines: 2,
+              style: const TextStyle(fontSize: 10, color: Colors.grey),
+              textAlign: TextAlign.center,
             ),
-            const Spacer(),
-            Row(
-              children: [
-                const Icon(Icons.currency_rupee, size: 14, color: Colors.blue),
-                Text(
-                  price,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ],
-            ),
-            _buildInfoRow(Icons.people_outline, seats),
-            _buildInfoRow(Icons.access_time, time),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 12, color: Colors.grey),
-          const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        ],
       ),
     );
   }

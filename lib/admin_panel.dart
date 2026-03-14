@@ -3,6 +3,8 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:gowayanad/services/auth_services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});
@@ -15,7 +17,7 @@ class _AdminPanelState extends State<AdminPanel> {
   bool _isLoading = false;
   String _statusMessage = "Please select a CSV file to upload users.";
 
-  Future<void> _pickAndProcessCSV() async {
+  Future<void> _pickAndProcessCSV(String role) async {
     try {
       // 1. Pick the file
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -34,12 +36,13 @@ class _AdminPanelState extends State<AdminPanel> {
         // Read the entire file as a string
         final String csvString = await file.readAsString();
 
-        // Convert the CSV string to a list of lists manully
-        List<String> lines = csvString.split('\n');
+        // Robust manual parsing (splitting by lines and commas)
         List<List<dynamic>> fields = [];
-        for (String line in lines) {
+        final lines = csvString.split(RegExp(r'\r?\n'));
+        for (var line in lines) {
           if (line.trim().isNotEmpty) {
-            fields.add(line.split(','));
+            // Very basic comma split - handles most standard CSVs without complex quoted fields
+            fields.add(line.split(',').map((e) => e.trim()).toList());
           }
         }
 
@@ -51,21 +54,17 @@ class _AdminPanelState extends State<AdminPanel> {
           return;
         }
 
-        // We assume Row 0 is the header: Name, Phone, Password, Role
+        // We assume Row 0 is the header: Name, Phone, Password
         int successCount = 0;
         int failCount = 0;
 
         for (int i = 1; i < fields.length; i++) {
           final row = fields[i];
 
-          if (row.length >= 4) {
+          if (row.length >= 3) {
             String name = row[0].toString().trim();
             String phone = row[1].toString().trim();
             String password = row[2].toString().trim();
-            String role = row[3]
-                .toString()
-                .trim()
-                .toLowerCase(); // 'rider' or 'driver'
 
             if (phone.isNotEmpty && password.isNotEmpty && name.isNotEmpty) {
               try {
@@ -77,7 +76,7 @@ class _AdminPanelState extends State<AdminPanel> {
                 );
                 successCount++;
               } catch (e) {
-                print("Error adding $phone: $e");
+                debugPrint("Error adding $phone: $e");
                 failCount++;
               }
             } else {
@@ -92,7 +91,6 @@ class _AdminPanelState extends State<AdminPanel> {
               "Upload complete.\nSuccessfully added: $successCount\nFailed/Skipped: $failCount";
         });
       } else {
-        // User canceled the picker
         setState(() {
           _statusMessage = "No file selected.";
         });
@@ -105,9 +103,38 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
-  Future<void> _deleteUser(String docId) async {
+  Future<void> _downloadTemplate() async {
     try {
-      await FirebaseFirestore.instance.collection('users').doc(docId).delete();
+      List<List<dynamic>> rows = [
+        ["Name", "Phone", "Password"],
+        ["John Doe", "9876543210", "pass123"],
+        ["Jane Smith", "8765432109", "pass456"],
+      ];
+
+      // Convert to CSV string manually
+      String csvData = rows.map((row) => row.join(',')).join('\n');
+      final directory = await getTemporaryDirectory();
+      final path = "${directory.path}/user_template.csv";
+      final file = File(path);
+      await file.writeAsString(csvData);
+
+      await Share.shareXFiles([XFile(path)], text: 'Gowayanad User Template');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error generating template: $e")),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteUser(String docId, String role) async {
+    try {
+      String collectionName = (role == 'driver') ? 'drivers' : 'riders';
+      await FirebaseFirestore.instance
+          .collection(collectionName)
+          .doc(docId)
+          .delete();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User deleted successfully')),
@@ -132,10 +159,10 @@ class _AdminPanelState extends State<AdminPanel> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         bool isAdding = false;
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (builderContext, setDialogState) {
             return AlertDialog(
               title: Text('Add New ${role == 'rider' ? 'Rider' : 'Driver'}'),
               content: SingleChildScrollView(
@@ -199,9 +226,9 @@ class _AdminPanelState extends State<AdminPanel> {
                               password,
                               role,
                             );
-                            if (mounted) {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
+                            if (builderContext.mounted) {
+                              Navigator.pop(builderContext);
+                              ScaffoldMessenger.of(builderContext).showSnackBar(
                                 const SnackBar(
                                   content: Text('User added successfully!'),
                                 ),
@@ -209,8 +236,8 @@ class _AdminPanelState extends State<AdminPanel> {
                             }
                           } catch (e) {
                             setDialogState(() => isAdding = false);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                            if (builderContext.mounted) {
+                              ScaffoldMessenger.of(builderContext).showSnackBar(
                                 SnackBar(
                                   content: Text('Error adding user: $e'),
                                   backgroundColor: Colors.red,
@@ -243,8 +270,21 @@ class _AdminPanelState extends State<AdminPanel> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
+              Column(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _downloadTemplate,
+                    icon: const Icon(Icons.download),
+                    label: const Text("Template"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey.shade700,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
               ElevatedButton.icon(
-                onPressed: _pickAndProcessCSV,
+                onPressed: () => _pickAndProcessCSV(role),
                 icon: const Icon(Icons.upload_file),
                 label: const Text("Upload CSV"),
                 style: ElevatedButton.styleFrom(
@@ -282,8 +322,7 @@ class _AdminPanelState extends State<AdminPanel> {
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
-                .collection('users')
-                .where('role', isEqualTo: role)
+                .collection(role == 'driver' ? 'drivers' : 'riders')
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -347,7 +386,7 @@ class _AdminPanelState extends State<AdminPanel> {
                                 TextButton(
                                   onPressed: () {
                                     Navigator.pop(context);
-                                    _deleteUser(docId);
+                                    _deleteUser(docId, role);
                                   },
                                   child: const Text(
                                     "Delete",
