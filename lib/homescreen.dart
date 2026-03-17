@@ -471,19 +471,19 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
                       }
                       final String price = _selectedVehiclePrice ?? "0";
 
-                      setState(() => _isCalculatingFare = true);
                       try {
                         final String? rideId = await RideService().requestRide(
                           pickupLocation: _pickupAddress,
                           pickupLat: _currentPosition!.latitude,
                           pickupLng: _currentPosition!.longitude,
                           destination: dest,
-                          destinationLat: 0.0,
-                          destinationLng: 0.0,
+                          destinationLat: _destinationLat ?? 0.0,
+                          destinationLng: _destinationLng ?? 0.0,
                           vehicleType: _selectedVehicleType!,
                           distance: _calculatedDistance ?? 0.0,
                           price: double.tryParse(price) ?? 0.0,
                         );
+
                         if (rideId != null && mounted) {
                           Navigator.pushReplacement(
                             context,
@@ -492,64 +492,19 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
                             ),
                           );
                         }
-
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("Error: ${e.toString()}")),
+                            SnackBar(
+                              content: Text("Failed to book ride: $e"),
+                              backgroundColor: Colors.red,
+                            ),
                           );
-
-
-                        // If distance is null but destination is entered, calculate first
-                        if (_calculatedDistance == null) {
-                          await _calculateFares(dest);
-                          if (_calculatedDistance == null) return;
-                        }
-
-                        setState(() => _isCalculatingFare = true);
-
-                        try {
-                          final String? rideId = await RideService()
-                              .requestRide(
-                                pickupLocation: "Current Location",
-                                pickupLat: _currentPosition!.latitude,
-                                pickupLng: _currentPosition!.longitude,
-                                destination: dest,
-                                destinationLat: _destinationLat ?? 0.0,
-                                destinationLng: _destinationLng ?? 0.0,
-                                vehicleType: _selectedVehicleType!,
-                                distance: _calculatedDistance ?? 0.0,
-                                price:
-                                    double.tryParse(_selectedVehiclePrice!) ??
-                                    0.0,
-                              );
-
-                          if (rideId != null && mounted) {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    WaitingForDriverScreen(rideId: rideId),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("Failed to book ride: $e"),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        } finally {
-                          if (mounted) {
-                            setState(() => _isCalculatingFare = false);
-                          }
-
                         }
                       } finally {
-                        if (mounted) setState(() => _isCalculatingFare = false);
+                        if (mounted) {
+                          setState(() => _isCalculatingFare = false);
+                        }
                       }
                     },
             ),

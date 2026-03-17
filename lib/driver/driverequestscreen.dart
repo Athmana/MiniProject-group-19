@@ -125,28 +125,6 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                     ),
                   ),
                 ],
-
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height,
-            width: MediaQuery.of(context).size.width,
-            child: Container(
-              color: Colors.grey.shade200,
-              child: const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.map, size: 60, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text(
-                      "Map View (Disabled)",
-                      style: TextStyle(color: Colors.grey, fontSize: 18),
-                    ),
-                  ],
-                ),
-
               ),
             ),
             const SizedBox(height: 24),
