@@ -184,4 +184,18 @@ class AuthService {
       // But we can update the internal tracking.
     }
   }
+
+  // Check if a phone number exists across riders and drivers
+  Future<bool> checkPhoneExists(String phone) async {
+    final riderQuery = await _firestore
+        .collection('riders')
+        .where('phone', isEqualTo: phone)
+        .get();
+    final driverQuery = await _firestore
+        .collection('drivers')
+        .where('phone', isEqualTo: phone)
+        .get();
+
+    return riderQuery.docs.isNotEmpty || driverQuery.docs.isNotEmpty;
+  }
 }

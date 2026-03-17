@@ -1,9 +1,10 @@
 import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/driverridestartedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DriverToPickupScreen extends StatefulWidget {
@@ -33,8 +34,6 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
 
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _currentRideData;
-  GoogleMapController? _mapController;
-  Set<Marker> _markers = {};
 
   @override
   void initState() {
@@ -42,23 +41,9 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
     _currentRideData = widget.rideData;
     _fetchRiderName();
     _listenToRideStatus();
-    _initMarkers();
   }
 
-  void _initMarkers() {
-    final lat = widget.rideData['pickupLat'] as double? ?? 11.6094;
-    final lng = widget.rideData['pickupLng'] as double? ?? 76.0828;
 
-    setState(() {
-      _markers.add(
-        Marker(
-          markerId: const MarkerId('pickup'),
-          position: LatLng(lat, lng),
-          infoWindow: const InfoWindow(title: 'Pickup Location'),
-        ),
-      );
-    });
-  }
 
   void _listenToRideStatus() {
     _rideSubscription = RideService().listenToRide(widget.rideId).listen((
@@ -111,28 +96,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
     }
   }
 
-  Future<void> _makePhoneCall() async {
-    if (_riderPhone == null || _riderPhone!.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Rider phone number not available")),
-        );
-      }
-      return;
-    }
 
-    final Uri launchUri = Uri(scheme: 'tel', path: _riderPhone);
-
-    if (await canLaunchUrl(launchUri)) {
-      await launchUrl(launchUri);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Could not launch phone dialer")),
-        );
-      }
-    }
-  }
 
   void _verifyOtp() async {
     String enteredOtp = _controllers.map((c) => c.text).join();
@@ -277,30 +241,51 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                           ],
                         ),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: _riderPhone != null ? _makePhoneCall : null,
-                        icon: const Icon(Icons.call, size: 18),
-                        label: const Text(
-                          "Call Rider",
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                      if (_riderPhone != null)
+                        InkWell(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: _riderPhone!));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Number copied"),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5FE),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFF2D62ED).withOpacity(0.2),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.copy,
+                                  size: 16,
+                                  color: Color(0xFF2D62ED),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _riderPhone!,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF2D62ED),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D32),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          elevation: 0,
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
