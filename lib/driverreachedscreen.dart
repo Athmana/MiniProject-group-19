@@ -99,13 +99,35 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Top Status Area
-            Container(
-              height: MediaQuery.of(context).size.height * 0.35,
-              width: double.infinity,
+      body: Column(
+        children: [
+          // Top Map Area
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.4,
+            width: double.infinity,
+            child: _rideData == null
+                ? const Center(child: CircularProgressIndicator())
+                : Container(
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.map, size: 60, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text(
+                            "Map View (Disabled)",
+                            style: TextStyle(color: Colors.grey, fontSize: 18),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
+
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(24),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Color(0xFF2E7D32), Color(0xFF4CAF50)],
@@ -138,9 +160,9 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                 ],
               ),
             ),
-
-            Expanded(
-              child: Container(
+          ),
+          Expanded(
+            child: Container(
                 padding: const EdgeInsets.all(24),
                 decoration: const BoxDecoration(
                   color: Colors.white,
@@ -325,7 +347,6 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 }

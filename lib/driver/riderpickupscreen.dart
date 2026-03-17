@@ -170,17 +170,22 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
           SizedBox(
             height: MediaQuery.of(context).size.height,
             width: MediaQuery.of(context).size.width,
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: LatLng(
-                  widget.rideData['pickupLat'] as double? ?? 11.6094,
-                  widget.rideData['pickupLng'] as double? ?? 76.0828,
+            child: Container(
+              color: Colors.grey.shade200,
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.map, size: 80, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      "Map View (Disabled)",
+                      style: TextStyle(color: Colors.grey, fontSize: 18),
+                    ),
+                  ],
                 ),
-                zoom: 15,
               ),
-              markers: _markers,
-              onMapCreated: (controller) => _mapController = controller,
-              myLocationEnabled: true,
+
             ),
           ),
 

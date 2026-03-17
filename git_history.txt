@@ -1,0 +1,20 @@
+ea9affd updation
+7e01b55 Merge branch 'ui-updation' into main and resolve conflicts
+d2e3568 Standardize fare calculation and signup role naming across rider and driver screens
+049acd3 Final build fixes and dependency restoration on main branch
+0b17ea2 Restore clean verified files from admin-panel branch to main
+01a455a Merge admin-panel (clean state) into main
+98d81e7 Final cleanup and build fixes after merge, push verified code
+0b72f45 Fix merge conflicts and build errors, restore clean Firestore sync logic
+b6182bc Merge branch 'admin-panel' of https://github.com/Athmana/MiniProject-group-19 into admin-panel
+efa3a57 updated admin-panel
+5fb3bf4 Resolve merge conflicts, fix project errors, and integrate inline PIN verification UI
+44cf14f updated login
+7356a51 Merge pull request #11 from Athmana/cancellation-button
+b075202 Added cancellation button
+537ac0d updated fare
+6a19032 Merge branch 'updated-pin'
+f44fcce ui updation
+bc3fda8 error fixing
+5db9f5c Merge pull request #10 from Athmana/updated-pin
+d38c56c added dynamic pin
