@@ -29,6 +29,8 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
   bool _isCalculatingFare = false;
   bool _fareCalculated = false;
   double? _calculatedDistance;
+  double? _destinationLat;
+  double? _destinationLng;
   final Map<String, String> _vehiclePrices = {
     "Bike": "--",
     "Auto": "--",
@@ -105,6 +107,8 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
 
         setState(() {
           _calculatedDistance = distanceInKm;
+          _destinationLat = destLocation.latitude;
+          _destinationLng = destLocation.longitude;
 
           // 3. Use FareCalculator for all types
           _vehiclePrices["Bike"] = FareCalculator.calculateFare(
@@ -349,7 +353,47 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
                 ],
               ),
             ),
+
             const SizedBox(height: 32),
+            const SizedBox(height: 24),
+
+            // Destination Input
+            const Text(
+              "Where to?",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _destinationController,
+              onSubmitted: (value) => _calculateFares(value),
+              decoration: InputDecoration(
+                hintText: "Enter destination address",
+                prefixIcon: const Icon(Icons.location_on, color: Colors.red),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: () => _calculateFares(_destinationController.text),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            if (_calculatedDistance != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                child: Text(
+                  "Estimated Distance: ${_calculatedDistance!.toStringAsFixed(1)} KM",
+                  style: const TextStyle(
+                    color: Color(0xFF2D62ED),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 24),
+
 
             // Vehicle Selection
             const Text("Service Type", style: AppStyles.heading2),
@@ -448,11 +492,61 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
                             ),
                           );
                         }
+
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text("Error: ${e.toString()}")),
                           );
+
+
+                        // If distance is null but destination is entered, calculate first
+                        if (_calculatedDistance == null) {
+                          await _calculateFares(dest);
+                          if (_calculatedDistance == null) return;
+                        }
+
+                        setState(() => _isCalculatingFare = true);
+
+                        try {
+                          final String? rideId = await RideService()
+                              .requestRide(
+                                pickupLocation: "Current Location",
+                                pickupLat: _currentPosition!.latitude,
+                                pickupLng: _currentPosition!.longitude,
+                                destination: dest,
+                                destinationLat: _destinationLat ?? 0.0,
+                                destinationLng: _destinationLng ?? 0.0,
+                                vehicleType: _selectedVehicleType!,
+                                distance: _calculatedDistance ?? 0.0,
+                                price:
+                                    double.tryParse(_selectedVehiclePrice!) ??
+                                    0.0,
+                              );
+
+                          if (rideId != null && mounted) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    WaitingForDriverScreen(rideId: rideId),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Failed to book ride: $e"),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() => _isCalculatingFare = false);
+                          }
+
                         }
                       } finally {
                         if (mounted) setState(() => _isCalculatingFare = false);

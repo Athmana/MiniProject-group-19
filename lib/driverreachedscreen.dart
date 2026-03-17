@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'ridestartedscreen.dart';
 import 'services/ride_service.dart';
 import 'dart:async';
-import 'package:url_launcher/url_launcher.dart';
+
 
 class DriverReachedScreen extends StatefulWidget {
   final String rideId;
@@ -73,21 +74,7 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
     });
   }
 
-  Future<void> _makeCall() async {
-    if (_driverPhone == null || _driverPhone!.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Driver phone number not available")),
-        );
-      }
-      return;
-    }
 
-    final Uri launchUri = Uri(scheme: 'tel', path: _driverPhone);
-    if (await canLaunchUrl(launchUri)) {
-      await launchUrl(launchUri);
-    }
-  }
 
   @override
   void dispose() {
@@ -99,13 +86,35 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Top Status Area
-            Container(
-              height: MediaQuery.of(context).size.height * 0.35,
-              width: double.infinity,
+      body: Column(
+        children: [
+          // Top Map Area
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.4,
+            width: double.infinity,
+            child: _rideData == null
+                ? const Center(child: CircularProgressIndicator())
+                : Container(
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.map, size: 60, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text(
+                            "Map View (Disabled)",
+                            style: TextStyle(color: Colors.grey, fontSize: 18),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
+
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(24),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Color(0xFF2E7D32), Color(0xFF4CAF50)],
@@ -138,9 +147,9 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                 ],
               ),
             ),
-
-            Expanded(
-              child: Container(
+          ),
+          Expanded(
+            child: Container(
                 padding: const EdgeInsets.all(24),
                 decoration: const BoxDecoration(
                   color: Colors.white,
@@ -186,15 +195,48 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
                             ),
                           ),
                           if (_driverPhone != null)
-                            IconButton(
-                              onPressed: _makeCall,
-                              icon: const Icon(
-                                Icons.call,
-                                color: Color(0xFF2E7D32),
-                              ),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.green.shade50,
-                                padding: const EdgeInsets.all(12),
+                            InkWell(
+                              onTap: () {
+                                Clipboard.setData(ClipboardData(text: _driverPhone!));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Number copied"),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEBF2FF),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFF2D62ED).withOpacity(0.2),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.copy,
+                                      size: 16,
+                                      color: Color(0xFF2D62ED),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _driverPhone!,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF2D62ED),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                         ],
@@ -325,7 +367,6 @@ class _DriverReachedScreenState extends State<DriverReachedScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 }
