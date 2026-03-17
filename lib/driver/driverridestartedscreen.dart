@@ -70,6 +70,43 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
     }
   }
 
+  Future<void> _cancelRide() async {
+    bool confirm =
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Cancel Trip"),
+            content: const Text("Are you sure you want to cancel this trip?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("No"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text("Yes, Cancel"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirm || !mounted) return;
+
+    bool success = await _rideService.cancelRide(widget.rideId);
+
+    if (mounted) {
+      if (!success) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to cancel trip.')));
+      }
+      // On success, the StreamBuilder inside the build method
+      // will pick up the 'cancelled' status and pop the screen properly.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -83,6 +120,13 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
         elevation: 0,
         centerTitle: true,
         automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.red),
+            tooltip: 'Cancel Ride',
+            onPressed: _cancelRide,
+          ),
+        ],
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance

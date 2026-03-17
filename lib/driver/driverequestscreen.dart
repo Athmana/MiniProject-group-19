@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/riderpickupscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DriverRequestScreen extends StatefulWidget {
@@ -22,31 +22,15 @@ class DriverRequestScreen extends StatefulWidget {
 class _DriverRequestScreenState extends State<DriverRequestScreen> {
   String? _riderName;
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
-  GoogleMapController? mapController;
-  Set<Marker> markers = {};
 
   @override
   void initState() {
     super.initState();
     _fetchRiderName();
     _listenToRideStatus();
-    _initMarkers();
   }
 
-  void _initMarkers() {
-    final lat = widget.rideData['pickupLat'] as double? ?? 11.6094;
-    final lng = widget.rideData['pickupLng'] as double? ?? 76.0828;
 
-    setState(() {
-      markers.add(
-        Marker(
-          markerId: const MarkerId('pickup'),
-          position: LatLng(lat, lng),
-          infoWindow: const InfoWindow(title: 'Pickup Location'),
-        ),
-      );
-    });
-  }
 
   void _listenToRideStatus() {
     _rideSubscription = RideService().listenToRide(widget.rideId).listen((
@@ -94,17 +78,21 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
           SizedBox(
             height: MediaQuery.of(context).size.height,
             width: MediaQuery.of(context).size.width,
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: LatLng(
-                  widget.rideData['pickupLat'] as double? ?? 11.6094,
-                  widget.rideData['pickupLng'] as double? ?? 76.0828,
+            child: Container(
+              color: Colors.grey.shade200,
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.map, size: 60, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      "Map View (Disabled)",
+                      style: TextStyle(color: Colors.grey, fontSize: 18),
+                    ),
+                  ],
                 ),
-                zoom: 15,
               ),
-              markers: markers,
-              onMapCreated: (controller) => mapController = controller,
-              myLocationEnabled: true,
             ),
           ),
 
