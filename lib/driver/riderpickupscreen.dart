@@ -161,9 +161,69 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
     }
   }
 
+  Future<void> _cancelRide() async {
+    bool confirm =
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Cancel Trip"),
+            content: const Text("Are you sure you want to cancel this trip?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("No"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text("Yes, Cancel"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirm || !mounted) return;
+
+    setState(() => _isLoading = true);
+
+    bool success = await RideService().cancelRide(widget.rideId);
+
+    if (mounted) {
+      if (!success) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to cancel trip.')));
+      }
+      // On success, the _listenToRideStatus stream will pick up the real-time
+      // 'cancelled' status, and pop the screen properly.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16, top: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.red),
+              tooltip: 'Cancel Ride',
+              onPressed: _isLoading ? null : _cancelRide,
+            ),
+          ),
+        ],
+      ),
       body: Stack(
         children: [
           // 1. Map View
@@ -185,14 +245,17 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                   ],
                 ),
               ),
-
             ),
           ),
 
           // 2. Navigation Info
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.only(
+                left: 16.0,
+                right: 16.0,
+                top: 60.0,
+              ), // Added top padding to clear the action button
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
