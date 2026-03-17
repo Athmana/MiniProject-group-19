@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/services/auth_services.dart';
 import 'package:gowayanad/admin_panel.dart';
+import 'package:gowayanad/utils/design_system.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,9 +28,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   bool _isSignUpPasswordVisible = false;
   bool _isSignUpConfirmPasswordVisible = false;
   bool _isSignUpLoading = false;
-
-  final Color _primaryPurple = const Color(0xFF673AB7);
-  final Color _accentPurple = const Color(0xFF9575CD);
 
   @override
   void initState() {
@@ -75,7 +73,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     }
 
     if (phone.length < 10) {
-      _showError("Please enter a valid phone number");
+      _showError("Please enter a valid 10-digit phone number");
       return;
     }
 
@@ -93,7 +91,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     try {
       await AuthService().signUpWithPhone(name, phone, password, _selectedRole);
       if (mounted) {
-        _showSuccess("Account created successfully! Logging you in...");
+        _showSuccess("Account created successfully!");
         // Auto-login after signup
         await AuthService().loginAndRoute(phone, password, context);
       }
@@ -106,20 +104,30 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
     );
   }
 
   void _showSuccess(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.green),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -127,44 +135,43 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 40),
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _primaryPurple.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.bolt_rounded, size: 60, color: _primaryPurple),
-                  ),
-                ),
+                const SizedBox(height: 50),
                 const SizedBox(height: 24),
-                Center(
+                const Center(
                   child: Text(
                     "GO WAYANAD",
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: _primaryPurple,
-                      letterSpacing: 1.5,
+                      color: AppColors.primary,
+                      letterSpacing: -1,
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 48),
                 Container(
-                  height: 50,
+                  height: 54,
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(25),
+                    color: AppColors.secondary,
+                    borderRadius: BorderRadius.circular(27),
                   ),
                   child: TabBar(
                     controller: _tabController,
                     indicator: BoxDecoration(
-                      borderRadius: BorderRadius.circular(25),
-                      color: _primaryPurple,
+                      borderRadius: BorderRadius.circular(23),
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    labelColor: Colors.white,
-                    unselectedLabelColor: Colors.grey,
+                    labelColor: AppColors.primary,
+                    unselectedLabelColor: AppColors.textSecondary,
+                    labelStyle: const TextStyle(fontWeight: FontWeight.bold),
                     tabs: const [
                       Tab(text: "Login"),
                       Tab(text: "Sign Up"),
@@ -173,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 ),
                 const SizedBox(height: 32),
                 SizedBox(
-                  height: 500, // Fixed height for tab views
+                  height: 480,
                   child: TabBarView(
                     controller: _tabController,
                     children: [
@@ -182,8 +189,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                _buildAdminButton(),
+                const SizedBox(height: 10),
+                Center(
+                  child: TextButton(
+                    onPressed: _showAdminPasscodeDialog,
+                    child: Text(
+                      "Admin Dashboard",
+                      style: TextStyle(
+                        color: AppColors.textSecondary.withOpacity(0.7),
+                        decoration: TextDecoration.underline,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 20),
               ],
             ),
@@ -199,23 +218,23 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         _buildTextField(
           controller: _loginPhoneController,
           label: "Phone Number",
-          icon: Icons.phone_outlined,
+          icon: Icons.phone_android_rounded,
           keyboardType: TextInputType.phone,
         ),
         const SizedBox(height: 20),
         _buildTextField(
           controller: _loginPasswordController,
           label: "Password",
-          icon: Icons.lock_outline,
+          icon: Icons.lock_outline_rounded,
           isPassword: true,
           obscureText: !_isLoginPasswordVisible,
           onToggleVisibility: () {
             setState(() => _isLoginPasswordVisible = !_isLoginPasswordVisible);
           },
         ),
-        const SizedBox(height: 32),
-        _buildPrimaryButton(
-          text: "LOGIN",
+        const SizedBox(height: 40),
+        CustomButton(
+          label: "LOGIN",
           onPressed: _handleLogin,
           isLoading: _isLoginLoading,
         ),
@@ -230,20 +249,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           _buildTextField(
             controller: _signUpNameController,
             label: "Full Name",
-            icon: Icons.person_outline,
+            icon: Icons.person_outline_rounded,
           ),
           const SizedBox(height: 16),
           _buildTextField(
             controller: _signUpPhoneController,
             label: "Phone Number",
-            icon: Icons.phone_outlined,
+            icon: Icons.phone_android_rounded,
             keyboardType: TextInputType.phone,
           ),
           const SizedBox(height: 16),
           _buildTextField(
             controller: _signUpPasswordController,
             label: "Password",
-            icon: Icons.lock_outline,
+            icon: Icons.lock_outline_rounded,
             isPassword: true,
             obscureText: !_isSignUpPasswordVisible,
             onToggleVisibility: () {
@@ -254,18 +273,18 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           _buildTextField(
             controller: _signUpConfirmPasswordController,
             label: "Confirm Password",
-            icon: Icons.lock_clock_outlined,
+            icon: Icons.lock_reset_rounded,
             isPassword: true,
             obscureText: !_isSignUpConfirmPasswordVisible,
             onToggleVisibility: () {
               setState(() => _isSignUpConfirmPasswordVisible = !_isSignUpConfirmPasswordVisible);
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           _buildRoleSelection(),
           const SizedBox(height: 32),
-          _buildPrimaryButton(
-            text: "CREATE ACCOUNT",
+          CustomButton(
+            label: "CREATE ACCOUNT",
             onPressed: _handleSignUp,
             isLoading: _isSignUpLoading,
           ),
@@ -287,28 +306,36 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      style: const TextStyle(fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: _accentPurple),
+        labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        prefixIcon: Icon(icon, color: AppColors.primary, size: 20),
         suffixIcon: isPassword
             ? IconButton(
                 icon: Icon(
                   obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                  color: Colors.grey,
+                  color: AppColors.textSecondary.withOpacity(0.5),
+                  size: 20,
                 ),
                 onPressed: onToggleVisibility,
               )
             : null,
         filled: true,
-        fillColor: Colors.grey[100],
+        fillColor: AppColors.surface,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide(color: _primaryPurple, width: 2),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppColors.secondary, width: 1),
         ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       ),
     );
   }
@@ -317,17 +344,21 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("I am a:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-        const SizedBox(height: 8),
+        const Text(
+          "I AM A:",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppColors.textSecondary,
+            fontSize: 10,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(
-              child: _buildRoleCard('rider', 'Rider', Icons.person_outline),
-            ),
+            Expanded(child: _buildRoleCard('rider', 'Rider', Icons.person_rounded)),
             const SizedBox(width: 16),
-            Expanded(
-              child: _buildRoleCard('driver', 'Driver', Icons.drive_eta_outlined),
-            ),
+            Expanded(child: _buildRoleCard('driver', 'Driver', Icons.drive_eta_rounded)),
           ],
         ),
       ],
@@ -338,65 +369,30 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     bool isSelected = _selectedRole == role;
     return GestureDetector(
       onTap: () => setState(() => _selectedRole = role),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: isSelected ? _primaryPurple : Colors.grey[100],
-          borderRadius: BorderRadius.circular(12),
-          border: isSelected ? null : Border.all(color: Colors.grey[300]!),
+          color: isSelected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.secondary,
+            width: 2,
+          ),
         ),
         child: Column(
           children: [
-            Icon(icon, color: isSelected ? Colors.white : Colors.grey),
+            Icon(icon, color: isSelected ? Colors.white : AppColors.primary),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.white : Colors.grey,
+                color: isSelected ? Colors.white : AppColors.textPrimary,
                 fontWeight: FontWeight.bold,
+                fontSize: 14,
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPrimaryButton({
-    required String text,
-    required VoidCallback onPressed,
-    required bool isLoading,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: _primaryPurple,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          elevation: 2,
-        ),
-        child: isLoading
-            ? const CircularProgressIndicator(color: Colors.white)
-            : Text(
-                text,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-      ),
-    );
-  }
-
-  Widget _buildAdminButton() {
-    return Center(
-      child: TextButton(
-        onPressed: _showAdminPasscodeDialog,
-        child: const Text(
-          "Admin Dashboard",
-          style: TextStyle(color: Colors.grey, decoration: TextDecoration.underline),
         ),
       ),
     );
@@ -407,35 +403,54 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Admin Access"),
-        content: TextField(
-          controller: passController,
-          obscureText: true,
-          decoration: const InputDecoration(
-            hintText: "Enter secret passcode",
-          ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Admin Access", style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Enter secret passcode for admin dashboard.",
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: passController,
+              obscureText: true,
+              decoration: InputDecoration(
+                hintText: "Passcode",
+                filled: true,
+                fillColor: AppColors.surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text("Cancel"),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             onPressed: () {
               if (passController.text == "112233") {
-                Navigator.pop(context); // close dialog
+                Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const AdminPanel(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const AdminPanel()),
                 );
               } else {
-                Navigator.pop(context); // close dialog
+                Navigator.pop(context);
                 _showError("Access Denied");
               }
             },
-            child: const Text("Submit"),
+            child: const Text("Submit", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

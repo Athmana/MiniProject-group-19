@@ -141,9 +141,8 @@ class _AuthScreenState extends State<AuthScreen>
               const SizedBox(height: 20),
 
               // App Logo & Tagline
-              Icon(Icons.directions_car_rounded, size: 64, color: primaryColor),
               const SizedBox(height: 16),
-              Text(
+              const Text(
                 "Go Wayanad",
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -152,12 +151,6 @@ class _AuthScreenState extends State<AuthScreen>
                   color: Colors.black87,
                   letterSpacing: -0.5,
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "Ride anywhere in Wayanad easily",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 48),
 

@@ -184,4 +184,29 @@ class AuthService {
       // But we can update the internal tracking.
     }
   }
+
+  // Check if a phone number exists in riders or drivers collections
+  Future<bool> checkPhoneExists(String phone) async {
+    final riderQuery = await _firestore
+        .collection('riders')
+        .where('phone', isEqualTo: phone)
+        .limit(1)
+        .get();
+    if (riderQuery.docs.isNotEmpty) return true;
+
+    final driverQuery = await _firestore
+        .collection('drivers')
+        .where('phone', isEqualTo: phone)
+        .limit(1)
+        .get();
+    return driverQuery.docs.isNotEmpty;
+  }
+
+  // Logout
+  Future<void> logout(BuildContext context) async {
+    await _auth.signOut();
+    if (context.mounted) {
+      Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+    }
+  }
 }
