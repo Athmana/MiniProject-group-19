@@ -24,6 +24,8 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
   // Added for Fare Calculation
   bool _isCalculatingFare = false;
   double? _calculatedDistance;
+  double? _destinationLat;
+  double? _destinationLng;
   final Map<String, String> _vehiclePrices = {
     "Bike": "--",
     "Auto": "--",
@@ -86,6 +88,8 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
 
         setState(() {
           _calculatedDistance = distanceInKm;
+          _destinationLat = destLocation.latitude;
+          _destinationLng = destLocation.longitude;
 
           // 3. Use FareCalculator for all types
           _vehiclePrices["Bike"] = FareCalculator.calculateFare(
@@ -240,6 +244,17 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
                 ),
               ),
             ),
+            if (_calculatedDistance != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                child: Text(
+                  "Estimated Distance: ${_calculatedDistance!.toStringAsFixed(1)} KM",
+                  style: const TextStyle(
+                    color: Color(0xFF2D62ED),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
             const SizedBox(height: 24),
 
             // Vehicle Selection
@@ -299,6 +314,12 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
                           return;
                         }
 
+                        // If distance is null but destination is entered, calculate first
+                        if (_calculatedDistance == null) {
+                          await _calculateFares(dest);
+                          if (_calculatedDistance == null) return;
+                        }
+
                         setState(() => _isCalculatingFare = true);
 
                         try {
@@ -308,9 +329,8 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
                                 pickupLat: _currentPosition!.latitude,
                                 pickupLng: _currentPosition!.longitude,
                                 destination: dest,
-                                destinationLat:
-                                    0.0, // Should ideally be from Geocoding
-                                destinationLng: 0.0,
+                                destinationLat: _destinationLat ?? 0.0,
+                                destinationLng: _destinationLng ?? 0.0,
                                 vehicleType: _selectedVehicleType!,
                                 distance: _calculatedDistance ?? 0.0,
                                 price:
@@ -330,7 +350,10 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
                         } catch (e) {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Error: ${e.toString()}")),
+                              SnackBar(
+                                content: Text("Failed to book ride: $e"),
+                                backgroundColor: Colors.red,
+                              ),
                             );
                           }
                         } finally {

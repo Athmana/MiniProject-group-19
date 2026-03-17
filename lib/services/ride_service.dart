@@ -76,7 +76,7 @@ class RideService {
       });
       return docRef.id;
     } catch (e) {
-      return null;
+      rethrow;
     }
   }
 
