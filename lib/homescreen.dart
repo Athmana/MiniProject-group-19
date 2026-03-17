@@ -6,6 +6,8 @@ import 'package:gowayanad/waitingfordriverscreen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:gowayanad/utils/fare_calculator.dart';
+import 'package:gowayanad/utils/design_system.dart';
+import 'package:flutter/foundation.dart';
 
 class RiderBookingScreen extends StatefulWidget {
   const RiderBookingScreen({super.key});
@@ -20,9 +22,12 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
   final TextEditingController _destinationController = TextEditingController();
   String? _selectedVehicleType;
   String? _statusMessage;
+  String _pickupAddress = "Fetching location...";
+  Timer? _debounceTimer;
 
-  // Added for Fare Calculation
+  // Fare Calculation
   bool _isCalculatingFare = false;
+  bool _fareCalculated = false;
   double? _calculatedDistance;
   double? _destinationLat;
   double? _destinationLng;
@@ -46,6 +51,19 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
       if (mounted) {
         setState(() {
           _currentPosition = position;
+        });
+      }
+
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty && mounted) {
+        Placemark place = placemarks[0];
+        setState(() {
+          _pickupAddress =
+              "${place.locality ?? place.subAdministrativeArea ?? 'Unknown'}, ${place.administrativeArea ?? ''}";
           _isLoadingLocation = false;
         });
       }
@@ -53,6 +71,7 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
       if (mounted) {
         setState(() {
           _isLoadingLocation = false;
+          _pickupAddress = "Location unavailable";
           _statusMessage = "Could not get your location. Please check GPS.";
         });
       }
@@ -110,6 +129,7 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
           ).toStringAsFixed(0);
 
           _isCalculatingFare = false;
+          _fareCalculated = true;
 
           if (_selectedVehicleType != null) {
             _selectedVehiclePrice = _vehiclePrices[_selectedVehicleType];
@@ -122,37 +142,57 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
       if (mounted) {
         setState(() {
           _isCalculatingFare = false;
-          _statusMessage =
-              "Could not find destination. Try a specific landmark.";
+          _statusMessage = "Could not find destination. Try a specific landmark or nearby city name.";
         });
         debugPrint("Geocoding error: $e");
       }
     }
   }
 
+  void _onDestinationChanged(String value) {
+    // Reset fares when destination changes
+    if (_fareCalculated) {
+      setState(() {
+        _fareCalculated = false;
+        _vehiclePrices.updateAll((key, _) => "--");
+        _selectedVehiclePrice = null;
+        _calculatedDistance = null;
+      });
+    }
+    // Debounce auto-calculate after 1.5s of inactivity
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (value.trim().isNotEmpty) {
+        _calculateFares(value.trim());
+      }
+    });
+  }
+
   @override
   void dispose() {
     _destinationController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.textPrimary, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          "GoWayanad",
+          "Book a Ride",
           style: TextStyle(
-            color: Color(0xFF2D62ED),
+            color: AppColors.primary,
             fontWeight: FontWeight.bold,
-            fontSize: 24,
+            fontSize: 20,
+            letterSpacing: -0.5,
           ),
         ),
       ),
@@ -163,61 +203,158 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
           children: [
             if (_statusMessage != null)
               Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 20),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
+                  color: AppColors.error.withOpacity(0.05),
+                  borderRadius: AppStyles.commonBorderRadius,
+                  border: Border.all(color: AppColors.error.withOpacity(0.2)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline, color: Colors.red),
-                    const SizedBox(width: 8),
+                    const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         _statusMessage!,
-                        style: const TextStyle(color: Colors.red),
+                        style: const TextStyle(color: AppColors.error, fontSize: 13),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, size: 18),
+                      icon: const Icon(Icons.close, size: 18, color: AppColors.error),
                       onPressed: () => setState(() => _statusMessage = null),
                     ),
                   ],
                 ),
               ),
 
-            // Hero Banner
+            // Journey Header
+            Text("Your Trip", style: AppStyles.caption.copyWith(fontWeight: FontWeight.bold)),
+            const Text("Booking Details", style: AppStyles.heading1),
+            const SizedBox(height: 24),
+
+            // Pickup & Destination Section
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF2D62ED), Color(0xFF5386FF)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
+                color: Colors.white,
+                borderRadius: AppStyles.commonBorderRadius,
+                border: Border.all(color: AppColors.secondary),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    "Need a ride?",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.my_location, color: AppColors.primary, size: 16),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "PICKUP",
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _pickupAddress,
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 15),
+                    child: Container(
+                      height: 20,
+                      width: 2,
+                      color: AppColors.secondary,
                     ),
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    "Select destination and vehicle to start your emergency ride.",
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.location_on, color: AppColors.error, size: 16),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "DESTINATION",
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            TextField(
+                              controller: _destinationController,
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                              onSubmitted: (value) => _calculateFares(value),
+                              onChanged: _onDestinationChanged,
+                              decoration: InputDecoration(
+                                hintText: "Where are you going?",
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                                suffixIcon: _isCalculatingFare
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: Padding(
+                                          padding: EdgeInsets.all(10),
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                        ),
+                                      )
+                                    : (_destinationController.text.isNotEmpty && !_fareCalculated
+                                        ? IconButton(
+                                            icon: const Icon(Icons.search_rounded, color: AppColors.primary, size: 20),
+                                            onPressed: () => _calculateFares(_destinationController.text.trim()),
+                                          )
+                                        : null),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
+
+            const SizedBox(height: 32),
             const SizedBox(height: 24),
 
             // Destination Input
@@ -257,62 +394,111 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
               ),
             const SizedBox(height: 24),
 
+
             // Vehicle Selection
-            const Text(
-              "Select Vehicle",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
+            const Text("Service Type", style: AppStyles.heading2),
             const SizedBox(height: 16),
             GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.3,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 1.2,
               children: [
-                _buildVehicleCard(
-                  "Bike",
-                  "Quick response",
-                  Icons.directions_bike,
-                ),
-                _buildVehicleCard(
-                  "Auto",
-                  "Best for city",
-                  Icons.electric_rickshaw,
-                ),
+                _buildVehicleCard("Bike", "Quick Response", Icons.directions_bike),
+                _buildVehicleCard("Auto", "Best for City", Icons.electric_rickshaw),
                 _buildVehicleCard("Car", "Comfortable", Icons.directions_car),
-                _buildVehicleCard(
-                  "Ambulance",
-                  "Emergency",
-                  Icons.medical_services,
-                ),
+                _buildVehicleCard("Ambulance", "Emergency", Icons.medical_services_rounded),
               ],
             ),
 
+            // Distance Info Banner
+            if (_fareCalculated && _calculatedDistance != null)
+              Container(
+                margin: const EdgeInsets.only(top: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  borderRadius: AppStyles.commonBorderRadius,
+                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.route_rounded, color: AppColors.primary, size: 18),
+                    const SizedBox(width: 10),
+                    Text(
+                      "Estimated distance: ${_calculatedDistance!.toStringAsFixed(1)} km",
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             const SizedBox(height: 32),
 
-            // Request Button
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed:
-                    (_isLoadingLocation ||
-                        _isCalculatingFare ||
-                        _selectedVehicleType == null ||
-                        _selectedVehiclePrice == null)
-                    ? null
-                    : () async {
-                        final String dest = _destinationController.text.trim();
-                        if (dest.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Please enter destination"),
+            // Confirm Button
+            CustomButton(
+              label: "Confirm Booking",
+              isLoading: _isLoadingLocation || _isCalculatingFare,
+              onPressed: (_isLoadingLocation || _isCalculatingFare)
+                  ? null
+                  : () async {
+                      final String dest = _destinationController.text.trim();
+                      if (dest.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Please enter a destination")),
+                        );
+                        return;
+                      }
+                      if (_selectedVehicleType == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Please select a vehicle type")),
+                        );
+                        return;
+                      }
+                      // Auto-calculate fare if user skipped it
+                      if (!_fareCalculated) {
+                        await _calculateFares(dest);
+                        if (!_fareCalculated) return; // Geocoding failed
+                        setState(() {
+                          _selectedVehiclePrice = _vehiclePrices[_selectedVehicleType];
+                        });
+                      }
+                      final String price = _selectedVehiclePrice ?? "0";
+
+                      setState(() => _isCalculatingFare = true);
+                      try {
+                        final String? rideId = await RideService().requestRide(
+                          pickupLocation: _pickupAddress,
+                          pickupLat: _currentPosition!.latitude,
+                          pickupLng: _currentPosition!.longitude,
+                          destination: dest,
+                          destinationLat: 0.0,
+                          destinationLng: 0.0,
+                          vehicleType: _selectedVehicleType!,
+                          distance: _calculatedDistance ?? 0.0,
+                          price: double.tryParse(price) ?? 0.0,
+                        );
+                        if (rideId != null && mounted) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => WaitingForDriverScreen(rideId: rideId),
                             ),
                           );
-                          return;
                         }
+
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Error: ${e.toString()}")),
+                          );
+
 
                         // If distance is null but destination is entered, calculate first
                         if (_calculatedDistance == null) {
@@ -360,26 +546,14 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
                           if (mounted) {
                             setState(() => _isCalculatingFare = false);
                           }
+
                         }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2D62ED),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: (_isLoadingLocation || _isCalculatingFare)
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        "Confirm Emergency Ride",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-              ),
+                      } finally {
+                        if (mounted) setState(() => _isCalculatingFare = false);
+                      }
+                    },
             ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -397,48 +571,55 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
           _selectedVehiclePrice = price != "--" ? price : null;
         });
       },
-      child: Container(
-        padding: const EdgeInsets.all(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFE8F0FF) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? AppColors.primary : Colors.white,
+          borderRadius: AppStyles.commonBorderRadius,
           border: Border.all(
-            color: isSelected ? const Color(0xFF2D62ED) : Colors.grey.shade200,
+            color: isSelected ? AppColors.primary : AppColors.secondary,
             width: 2,
           ),
+          boxShadow: [
+            if (isSelected)
+              BoxShadow(
+                color: AppColors.primary.withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
-              size: 30,
-              color: isSelected ? const Color(0xFF2D62ED) : Colors.grey,
+              size: 32,
+              color: isSelected ? Colors.white : AppColors.primary,
             ),
             const SizedBox(height: 8),
             Text(
               type,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: isSelected ? const Color(0xFF2D62ED) : Colors.black,
+                fontSize: 14,
+                color: isSelected ? Colors.white : AppColors.textPrimary,
               ),
             ),
-            if (price != "--")
-              Text(
-                "₹$price",
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2D62ED),
-                ),
-              ),
+            const SizedBox(height: 4),
             Text(
-              desc,
-              style: const TextStyle(fontSize: 10, color: Colors.grey),
-              textAlign: TextAlign.center,
+              price != "--" ? "₹$price" : "--",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: isSelected ? Colors.white.withOpacity(0.9) : AppColors.primary,
+              ),
             ),
           ],
         ),
       ),
     );
   }
+
 }
