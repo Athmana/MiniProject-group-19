@@ -17,7 +17,6 @@ class DriverRideStartedScreen extends StatefulWidget {
 class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
   final RideService _rideService = RideService();
   String? _riderName;
-  String? _riderPhone;
 
   Future<void> _startRide() async {
     bool success = await _rideService.updateRideStatus(
@@ -54,21 +53,7 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
     }
   }
 
-  Future<void> _makeCall() async {
-    if (_riderPhone == null || _riderPhone!.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Rider phone number not available")),
-        );
-      }
-      return;
-    }
 
-    final Uri launchUri = Uri(scheme: 'tel', path: _riderPhone);
-    if (await canLaunchUrl(launchUri)) {
-      await launchUrl(launchUri);
-    }
-  }
 
   Future<void> _cancelRide() async {
     bool confirm =
@@ -177,7 +162,6 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
                 setState(() {
                   _riderName =
                       riderData?['fullName'] ?? riderData?['name'] ?? "Rider";
-                  _riderPhone = riderData?['phoneNumber'];
                 });
               }
             });
@@ -233,30 +217,6 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
                           ],
                         ),
                       ),
-                      if (_riderPhone != null)
-                        ElevatedButton.icon(
-                          onPressed: _makeCall,
-                          icon: const Icon(
-                            Icons.call,
-                            size: 16,
-                            color: Colors.white,
-                          ),
-                          label: const Text(
-                            "Call",
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2E7D32),
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                        ),
                     ],
                   ),
                 ),

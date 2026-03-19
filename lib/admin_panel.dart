@@ -62,15 +62,9 @@ class _AdminPanelState extends State<AdminPanel> {
 
             if (phone.isNotEmpty && password.isNotEmpty && name.isNotEmpty) {
               try {
-                // Ensure number has prefix if it doesn't already
-                String formattedPhone = phone;
-                if (!phone.startsWith('+')) {
-                  formattedPhone = '+91$phone';
-                }
-
                 await AuthService().signUpWithPhoneAsAdmin(
                   name,
-                  formattedPhone,
+                  phone,
                   password,
                   role,
                 );
@@ -172,8 +166,12 @@ class _AdminPanelState extends State<AdminPanel> {
                     
                     setDialogState(() => isAdding = true);
                     try {
-                      String formattedPhone = '+91$phone';
-                      await AuthService().signUpWithPhoneAsAdmin(name, formattedPhone, password, role);
+                      await AuthService().signUpWithPhoneAsAdmin(
+                        name, 
+                        phone, 
+                        password, 
+                        role,
+                      );
                       if (context.mounted) {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User added')));
@@ -217,19 +215,48 @@ class _AdminPanelState extends State<AdminPanel> {
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              IconButton(onPressed: _downloadTemplate, icon: const Icon(Icons.download), tooltip: "Template"),
+              // 1. Template Button
+              ElevatedButton.icon(
+                onPressed: _downloadTemplate,
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: const Text("Template"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade50,
+                  foregroundColor: Colors.blue.shade700,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // 2. CSV Upload Button
               ElevatedButton.icon(
                 onPressed: () => _pickAndProcessCSV(role),
-                icon: const Icon(Icons.upload_file),
+                icon: const Icon(Icons.upload_file_rounded, size: 18),
                 label: const Text("CSV"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey.shade100,
+                  foregroundColor: Colors.grey.shade800,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
+              const SizedBox(width: 8),
+              // 3. Manual Add Button
               ElevatedButton.icon(
                 onPressed: () => _showAddUserDialog(role),
-                icon: const Icon(Icons.person_add),
+                icon: const Icon(Icons.person_add_rounded, size: 18),
                 label: const Text("Add"),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green.shade600,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
             ],
           ),

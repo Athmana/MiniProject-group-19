@@ -23,7 +23,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
 
   double _totalEarnings = 0.0;
   int _totalRides = 0;
-  double _averageRating = 5.0;
+  double _averageRating = 0.0;
   Timer? _locationTimer;
   bool _isViewingRequest = false;
   Map<String, dynamic>? _driverData;
@@ -341,7 +341,6 @@ class _DriverHomePageState extends State<DriverHomePage> {
               children: [
                 _buildStatItem(_averageRating.toStringAsFixed(1), "Rating", Icons.star_rounded),
                 _buildStatItem(_totalRides.toString(), "Rides", Icons.directions_car_rounded),
-                _buildStatItem("8.5h", "Online", Icons.access_time_filled_rounded),
               ],
             ),
           ],
