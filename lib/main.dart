@@ -46,17 +46,25 @@ class AuthWrapper extends StatelessWidget {
           // User is logged in, grab their role by checking riders then drivers
           return FutureBuilder<String?>(
             future: () async {
-              DocumentSnapshot riderDoc = await FirebaseFirestore.instance
-                  .collection('riders')
-                  .doc(snapshot.data!.uid)
-                  .get();
-              if (riderDoc.exists) return 'rider';
+              try {
+                DocumentSnapshot riderDoc = await FirebaseFirestore.instance
+                    .collection('riders')
+                    .doc(snapshot.data!.uid)
+                    .get();
+                if (riderDoc.exists) return 'rider';
+              } catch (e) {
+                debugPrint("Rider lookup failed: $e");
+              }
 
-              DocumentSnapshot driverDoc = await FirebaseFirestore.instance
-                  .collection('drivers')
-                  .doc(snapshot.data!.uid)
-                  .get();
-              if (driverDoc.exists) return 'driver';
+              try {
+                DocumentSnapshot driverDoc = await FirebaseFirestore.instance
+                    .collection('drivers')
+                    .doc(snapshot.data!.uid)
+                    .get();
+                if (driverDoc.exists) return 'driver';
+              } catch (e) {
+                debugPrint("Driver lookup failed: $e");
+              }
 
               return null;
             }(),

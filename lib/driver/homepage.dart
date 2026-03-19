@@ -23,6 +23,9 @@ class _DriverHomePageState extends State<DriverHomePage> {
 
   double _totalEarnings = 0.0;
   int _totalRides = 0;
+  double _averageRating = 5.0;
+  Timer? _locationTimer;
+  bool _isViewingRequest = false;
 
   @override
   void initState() {
@@ -35,8 +38,13 @@ class _DriverHomePageState extends State<DriverHomePage> {
 
     _completedRidesSubscription = _rideService.getDriverCompletedRides(driverId).listen((snapshot) {
       double earnings = 0.0;
+      double totalRating = 0.0;
+      int ratedRides = 0;
+
       for (var doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
+        
+        // Earnings calculation
         final priceRaw = data['fareAmount'];
         if (priceRaw != null) {
           if (priceRaw is num) {
@@ -46,42 +54,91 @@ class _DriverHomePageState extends State<DriverHomePage> {
             earnings += double.tryParse(cleanPrice) ?? 0.0;
           }
         }
+
+        // Average Rating calculation
+        final rating = data['rating'];
+        if (rating != null) {
+          totalRating += (rating as num).toDouble();
+          ratedRides++;
+        }
       }
       if (mounted) {
         setState(() {
           _totalRides = snapshot.docs.length;
           _totalEarnings = earnings;
+          if (ratedRides > 0) {
+            _averageRating = totalRating / ratedRides;
+          }
         });
       }
     });
   }
 
-  void _toggleOnlineStatus() {
+  void _toggleOnlineStatus() async {
     final newStatus = !_isOnline;
     setState(() {
       _isOnline = newStatus;
     });
+    
+    await _rideService.updateDriverAvailability(newStatus);
+    
     if (newStatus) {
       _startListeningForRides();
+      _startLocationUpdates();
     } else {
       _stopListeningForRides();
+      _stopLocationUpdates();
+    }
+  }
+
+  void _startLocationUpdates() async {
+    // Initial update
+    _updatePosition();
+    // Periodic update every 30 seconds
+    _locationTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _updatePosition();
+    });
+  }
+
+  void _stopLocationUpdates() {
+    _locationTimer?.cancel();
+    _locationTimer = null;
+  }
+
+  Future<void> _updatePosition() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition();
+      await _rideService.updateCurrentLocation(position.latitude, position.longitude);
+    } catch (e) {
+      debugPrint("Error updating location: $e");
     }
   }
 
   void _startListeningForRides() {
-    _rideSubscription = _rideService.getPendingRides().listen((snapshot) {
+    _rideSubscription = _rideService.getBroadcastedRequests().listen((snapshot) {
       if (snapshot.docs.isNotEmpty) {
-        final doc = snapshot.docs.first;
-        final data = doc.data() as Map<String, dynamic>;
-        _stopListeningForRides();
-        if (mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => DriverRequestScreen(rideId: doc.id, rideData: data),
-            ),
-          ).then((_) {
-            if (_isOnline) _startListeningForRides();
-          });
+        // Filter out rides declined by this driver locally (though server-side also handles)
+        final driverId = FirebaseAuth.instance.currentUser?.uid;
+        final docs = snapshot.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final declined = data['declinedDrivers'] as List? ?? [];
+          return !declined.contains(driverId);
+        }).toList();
+
+        if (docs.isNotEmpty && !_isViewingRequest) {
+          final doc = docs.first;
+          final data = doc.data() as Map<String, dynamic>;
+          
+          if (mounted) {
+            _isViewingRequest = true;
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => DriverRequestScreen(rideId: doc.id, rideData: data),
+              ),
+            ).then((_) {
+              _isViewingRequest = false;
+            });
+          }
         }
       }
     });
@@ -97,6 +154,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
     _rideSubscription?.cancel();
     _positionSubscription?.cancel();
     _completedRidesSubscription?.cancel();
+    _locationTimer?.cancel();
     super.dispose();
   }
 
@@ -221,7 +279,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildStatItem("4.9", "Rating", Icons.star_rounded),
+                _buildStatItem(_averageRating.toStringAsFixed(1), "Rating", Icons.star_rounded),
                 _buildStatItem(_totalRides.toString(), "Rides", Icons.directions_car_rounded),
                 _buildStatItem("8.5h", "Online", Icons.access_time_filled_rounded),
               ],
@@ -377,7 +435,16 @@ class _DriverHomePageState extends State<DriverHomePage> {
                 "₹${ride['fareAmount'] ?? '0'}",
                 style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 16),
               ),
-              const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
+              Row(
+                children: [
+                  const Icon(Icons.star_rounded, color: Colors.orange, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    "${ride['rating'] ?? '5.0'}",
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
             ],
           ),
           const Spacer(),

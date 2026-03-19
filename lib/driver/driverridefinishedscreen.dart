@@ -20,7 +20,7 @@ class DriverRideFinishedScreen extends StatelessWidget {
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('rides')
+            .collection('rideRequests')
             .doc(rideId)
             .snapshots(),
         builder: (context, snapshot) {

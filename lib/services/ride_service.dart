@@ -53,13 +53,16 @@ class RideService {
       final String? riderId = FirebaseAuth.instance.currentUser?.uid;
       if (riderId == null) throw Exception("User not logged in");
 
-      String otp = (1000 + Random().nextInt(9000)).toString(); // 4-digit OTP
+      // 1. Find nearby available drivers
+      List<String> nearbyDrivers = await getNearbyDrivers(pickupLat, pickupLng, vehicleType);
+
+      String otp = (1000 + Random().nextInt(9000)).toString();
       DateTime expiryTime = DateTime.now().add(const Duration(minutes: 15));
 
-      DocumentReference docRef = await _firestore.collection('rides').add({
+      // 2. Create Ride Request for Broadcast
+      DocumentReference requestRef = await _firestore.collection('rideRequests').add({
         'riderId': riderId,
-        'driverId': null,
-        'status': 'pending',
+        'status': 'searching',
         'pickupLocation': pickupLocation,
         'pickupLat': pickupLat,
         'pickupLng': pickupLng,
@@ -70,19 +73,51 @@ class RideService {
         'distanceKm': distance,
         'fareAmount': price,
         'otp': otp,
-        'rideStatus': 'pending',
+        'notifiedDrivers': nearbyDrivers,
+        'declinedDrivers': [],
+        'acceptedDriver': null,
         'createdAt': FieldValue.serverTimestamp(),
         'pinExpiryAt': Timestamp.fromDate(expiryTime),
       });
-      return docRef.id;
+
+      return requestRef.id;
     } catch (e) {
       rethrow;
     }
   }
 
+  Future<List<String>> getNearbyDrivers(double lat, double lng, String vehicleType) async {
+    try {
+      // For simplicity, we fetch all available drivers of the same type.
+      // In a production app, we would use GeoFirestore or coordinate bounds.
+      QuerySnapshot snapshot = await _firestore
+          .collection('drivers')
+          .where('available', isEqualTo: true)
+          .where('vehicleType', isEqualTo: vehicleType.toLowerCase())
+          .get();
+
+      List<String> driverIds = [];
+      for (var doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        double? dLat = data['currentLat'];
+        double? dLng = data['currentLng'];
+
+        if (dLat != null && dLng != null) {
+          double distance = calculateDistance(lat, lng, dLat, dLng);
+          if (distance <= 5.0) { // 5km radius
+            driverIds.add(doc.id);
+          }
+        }
+      }
+      return driverIds;
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<bool> updatePaymentStatus(String rideId, String paymentStatus) async {
     try {
-      await _firestore.collection('rides').doc(rideId).update({
+      await _firestore.collection('rideRequests').doc(rideId).update({
         'paymentStatus': paymentStatus,
         'paidAt': FieldValue.serverTimestamp(),
       });
@@ -98,7 +133,7 @@ class RideService {
     String feedback,
   ) async {
     try {
-      await _firestore.collection('rides').doc(rideId).update({
+      await _firestore.collection('rideRequests').doc(rideId).update({
         'rating': rating,
         'feedback': feedback,
       });
@@ -140,52 +175,59 @@ class RideService {
   }
 
   Stream<DocumentSnapshot> listenToRide(String rideId) {
-    return _firestore.collection('rides').doc(rideId).snapshots();
+    return _firestore.collection('rideRequests').doc(rideId).snapshots();
   }
 
   Stream<QuerySnapshot> getPendingRides() {
     return _firestore
-        .collection('rides')
+        .collection('rideRequests')
         .where('status', isEqualTo: 'pending')
         .snapshots();
   }
 
   Stream<QuerySnapshot> getDriverCompletedRides(String driverId) {
     return _firestore
-        .collection('rides')
-        .where('driverId', isEqualTo: driverId)
+        .collection('rideRequests')
+        .where('acceptedDriver', isEqualTo: driverId)
         .where('status', isEqualTo: 'completed')
         .snapshots();
   }
 
   Stream<QuerySnapshot> getRiderCompletedRides(String riderId) {
     return _firestore
-        .collection('rides')
+        .collection('rideRequests')
         .where('riderId', isEqualTo: riderId)
         .where('status', isEqualTo: 'completed')
         .snapshots();
   }
 
-  Future<bool> acceptRide(String rideId) async {
+  Future<bool> acceptRideRequest(String requestId) async {
     try {
       final String? driverId = FirebaseAuth.instance.currentUser?.uid;
       if (driverId == null) throw Exception("Driver not logged in");
 
       return await _firestore.runTransaction((transaction) async {
-        DocumentSnapshot snapshot = await transaction.get(
-          _firestore.collection('rides').doc(rideId),
-        );
+        DocumentReference requestRef = _firestore.collection('rideRequests').doc(requestId);
+        DocumentSnapshot snapshot = await transaction.get(requestRef);
+
         if (!snapshot.exists) return false;
-
         final data = snapshot.data() as Map<String, dynamic>;
-        if (data['status'] != 'pending') return false;
 
-        transaction.update(snapshot.reference, {
-          'driverId': driverId,
+        if (data['status'] != 'searching') return false;
+
+        // 1. Mark Request as Accepted
+        transaction.update(requestRef, {
           'status': 'accepted',
+          'acceptedDriver': driverId,
           'acceptedAt': FieldValue.serverTimestamp(),
-          'rideStatus': 'accepted',
         });
+
+        // 2. Set Driver as Unavailable
+        transaction.update(_firestore.collection('drivers').doc(driverId), {
+          'available': false,
+          'currentRideId': requestId,
+        });
+
         return true;
       });
     } catch (e) {
@@ -193,12 +235,80 @@ class RideService {
     }
   }
 
-  Future<bool> cancelRide(String rideId) async {
+  Future<bool> declineRideRequest(String requestId) async {
     try {
-      await _firestore.collection('rides').doc(rideId).update({
-        'status': 'cancelled',
+      final String? driverId = FirebaseAuth.instance.currentUser?.uid;
+      if (driverId == null) throw Exception("Driver not logged in");
+
+      await _firestore.collection('rideRequests').doc(requestId).update({
+        'declinedDrivers': FieldValue.arrayUnion([driverId]),
       });
       return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> updateDriverAvailability(bool available) async {
+    final String? driverId = FirebaseAuth.instance.currentUser?.uid;
+    if (driverId == null) return;
+
+    await _firestore.collection('drivers').doc(driverId).update({
+      'available': available,
+      'lastActive': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateCurrentLocation(double lat, double lng) async {
+    final String? userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    // Update both driver record and any active ride
+    WriteBatch batch = _firestore.batch();
+    
+    DocumentReference driverRef = _firestore.collection('drivers').doc(userId);
+    batch.update(driverRef, {
+      'currentLat': lat,
+      'currentLng': lng,
+      'locationUpdatedAt': FieldValue.serverTimestamp(),
+    });
+
+    // Also find if they have an active ride to update for the rider
+    QuerySnapshot activeRides = await _firestore
+        .collection('rideRequests')
+        .where('acceptedDriver', isEqualTo: userId)
+        .where('status', whereIn: ['accepted', 'arrived', 'started'])
+        .limit(1)
+        .get();
+
+    if (activeRides.docs.isNotEmpty) {
+      batch.update(activeRides.docs.first.reference, {
+        'driverLat': lat,
+        'driverLng': lng,
+      });
+    }
+
+    await batch.commit();
+  }
+
+  Stream<DocumentSnapshot> listenToRideRequest(String requestId) {
+    return _firestore.collection('rideRequests').doc(requestId).snapshots();
+  }
+
+  Stream<QuerySnapshot> getBroadcastedRequests() {
+    final String? driverId = FirebaseAuth.instance.currentUser?.uid;
+    if (driverId == null) return const Stream.empty();
+
+    return _firestore
+        .collection('rideRequests')
+        .where('status', isEqualTo: 'searching')
+        .where('notifiedDrivers', arrayContains: driverId)
+        .snapshots();
+  }
+
+  Future<bool> cancelRide(String rideId) async {
+    try {
+      return await updateRideStatus(rideId, 'cancelled');
     } catch (e) {
       return false;
     }
@@ -206,40 +316,33 @@ class RideService {
 
   Future<bool> updateRideStatus(String rideId, String newStatus) async {
     try {
+      DocumentReference docRef = _firestore.collection('rideRequests').doc(rideId);
+      
       return await _firestore.runTransaction((transaction) async {
-        DocumentSnapshot snapshot = await transaction.get(
-          _firestore.collection('rides').doc(rideId),
-        );
+        DocumentSnapshot snapshot = await transaction.get(docRef);
         if (!snapshot.exists) return false;
 
         final data = snapshot.data() as Map<String, dynamic>;
-        // Don't update if already cancelled or completed
-        if (data['status'] == 'cancelled' || data['status'] == 'completed')
-          return false;
+        if (data['status'] == 'cancelled' || data['status'] == 'completed') return false;
 
-        transaction.update(snapshot.reference, {
+        transaction.update(docRef, {
           'status': newStatus,
-          'rideStatus': newStatus,
           '${newStatus}At': FieldValue.serverTimestamp(),
         });
+
+        // Cleanup driver if ride ends
+        if (newStatus == 'completed' || newStatus == 'cancelled') {
+          String? dId = data['acceptedDriver'];
+          if (dId != null) {
+            transaction.update(_firestore.collection('drivers').doc(dId), {
+              'available': true,
+              'currentRideId': null,
+            });
+          }
+        }
+
         return true;
       });
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool> regenerateRidePin(String rideId) async {
-    try {
-      String newOtp = (1000 + Random().nextInt(9000)).toString();
-      DateTime newExpiry = DateTime.now().add(const Duration(minutes: 15));
-
-      await _firestore.collection('rides').doc(rideId).update({
-        'otp': newOtp,
-        'pinExpiryAt': Timestamp.fromDate(newExpiry),
-        'pinUpdatedAt': FieldValue.serverTimestamp(),
-      });
-      return true;
     } catch (e) {
       return false;
     }
@@ -251,7 +354,7 @@ class RideService {
   ) async {
     try {
       DocumentSnapshot doc = await _firestore
-          .collection('rides')
+          .collection('rideRequests')
           .doc(rideId)
           .get();
       if (!doc.exists) return {'success': false, 'message': 'Ride not found'};
@@ -261,19 +364,14 @@ class RideService {
       Timestamp? expiry = data['pinExpiryAt'];
 
       if (expiry != null && DateTime.now().isAfter(expiry.toDate())) {
-        await regenerateRidePin(rideId);
         return {
           'success': false,
-          'message': 'OTP expired and has been refreshed.',
+          'message': 'OTP expired. Please ask rider to refresh.',
         };
       }
 
       if (enteredPin == correctPin) {
-        await _firestore.collection('rides').doc(rideId).update({
-          'status': 'started',
-          'rideStatus': 'started',
-          'startedAt': FieldValue.serverTimestamp(),
-        });
+        await updateRideStatus(rideId, 'started');
         return {'success': true};
       } else {
         return {'success': false, 'message': 'Invalid PIN.'};
@@ -289,10 +387,26 @@ class RideService {
     double lng,
   ) async {
     try {
-      await _firestore.collection('rides').doc(rideId).update({
+      await _firestore.collection('rideRequests').doc(rideId).update({
         'driverLat': lat,
         'driverLng': lng,
         'locationUpdatedAt': FieldValue.serverTimestamp(),
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> regenerateRidePin(String rideId) async {
+    try {
+      String newOtp = (1000 + Random().nextInt(9000)).toString();
+      DateTime newExpiry = DateTime.now().add(const Duration(minutes: 15));
+
+      await _firestore.collection('rideRequests').doc(rideId).update({
+        'otp': newOtp,
+        'pinExpiryAt': Timestamp.fromDate(newExpiry),
+        'pinUpdatedAt': FieldValue.serverTimestamp(),
       });
       return true;
     } catch (e) {

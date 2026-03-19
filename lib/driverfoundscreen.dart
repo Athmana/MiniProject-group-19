@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/ridestartedscreen.dart';
-import 'package:gowayanad/driverreachedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
@@ -32,7 +31,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
   }
 
   void _listenToRideStatus() {
-    _rideSubscription = _rideService.listenToRide(widget.rideId).listen((
+    _rideSubscription = _rideService.listenToRideRequest(widget.rideId).listen((
       snapshot,
     ) async {
       if (snapshot.exists) {
@@ -55,15 +54,11 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
         }
 
         if (_rideData?['status'] == 'arrived') {
+          // Stay on this screen to keep PIN visible, but update banner/UI
           if (mounted) {
-            _stopTimers();
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    DriverReachedScreen(rideId: widget.rideId),
-              ),
-            );
+            setState(() {
+              // Trigger UI refresh for 'arrived' state
+            });
           }
         } else if (_rideData?['status'] == 'started') {
           if (mounted) {
@@ -163,7 +158,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
           children: [
             // 1. Map / Header Section
             Container(
-              height: 200,
+              height: 140,
               width: double.infinity,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -176,8 +171,8 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(
-                    Icons.airport_shuttle,
-                    size: 60,
+                    Icons.local_taxi,
+                    size: 48,
                     color: Colors.white,
                   ),
                   const SizedBox(height: 12),

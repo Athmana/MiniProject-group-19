@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/driverridestartedscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -46,7 +47,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
 
 
   void _listenToRideStatus() {
-    _rideSubscription = RideService().listenToRide(widget.rideId).listen((
+    _rideSubscription = RideService().listenToRideRequest(widget.rideId).listen((
       snapshot,
     ) {
       if (snapshot.exists) {
@@ -306,14 +307,20 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                       ),
                       if (_riderPhone != null)
                         InkWell(
-                          onTap: () {
-                            Clipboard.setData(ClipboardData(text: _riderPhone!));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Number copied"),
-                                duration: Duration(seconds: 2),
-                              ),
+                          onTap: () async {
+                            final Uri launchUri = Uri(
+                              scheme: 'tel',
+                              path: _riderPhone,
                             );
+                            if (await canLaunchUrl(launchUri)) {
+                              await launchUrl(launchUri);
+                            } else {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("Could not initiate call")),
+                                );
+                              }
+                            }
                           },
                           borderRadius: BorderRadius.circular(12),
                           child: Container(
@@ -332,13 +339,13 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(
-                                  Icons.copy,
+                                  Icons.call_rounded,
                                   size: 16,
                                   color: Color(0xFF2D62ED),
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  _riderPhone!,
+                                  "CALL ${_riderPhone!}",
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
