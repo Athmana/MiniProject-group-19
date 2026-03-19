@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/driverfoundscreen.dart';
+import 'package:gowayanad/homepage.dart';
 import 'package:gowayanad/services/ride_service.dart';
 
 class WaitingForDriverScreen extends StatefulWidget {
@@ -18,20 +19,65 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
   final RideService _rideService = RideService();
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
 
+  DateTime _screenOpenTime = DateTime.now();
+  Timer? _timeoutTimer;
+  bool _isNavigating = false;
+
   @override
   void initState() {
     super.initState();
     _listenToRideStatus();
+    _startTimeoutTimer();
+  }
+
+  void _startTimeoutTimer() {
+    _timeoutTimer = Timer(const Duration(seconds: 30), () async {
+      if (mounted && _rideSubscription != null) {
+        await _rideService.updateRideStatus(widget.rideId, 'no_driver_found');
+        if (mounted && !_isNavigating) {
+          _isNavigating = true;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No drivers available nearby. Please try again later.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const EmergencyRideHome()),
+            (route) => false,
+          );
+        }
+      }
+    });
   }
 
   void _listenToRideStatus() {
-    _rideSubscription = _rideService.listenToRide(widget.rideId).listen((
+    _rideSubscription = _rideService.listenToRideRequest(widget.rideId).listen((
       snapshot,
     ) {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
-        if (data['status'] == 'accepted') {
+        
+        // Check for declines
+        final lastDecline = data['lastDeclineAt'] as Timestamp?;
+        if (lastDecline != null && lastDecline.toDate().isAfter(_screenOpenTime)) {
           if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('A driver declined your request. Still searching...'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+            // Update screenOpenTime to avoid repeated notifications for same decline
+            _screenOpenTime = lastDecline.toDate().add(const Duration(seconds: 1));
+          }
+        }
+
+        if (data['status'] == 'accepted') {
+          _timeoutTimer?.cancel();
+          if (mounted && !_isNavigating) {
+            _isNavigating = true;
             _rideSubscription?.cancel();
             Navigator.pushReplacement(
               context,
@@ -40,13 +86,21 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
               ),
             );
           }
-        } else if (data['status'] == 'cancelled') {
-          if (mounted) {
+        } else if (data['status'] == 'cancelled' || data['status'] == 'no_driver_found') {
+          _timeoutTimer?.cancel();
+          if (mounted && !_isNavigating) {
+            _isNavigating = true;
             _rideSubscription?.cancel();
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Ride request was cancelled.')),
+              SnackBar(content: Text(data['status'] == 'cancelled' ? 'Ride request was cancelled.' : 'No drivers found.')),
             );
-            Navigator.of(context).pop();
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const EmergencyRideHome(),
+              ),
+              (route) => false,
+            );
           }
         }
       }
@@ -56,6 +110,7 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
   @override
   void dispose() {
     _rideSubscription?.cancel();
+    _timeoutTimer?.cancel();
     super.dispose();
   }
 
@@ -153,10 +208,18 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
               // 4. Cancel Option
               TextButton(
                 onPressed: () async {
+                  if (_isNavigating) return;
+                  _isNavigating = true;
                   // Cancel the ride in Firestore before popping
                   await _rideService.cancelRide(widget.rideId);
                   if (mounted) {
-                    Navigator.pop(context);
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EmergencyRideHome(),
+                      ),
+                      (route) => false,
+                    );
                   }
                 },
                 child: const Text(

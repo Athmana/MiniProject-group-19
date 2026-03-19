@@ -95,7 +95,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
                 StreamBuilder<DocumentSnapshot>(
                   stream: FirebaseFirestore.instance
-                      .collection('rides')
+                      .collection('rideRequests')
                       .doc(widget.rideId)
                       .snapshots(),
                   builder: (context, snapshot) {

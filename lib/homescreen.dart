@@ -355,44 +355,6 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
             ),
 
             const SizedBox(height: 32),
-            const SizedBox(height: 24),
-
-            // Destination Input
-            const Text(
-              "Where to?",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _destinationController,
-              onSubmitted: (value) => _calculateFares(value),
-              decoration: InputDecoration(
-                hintText: "Enter destination address",
-                prefixIcon: const Icon(Icons.location_on, color: Colors.red),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () => _calculateFares(_destinationController.text),
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            if (_calculatedDistance != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0, left: 4.0),
-                child: Text(
-                  "Estimated Distance: ${_calculatedDistance!.toStringAsFixed(1)} KM",
-                  style: const TextStyle(
-                    color: Color(0xFF2D62ED),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 24),
 
 
             // Vehicle Selection

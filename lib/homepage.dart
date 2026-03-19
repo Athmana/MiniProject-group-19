@@ -287,11 +287,13 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                         displayTime = timeago.format((rideData['timestamp'] as Timestamp).toDate());
                       }
 
+                      final rating = rideData['rating']?.toString() ?? "5.0";
+
                       return _buildRecentRideCard(
                         rideData['vehicleType'] ?? "Standard",
                         rideData['destinationLocation'] ?? rideData['destination'] ?? "Unknown",
                         displayTime,
-                        "5.0",
+                        rating,
                         displayPrice,
                       );
                     },

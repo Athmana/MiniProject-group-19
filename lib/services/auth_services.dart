@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 class AuthService {
@@ -69,6 +70,66 @@ class AuthService {
     });
   }
 
+  // Admin helper: Create user using a secondary Firebase app instance
+  // to avoid signing out the current admin user.
+  Future<void> signUpWithPhoneAsAdmin(
+    String name,
+    String phone,
+    String password,
+    String role,
+  ) async {
+    // 1. Check existing (Firestore part is fine as it doesn't affect Auth session)
+    final riderQuery = await _firestore
+        .collection('riders')
+        .where('phone', isEqualTo: phone)
+        .get();
+    final driverQuery = await _firestore
+        .collection('drivers')
+        .where('phone', isEqualTo: phone)
+        .get();
+
+    int totalExisting = riderQuery.docs.length + driverQuery.docs.length;
+    if (totalExisting >= 3) {
+      throw Exception("Phone number limit exceeded (Maximum 3 accounts).");
+    }
+
+    int index = totalExisting + 1;
+    String pseudoEmail = "${phone}_$index@gowayanad.app";
+
+    // 2. Create in Auth via secondary app
+    FirebaseApp secondaryApp = await Firebase.initializeApp(
+      name: 'AdminApp_${DateTime.now().millisecondsSinceEpoch}',
+      options: Firebase.app().options,
+    );
+
+    try {
+      FirebaseAuth secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+      UserCredential result = await secondaryAuth.createUserWithEmailAndPassword(
+        email: pseudoEmail,
+        password: password,
+      );
+
+      String collectionName = (role == 'driver') ? 'drivers' : 'riders';
+
+      // 3. Save to Firestore
+      await _firestore.collection(collectionName).doc(result.user!.uid).set({
+        'fullName': name,
+        'name': name,
+        'phone': phone,
+        'phoneNumber': phone,
+        'internalEmail': pseudoEmail,
+        'role': role,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Sign out from the secondary app instance
+      await secondaryAuth.signOut();
+    } finally {
+      // Clean up the secondary app
+      await secondaryApp.delete();
+    }
+  }
+
   // Login and Route
   Future<void> loginAndRoute(
     String identifier,
@@ -82,19 +143,26 @@ class AuthService {
       bool isPhone = RegExp(r'^\+?[0-9]+$').hasMatch(identifier);
       if (isPhone) {
         // Search in both collections
-        final riderQuery = await _firestore
-            .collection('riders')
-            .where('phone', isEqualTo: identifier)
-            .get();
-        final driverQuery = await _firestore
-            .collection('drivers')
-            .where('phone', isEqualTo: identifier)
-            .get();
+        List<DocumentSnapshot> allDocs = [];
+        try {
+          final riderQuery = await _firestore
+              .collection('riders')
+              .where('phone', isEqualTo: identifier)
+              .get();
+          final driverQuery = await _firestore
+              .collection('drivers')
+              .where('phone', isEqualTo: identifier)
+              .get();
 
-        List<DocumentSnapshot> allDocs = [
-          ...riderQuery.docs,
-          ...driverQuery.docs,
-        ];
+          allDocs = [...riderQuery.docs, ...driverQuery.docs];
+        } catch (e) {
+          if (e.toString().contains('permission-denied')) {
+            throw Exception(
+              "Access Denied: Please check Firestore Security Rules. Ensure public read is allowed for phone lookups.",
+            );
+          }
+          rethrow;
+        }
 
         if (allDocs.isEmpty) {
           throw Exception("No account found for this phone number.");
@@ -163,47 +231,6 @@ class AuthService {
         );
       }
     }
-  }
-
-  // Reset password logic (simplified for pseudo-accounts)
-  Future<void> resetPasswordByPhone(String phone, String newPassword) async {
-    // Find all accounts in both collections
-    final riderQuery = await _firestore
-        .collection('riders')
-        .where('phone', isEqualTo: phone)
-        .get();
-    final driverQuery = await _firestore
-        .collection('drivers')
-        .where('phone', isEqualTo: phone)
-        .get();
-
-    for (var doc in [...riderQuery.docs, ...driverQuery.docs]) {
-      await doc.reference.update({'password': newPassword});
-      // Updating actual Firebase Auth password requires re-authentication,
-      // which we can't do here without the user logged in.
-      // But we can update the internal tracking.
-    }
-  }
-
-
-  // Check if a phone number exists in riders or drivers collections
-  // Check if a phone number exists across riders and drivers
-
-  Future<bool> checkPhoneExists(String phone) async {
-    final riderQuery = await _firestore
-        .collection('riders')
-        .where('phone', isEqualTo: phone)
-
-        .limit(1)
-        .get();
-    if (riderQuery.docs.isNotEmpty) return true;
-
-    final driverQuery = await _firestore
-        .collection('drivers')
-        .where('phone', isEqualTo: phone)
-        .limit(1)
-        .get();
-    return driverQuery.docs.isNotEmpty;
   }
 
   // Logout

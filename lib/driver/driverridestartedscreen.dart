@@ -130,7 +130,7 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('rides')
+            .collection('rideRequests')
             .doc(widget.rideId)
             .snapshots(),
         builder: (context, snapshot) {

@@ -134,7 +134,7 @@ class _ReachedLocationScreenState extends State<ReachedLocationScreen> {
                   const SizedBox(height: 8),
                   StreamBuilder<DocumentSnapshot>(
                     stream: FirebaseFirestore.instance
-                        .collection('rides')
+                        .collection('rideRequests')
                         .doc(widget.rideId)
                         .snapshots(),
                     builder: (context, snapshot) {

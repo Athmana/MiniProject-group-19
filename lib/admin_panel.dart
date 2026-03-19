@@ -68,7 +68,7 @@ class _AdminPanelState extends State<AdminPanel> {
 
             if (phone.isNotEmpty && password.isNotEmpty && name.isNotEmpty) {
               try {
-                await AuthService().signUpWithPhone(
+                await AuthService().signUpWithPhoneAsAdmin(
                   name,
                   phone,
                   password,
@@ -77,6 +77,11 @@ class _AdminPanelState extends State<AdminPanel> {
                 successCount++;
               } catch (e) {
                 debugPrint("Error adding $phone: $e");
+                String errorMsg = e.toString();
+                if (errorMsg.contains("operation-not-allowed") || errorMsg.contains("permission-denied")) {
+                  errorMsg = "Ensure 'Enable create' is ON in Firebase Console.";
+                }
+                _statusMessage = "Failed: $errorMsg";
                 failCount++;
               }
             } else {
@@ -219,8 +224,8 @@ class _AdminPanelState extends State<AdminPanel> {
                           setDialogState(() => isAdding = true);
 
                           try {
-                            // Using the existing AuthService method
-                            await AuthService().signUpWithPhone(
+                            // Using the new Admin-specific method to avoid logging out
+                            await AuthService().signUpWithPhoneAsAdmin(
                               name,
                               phone,
                               password,
@@ -236,10 +241,14 @@ class _AdminPanelState extends State<AdminPanel> {
                             }
                           } catch (e) {
                             setDialogState(() => isAdding = false);
+                            String errorMsg = e.toString();
+                            if (errorMsg.contains("operation-not-allowed") || errorMsg.contains("permission-denied")) {
+                              errorMsg = "Check 'Enable create' in Firebase Console Settings.";
+                            }
                             if (builderContext.mounted) {
                               ScaffoldMessenger.of(builderContext).showSnackBar(
                                 SnackBar(
-                                  content: Text('Error adding user: $e'),
+                                  content: Text('Error adding user: $errorMsg'),
                                   backgroundColor: Colors.red,
                                 ),
                               );
