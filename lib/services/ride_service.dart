@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:math';
 
 class RideService {
@@ -88,25 +89,41 @@ class RideService {
 
   Future<List<String>> getNearbyDrivers(double lat, double lng, String vehicleType) async {
     try {
-      // For simplicity, we fetch all available drivers of the same type.
-      // In a production app, we would use GeoFirestore or coordinate bounds.
+      // Fetch all drivers and filter in Dart to handle missing fields (like available or vehicleType)
       QuerySnapshot snapshot = await _firestore
           .collection('drivers')
-          .where('available', isEqualTo: true)
-          .where('vehicleType', isEqualTo: vehicleType.toLowerCase())
           .get();
 
       List<String> driverIds = [];
       for (var doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        double? dLat = data['currentLat'];
-        double? dLng = data['currentLng'];
+        double? dLat = (data['currentLat'] as num?)?.toDouble();
+        double? dLng = (data['currentLng'] as num?)?.toDouble();
 
         if (dLat != null && dLng != null) {
-          double distance = calculateDistance(lat, lng, dLat, dLng);
-          if (distance <= 5.0) { // 5km radius
-            driverIds.add(doc.id);
+          // Robust filtering for missing fields
+          bool isAvailable = data['available'] ?? false;
+          String? dVehicleType = data['vehicleType'];
+          
+          // Case-insensitive matching
+          bool typeMatches = true;
+          if (dVehicleType != null && dVehicleType.isNotEmpty) {
+            typeMatches = dVehicleType.toLowerCase() == vehicleType.toLowerCase();
           }
+
+          if (isAvailable && typeMatches) {
+            double distance = calculateDistance(lat, lng, dLat, dLng);
+            if (distance <= 10.0) { // Increased to 10km for testing flexibility
+              debugPrint("DEBUG: Found nearby driver ${doc.id} at ${distance.toStringAsFixed(1)}km");
+              driverIds.add(doc.id);
+            } else {
+              debugPrint("DEBUG: Driver ${doc.id} is too far: ${distance.toStringAsFixed(1)}km");
+            }
+          } else {
+            debugPrint("DEBUG: Driver ${doc.id} skipped (Available: $isAvailable, TypeMatch: $typeMatches)");
+          }
+        } else {
+          debugPrint("DEBUG: Driver ${doc.id} has no location data in Firestore");
         }
       }
       return driverIds;
@@ -218,6 +235,7 @@ class RideService {
         // 1. Mark Request as Accepted
         transaction.update(requestRef, {
           'status': 'accepted',
+          'driverId': driverId, // Adding for backward compatibility with rider screens
           'acceptedDriver': driverId,
           'acceptedAt': FieldValue.serverTimestamp(),
         });
@@ -297,13 +315,11 @@ class RideService {
   }
 
   Stream<QuerySnapshot> getBroadcastedRequests() {
-    final String? driverId = FirebaseAuth.instance.currentUser?.uid;
-    if (driverId == null) return const Stream.empty();
-
+    // We listen for ALL searching rides. 
+    // The DriverHomePage will filter them based on distance and notification status.
     return _firestore
         .collection('rideRequests')
         .where('status', isEqualTo: 'searching')
-        .where('notifiedDrivers', arrayContains: driverId)
         .snapshots();
   }
 

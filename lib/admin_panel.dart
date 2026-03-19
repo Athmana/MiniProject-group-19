@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:io';
 import 'package:gowayanad/services/auth_services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -19,7 +20,6 @@ class _AdminPanelState extends State<AdminPanel> {
 
   Future<void> _pickAndProcessCSV(String role) async {
     try {
-      // 1. Pick the file
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv'],
@@ -32,16 +32,12 @@ class _AdminPanelState extends State<AdminPanel> {
         });
 
         File file = File(result.files.single.path!);
-
-        // Read the entire file as a string
         final String csvString = await file.readAsString();
 
-        // Robust manual parsing (splitting by lines and commas)
         List<List<dynamic>> fields = [];
         final lines = csvString.split(RegExp(r'\r?\n'));
         for (var line in lines) {
           if (line.trim().isNotEmpty) {
-            // Very basic comma split - handles most standard CSVs without complex quoted fields
             fields.add(line.split(',').map((e) => e.trim()).toList());
           }
         }
@@ -54,13 +50,11 @@ class _AdminPanelState extends State<AdminPanel> {
           return;
         }
 
-        // We assume Row 0 is the header: Name, Phone, Password
         int successCount = 0;
         int failCount = 0;
 
         for (int i = 1; i < fields.length; i++) {
           final row = fields[i];
-
           if (row.length >= 3) {
             String name = row[0].toString().trim();
             String phone = row[1].toString().trim();
@@ -68,20 +62,21 @@ class _AdminPanelState extends State<AdminPanel> {
 
             if (phone.isNotEmpty && password.isNotEmpty && name.isNotEmpty) {
               try {
+                // Ensure number has prefix if it doesn't already
+                String formattedPhone = phone;
+                if (!phone.startsWith('+')) {
+                  formattedPhone = '+91$phone';
+                }
+
                 await AuthService().signUpWithPhoneAsAdmin(
                   name,
-                  phone,
+                  formattedPhone,
                   password,
                   role,
                 );
                 successCount++;
               } catch (e) {
                 debugPrint("Error adding $phone: $e");
-                String errorMsg = e.toString();
-                if (errorMsg.contains("operation-not-allowed") || errorMsg.contains("permission-denied")) {
-                  errorMsg = "Ensure 'Enable create' is ON in Firebase Console.";
-                }
-                _statusMessage = "Failed: $errorMsg";
                 failCount++;
               }
             } else {
@@ -92,8 +87,7 @@ class _AdminPanelState extends State<AdminPanel> {
 
         setState(() {
           _isLoading = false;
-          _statusMessage =
-              "Upload complete.\nSuccessfully added: $successCount\nFailed/Skipped: $failCount";
+          _statusMessage = "Upload complete.\nAdded: $successCount\nFailed: $failCount";
         });
       } else {
         setState(() {
@@ -113,22 +107,16 @@ class _AdminPanelState extends State<AdminPanel> {
       List<List<dynamic>> rows = [
         ["Name", "Phone", "Password"],
         ["John Doe", "9876543210", "pass123"],
-        ["Jane Smith", "8765432109", "pass456"],
       ];
-
-      // Convert to CSV string manually
       String csvData = rows.map((row) => row.join(',')).join('\n');
       final directory = await getTemporaryDirectory();
       final path = "${directory.path}/user_template.csv";
       final file = File(path);
       await file.writeAsString(csvData);
-
-      await Share.shareXFiles([XFile(path)], text: 'Gowayanad User Template');
+      await Share.shareXFiles([XFile(path)], text: 'User Template');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error generating template: $e")),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     }
   }
@@ -136,23 +124,13 @@ class _AdminPanelState extends State<AdminPanel> {
   Future<void> _deleteUser(String docId, String role) async {
     try {
       String collectionName = (role == 'driver') ? 'drivers' : 'riders';
-      await FirebaseFirestore.instance
-          .collection(collectionName)
-          .doc(docId)
-          .delete();
+      await FirebaseFirestore.instance.collection(collectionName).doc(docId).delete();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User deleted successfully')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User deleted')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to delete user: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: $e'), backgroundColor: Colors.red));
       }
     }
   }
@@ -164,104 +142,66 @@ class _AdminPanelState extends State<AdminPanel> {
 
     showDialog(
       context: context,
-      builder: (dialogContext) {
+      builder: (context) {
         bool isAdding = false;
         return StatefulBuilder(
-          builder: (builderContext, setDialogState) {
+          builder: (context, setDialogState) {
             return AlertDialog(
               title: Text('Add New ${role == 'rider' ? 'Rider' : 'Driver'}'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Full Name'),
-                    ),
-                    TextField(
-                      controller: phoneController,
-                      decoration: const InputDecoration(
-                        labelText: 'Phone Number',
-                        prefixText: '+91 ',
-                      ),
-                      keyboardType: TextInputType.phone,
-                    ),
-                    TextField(
-                      controller: passwordController,
-                      decoration: const InputDecoration(labelText: 'Password'),
-                      obscureText: true,
-                    ),
-                  ],
-                ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
+                  TextField(
+                    controller: phoneController,
+                    decoration: const InputDecoration(labelText: 'Phone', prefixText: '+91 '),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  TextField(controller: passwordController, decoration: const InputDecoration(labelText: 'Password'), obscureText: true),
+                ],
               ),
               actions: [
-                TextButton(
-                  onPressed: isAdding ? null : () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
+                TextButton(onPressed: isAdding ? null : () => Navigator.pop(context), child: const Text('Cancel')),
                 ElevatedButton(
-                  onPressed: isAdding
-                      ? null
-                      : () async {
-                          final name = nameController.text.trim();
-                          final phone =
-                              '+91${phoneController.text.trim()}'; // Enforcing standard format, adjust if needed
-                          final password = passwordController.text.trim();
+                  onPressed: isAdding ? null : () async {
+                    final name = nameController.text.trim();
+                    final phone = phoneController.text.trim();
+                    final password = passwordController.text.trim();
 
-                          if (name.isEmpty ||
-                              phone.length < 10 ||
-                              password.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Please fill all fields correctly',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-
-                          setDialogState(() => isAdding = true);
-
-                          try {
-                            // Using the new Admin-specific method to avoid logging out
-                            await AuthService().signUpWithPhoneAsAdmin(
-                              name,
-                              phone,
-                              password,
-                              role,
-                            );
-                            if (builderContext.mounted) {
-                              Navigator.pop(builderContext);
-                              ScaffoldMessenger.of(builderContext).showSnackBar(
-                                const SnackBar(
-                                  content: Text('User added successfully!'),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            setDialogState(() => isAdding = false);
-                            String errorMsg = e.toString();
-                            if (errorMsg.contains("operation-not-allowed") || errorMsg.contains("permission-denied")) {
-                              errorMsg = "Check 'Enable create' in Firebase Console Settings.";
-                            }
-                            if (builderContext.mounted) {
-                              ScaffoldMessenger.of(builderContext).showSnackBar(
-                                SnackBar(
-                                  content: Text('Error adding user: $errorMsg'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          }
-                        },
-                  child: isAdding
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Add User'),
+                    if (name.isEmpty || phone.isEmpty || password.isEmpty) return;
+                    
+                    setDialogState(() => isAdding = true);
+                    try {
+                      String formattedPhone = '+91$phone';
+                      await AuthService().signUpWithPhoneAsAdmin(name, formattedPhone, password, role);
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User added')));
+                      }
+                    } catch (e) {
+                      setDialogState(() => isAdding = false);
+                      String code = "unknown";
+                      String message = e.toString();
+                      if (e is FirebaseAuthException) {
+                        code = e.code;
+                        message = e.message ?? e.toString();
+                      } else if (e is FirebaseException) {
+                        code = e.code;
+                        message = e.message ?? e.toString();
+                      }
+                      if (context.mounted) {
+                        showDialog(
+                          context: context,
+                          builder: (c) => AlertDialog(
+                            title: const Text("Creation Failed"),
+                            content: Text("Error Code: $code\n\n$message"),
+                            actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text("OK"))],
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: isAdding ? const CircularProgressIndicator(strokeWidth: 2) : const Text('Add'),
                 ),
               ],
             );
@@ -279,135 +219,35 @@ class _AdminPanelState extends State<AdminPanel> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              Column(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: _downloadTemplate,
-                    icon: const Icon(Icons.download),
-                    label: const Text("Template"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey.shade700,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
+              IconButton(onPressed: _downloadTemplate, icon: const Icon(Icons.download), tooltip: "Template"),
               ElevatedButton.icon(
                 onPressed: () => _pickAndProcessCSV(role),
                 icon: const Icon(Icons.upload_file),
-                label: const Text("Upload CSV"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2D62ED),
-                  foregroundColor: Colors.white,
-                ),
+                label: const Text("CSV"),
               ),
               ElevatedButton.icon(
                 onPressed: () => _showAddUserDialog(role),
                 icon: const Icon(Icons.person_add),
-                label: Text("Add ${role == 'rider' ? 'Rider' : 'Driver'}"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                ),
+                label: const Text("Add"),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
               ),
             ],
           ),
         ),
-        if (_statusMessage != "Please select a CSV file to upload users." &&
-            _statusMessage != "No file selected.")
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              _statusMessage,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: _statusMessage.contains("Error")
-                    ? Colors.red
-                    : Colors.black87,
-              ),
-            ),
-          ),
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection(role == 'driver' ? 'drivers' : 'riders')
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection(role == 'driver' ? 'drivers' : 'riders').snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(
-                  child: Text("Error fetching data: ${snapshot.error}"),
-                );
-              }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return Center(child: Text("No ${role}s found."));
-              }
-
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
               final users = snapshot.data!.docs;
-
               return ListView.builder(
                 itemCount: users.length,
                 itemBuilder: (context, index) {
                   final user = users[index].data() as Map<String, dynamic>;
-                  final docId = users[index].id;
-
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: role == 'rider'
-                            ? Colors.blue.shade100
-                            : Colors.orange.shade100,
-                        child: Icon(
-                          role == 'rider'
-                              ? Icons.person
-                              : Icons.electric_rickshaw,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      title: Text(
-                        user['name'] ?? 'Unknown',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text("Phone: ${user['phone'] ?? 'N/A'}"),
-                      isThreeLine: false,
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text("Confirm Delete"),
-                              content: Text(
-                                "Are you sure you want to delete ${user['name']}?",
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text("Cancel"),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                    _deleteUser(docId, role);
-                                  },
-                                  child: const Text(
-                                    "Delete",
-                                    style: TextStyle(color: Colors.red),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+                  return ListTile(
+                    title: Text(user['name'] ?? 'No Name'),
+                    subtitle: Text(user['phone'] ?? 'No Phone'),
+                    trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteUser(users[index].id, role)),
                   );
                 },
               );
@@ -425,32 +265,11 @@ class _AdminPanelState extends State<AdminPanel> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text("Admin Panel"),
-          backgroundColor: const Color(0xFF2D62ED),
-          foregroundColor: Colors.white,
-          bottom: const TabBar(
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            indicatorColor: Colors.white,
-            tabs: [
-              Tab(icon: Icon(Icons.person), text: "Riders"),
-              Tab(icon: Icon(Icons.drive_eta), text: "Drivers"),
-            ],
-          ),
+          bottom: const TabBar(tabs: [Tab(text: "Riders"), Tab(text: "Drivers")]),
         ),
-        body: _isLoading
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 16),
-                    Text(_statusMessage),
-                  ],
-                ),
-              )
-            : TabBarView(
-                children: [_buildUserList('rider'), _buildUserList('driver')],
-              ),
+        body: _isLoading 
+          ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(), Text(_statusMessage)]))
+          : TabBarView(children: [_buildUserList('rider'), _buildUserList('driver')]),
       ),
     );
   }
