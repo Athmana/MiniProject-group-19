@@ -22,7 +22,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
   String? _driverPhone;
   bool _isPinVisible = false;
   Timer? _countdownTimer;
-  String _timeLeft = "15:00";
+  String _timeLeft = "Pending";
 
   @override
   void initState() {
@@ -361,7 +361,11 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      isExpired ? "Expired" : "Expires in: $_timeLeft",
+                      isExpired
+                          ? "Expired"
+                          : (_timeLeft == "Pending"
+                              ? "Timer starts on arrival"
+                              : "Expires in: $_timeLeft"),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,

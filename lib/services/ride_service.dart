@@ -58,7 +58,6 @@ class RideService {
       List<String> nearbyDrivers = await getNearbyDrivers(pickupLat, pickupLng, vehicleType);
 
       String otp = (1000 + Random().nextInt(9000)).toString();
-      DateTime expiryTime = DateTime.now().add(const Duration(minutes: 15));
 
       // 2. Create Ride Request for Broadcast
       DocumentReference requestRef = await _firestore.collection('rideRequests').add({
@@ -78,7 +77,7 @@ class RideService {
         'declinedDrivers': [],
         'acceptedDriver': null,
         'createdAt': FieldValue.serverTimestamp(),
-        'pinExpiryAt': Timestamp.fromDate(expiryTime),
+        // pinExpiryAt will be set when driver arrives
       });
 
       return requestRef.id;
@@ -150,12 +149,41 @@ class RideService {
     String feedback,
   ) async {
     try {
+      // 1. Update the ride request with the rating
       await _firestore.collection('rideRequests').doc(rideId).update({
         'rating': rating,
         'feedback': feedback,
       });
+
+      // 2. Dynamically update Driver's profile rating
+      final rideDoc = await _firestore.collection('rideRequests').doc(rideId).get();
+      if (rideDoc.exists) {
+        final data = rideDoc.data() as Map<String, dynamic>;
+        final driverId = data['driverId'] ?? data['acceptedDriver'];
+
+        if (driverId != null) {
+          final driverRef = _firestore.collection('drivers').doc(driverId);
+          await _firestore.runTransaction((transaction) async {
+            final driverDoc = await transaction.get(driverRef);
+            if (driverDoc.exists) {
+              final dData = driverDoc.data() as Map<String, dynamic>;
+              double currentRating = (dData['rating'] ?? 0.0).toDouble();
+              int totalRides = (dData['totalRides'] ?? 0);
+
+              // Calculate new average
+              double newRating = ((currentRating * totalRides) + rating) / (totalRides + 1);
+              
+              transaction.update(driverRef, {
+                'rating': newRating,
+                'totalRides': totalRides + 1,
+              });
+            }
+          });
+        }
+      }
       return true;
     } catch (e) {
+      debugPrint("Error updating dynamic rating: $e");
       return false;
     }
   }
@@ -345,6 +373,8 @@ class RideService {
         transaction.update(docRef, {
           'status': newStatus,
           '${newStatus}At': FieldValue.serverTimestamp(),
+          if (newStatus == 'arrived')
+            'pinExpiryAt': Timestamp.fromDate(DateTime.now().add(const Duration(minutes: 15))),
         });
 
         // Cleanup driver if ride ends

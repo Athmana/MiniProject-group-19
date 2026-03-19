@@ -7,6 +7,30 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Normalizes phone number to always include +91
+  String _normalizePhone(String phone) {
+    // Remove all non-numeric characters
+    String digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    
+    // If it's 10 digits, assume India (+91)
+    if (digits.length == 10) {
+      return '+91$digits';
+    }
+    
+    // If it's already 12 digits starting with 91, just add the +
+    if (digits.length == 12 && digits.startsWith('91')) {
+      return '+$digits';
+    }
+    
+    // If it already has a +, just return cleaned version
+    if (phone.startsWith('+')) {
+      return '+' + phone.replaceAll(RegExp(r'[^0-9]'), '');
+    }
+
+    // Fallback: prepend + if missing
+    return phone.startsWith('+') ? phone : '+$digits';
+  }
+
   // Sign Up with Role (Email/Password)
   Future<void> signUp(String email, String password, String role) async {
     UserCredential result = await _auth.createUserWithEmailAndPassword(
@@ -23,21 +47,23 @@ class AuthService {
     });
   }
 
-  // Sign Up with Phone and Password
   Future<void> signUpWithPhone(
     String name,
     String phone,
     String password,
-    String role,
-  ) async {
+    String role, {
+    String? vehicleType,
+  }) async {
+    final normalizedPhone = _normalizePhone(phone);
+    
     // Check for existing accounts with this phone number across both collections
     final riderQuery = await _firestore
         .collection('riders')
-        .where('phone', isEqualTo: phone)
+        .where('phone', isEqualTo: normalizedPhone)
         .get();
     final driverQuery = await _firestore
         .collection('drivers')
-        .where('phone', isEqualTo: phone)
+        .where('phone', isEqualTo: normalizedPhone)
         .get();
 
     int totalExisting = riderQuery.docs.length + driverQuery.docs.length;
@@ -62,12 +88,15 @@ class AuthService {
     Map<String, dynamic> userData = {
       'fullName': name,
       'name': name,
-      'phone': phone,
-      'phoneNumber': phone,
+      'phone': normalizedPhone,
+      'phoneNumber': normalizedPhone,
       'internalEmail': pseudoEmail,
       'role': role,
       'available': false, // Ensure field exists
+      'rating': 0.0,
+      'totalRides': 0,
       'createdAt': FieldValue.serverTimestamp(),
+      if (vehicleType != null) 'vehicleType': vehicleType,
     };
 
     await _firestore.collection(collectionName).doc(result.user!.uid).set(userData);
@@ -79,16 +108,19 @@ class AuthService {
     String name,
     String phone,
     String password,
-    String role,
-  ) async {
+    String role, {
+    String? vehicleType,
+  }) async {
+    final normalizedPhone = _normalizePhone(phone);
+
     // 1. Check existing (Firestore part is fine as it doesn't affect Auth session)
     final riderQuery = await _firestore
         .collection('riders')
-        .where('phone', isEqualTo: phone)
+        .where('phone', isEqualTo: normalizedPhone)
         .get();
     final driverQuery = await _firestore
         .collection('drivers')
-        .where('phone', isEqualTo: phone)
+        .where('phone', isEqualTo: normalizedPhone)
         .get();
 
     int totalExisting = riderQuery.docs.length + driverQuery.docs.length;
@@ -97,14 +129,21 @@ class AuthService {
     }
 
     int index = totalExisting + 1;
-    String cleanPhone = phone.replaceAll('+', '');
+    String cleanPhone = normalizedPhone.replaceAll('+', '');
     String pseudoEmail = "${cleanPhone}_$index@gowayanad.app";
 
     // 2. Create in Auth via secondary app
-    FirebaseApp secondaryApp = await Firebase.initializeApp(
-      name: 'AdminApp_${DateTime.now().millisecondsSinceEpoch}',
-      options: Firebase.app().options,
-    );
+    // We use a fixed name and don't delete to avoid "FirebaseApp was deleted" errors
+    const String adminAppName = 'gowayanad_admin';
+    FirebaseApp secondaryApp;
+    try {
+      secondaryApp = Firebase.app(adminAppName);
+    } catch (_) {
+      secondaryApp = await Firebase.initializeApp(
+        name: adminAppName,
+        options: Firebase.app().options,
+      );
+    }
 
     try {
       FirebaseAuth secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
@@ -113,7 +152,7 @@ class AuthService {
         password: password,
       );
 
-      String collectionName = (role == 'driver') ? 'drivers' : 'riders';
+      String collectionName = (role == 'driver' ? 'drivers' : 'riders');
 
       // 3. Save to Firestore using the SECONDARY app instance
       // This works because the secondary app is authenticated as the new user
@@ -122,21 +161,23 @@ class AuthService {
       Map<String, dynamic> userData = {
         'fullName': name,
         'name': name,
-        'phone': phone,
-        'phoneNumber': phone,
+        'phone': normalizedPhone,
+        'phoneNumber': normalizedPhone,
         'internalEmail': pseudoEmail,
         'role': role,
         'available': false, // Ensure field exists
+        'rating': 0.0,
+        'totalRides': 0,
         'createdAt': FieldValue.serverTimestamp(),
+        if (vehicleType != null) 'vehicleType': vehicleType,
       };
 
       await secondaryFirestore.collection(collectionName).doc(result.user!.uid).set(userData);
       
-      // Sign out from the secondary app instance
+      // Sign out from the secondary app instance so it's clean for the next use
       await secondaryAuth.signOut();
-    } finally {
-      // Clean up the secondary app
-      await secondaryApp.delete();
+    } catch (e) {
+      rethrow;
     }
   }
 
@@ -152,16 +193,18 @@ class AuthService {
       // Handle phone number identifier
       bool isPhone = RegExp(r'^\+?[0-9]+$').hasMatch(identifier);
       if (isPhone) {
+        final normalizedPhone = _normalizePhone(identifier);
+        
         // Search in both collections
         List<DocumentSnapshot> allDocs = [];
         try {
           final riderQuery = await _firestore
               .collection('riders')
-              .where('phone', isEqualTo: identifier)
+              .where('phone', isEqualTo: normalizedPhone)
               .get();
           final driverQuery = await _firestore
               .collection('drivers')
-              .where('phone', isEqualTo: identifier)
+              .where('phone', isEqualTo: normalizedPhone)
               .get();
 
           allDocs = [...riderQuery.docs, ...driverQuery.docs];
