@@ -59,15 +59,18 @@ class AuthService {
     String collectionName = (role == 'driver') ? 'drivers' : 'riders';
 
     // Save details to Firestore
-    await _firestore.collection(collectionName).doc(result.user!.uid).set({
+    Map<String, dynamic> userData = {
       'fullName': name,
       'name': name,
       'phone': phone,
       'phoneNumber': phone,
       'internalEmail': pseudoEmail,
       'role': role,
+      'available': false, // Ensure field exists
       'createdAt': FieldValue.serverTimestamp(),
-    });
+    };
+
+    await _firestore.collection(collectionName).doc(result.user!.uid).set(userData);
   }
 
   // Admin helper: Create user using a secondary Firebase app instance
@@ -89,12 +92,13 @@ class AuthService {
         .get();
 
     int totalExisting = riderQuery.docs.length + driverQuery.docs.length;
-    if (totalExisting >= 3) {
-      throw Exception("Phone number limit exceeded (Maximum 3 accounts).");
+    if (totalExisting >= 10) { // Increased for testing
+      throw Exception("Phone number limit exceeded (Maximum 10 accounts).");
     }
 
     int index = totalExisting + 1;
-    String pseudoEmail = "${phone}_$index@gowayanad.app";
+    String cleanPhone = phone.replaceAll('+', '');
+    String pseudoEmail = "${cleanPhone}_$index@gowayanad.app";
 
     // 2. Create in Auth via secondary app
     FirebaseApp secondaryApp = await Firebase.initializeApp(
@@ -111,16 +115,22 @@ class AuthService {
 
       String collectionName = (role == 'driver') ? 'drivers' : 'riders';
 
-      // 3. Save to Firestore
-      await _firestore.collection(collectionName).doc(result.user!.uid).set({
+      // 3. Save to Firestore using the SECONDARY app instance
+      // This works because the secondary app is authenticated as the new user
+      FirebaseFirestore secondaryFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
+
+      Map<String, dynamic> userData = {
         'fullName': name,
         'name': name,
         'phone': phone,
         'phoneNumber': phone,
         'internalEmail': pseudoEmail,
         'role': role,
+        'available': false, // Ensure field exists
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      await secondaryFirestore.collection(collectionName).doc(result.user!.uid).set(userData);
       
       // Sign out from the secondary app instance
       await secondaryAuth.signOut();

@@ -26,11 +26,26 @@ class _DriverHomePageState extends State<DriverHomePage> {
   double _averageRating = 5.0;
   Timer? _locationTimer;
   bool _isViewingRequest = false;
+  Map<String, dynamic>? _driverData;
+  Position? _currentPosition;
 
   @override
   void initState() {
     super.initState();
+    _fetchDriverData();
     _startListeningToEarnings();
+  }
+
+  Future<void> _fetchDriverData() async {
+    final driverId = FirebaseAuth.instance.currentUser?.uid;
+    if (driverId != null) {
+      final doc = await FirebaseFirestore.instance.collection('drivers').doc(driverId).get();
+      if (mounted && doc.exists) {
+        setState(() {
+          _driverData = doc.data();
+        });
+      }
+    }
   }
 
   void _startListeningToEarnings() {
@@ -107,25 +122,70 @@ class _DriverHomePageState extends State<DriverHomePage> {
 
   Future<void> _updatePosition() async {
     try {
-      Position position = await Geolocator.getCurrentPosition();
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      _currentPosition = position;
       await _rideService.updateCurrentLocation(position.latitude, position.longitude);
+      debugPrint("DEBUG: Location updated: ${position.latitude}, ${position.longitude}");
     } catch (e) {
-      debugPrint("Error updating location: $e");
+      debugPrint("DEBUG: Error updating location: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Location Error: Please ensure GPS is ON and Permissions granted."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   void _startListeningForRides() {
+    debugPrint("DEBUG: Dynamic listening enabled...");
     _rideSubscription = _rideService.getBroadcastedRequests().listen((snapshot) {
       if (snapshot.docs.isNotEmpty) {
-        // Filter out rides declined by this driver locally (though server-side also handles)
         final driverId = FirebaseAuth.instance.currentUser?.uid;
+        
+        // Dynamic Filtering in Driver's app
         final docs = snapshot.docs.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
           final declined = data['declinedDrivers'] as List? ?? [];
-          return !declined.contains(driverId);
+          if (declined.contains(driverId)) return false;
+
+          // 1. Vehicle Type Check
+          String? driverType = _driverData?['vehicleType'];
+          String? rideType = data['vehicleType'];
+          if (driverType != null && driverType.isNotEmpty && rideType != null) {
+            if (driverType.toLowerCase() != rideType.toLowerCase()) {
+              debugPrint("DEBUG: Skipping ride ${doc.id} due to vehicle mismatch: $driverType vs $rideType");
+              return false;
+            }
+          }
+
+          // 2. Distance Check (Within 10km)
+          if (_currentPosition != null) {
+            double? rLat = (data['pickupLat'] as num?)?.toDouble();
+            double? rLng = (data['pickupLng'] as num?)?.toDouble();
+            if (rLat != null && rLng != null) {
+              double distance = _rideService.calculateDistance(
+                _currentPosition!.latitude, 
+                _currentPosition!.longitude, 
+                rLat, 
+                rLng
+              );
+              if (distance > 10.0) {
+                debugPrint("DEBUG: Skipping ride ${doc.id} due to distance: ${distance.toStringAsFixed(1)} km");
+                return false;
+              }
+            }
+          }
+
+          return true;
         }).toList();
 
         if (docs.isNotEmpty && !_isViewingRequest) {
+          debugPrint("DEBUG: Found ${docs.length} matching rides. Showing the first one.");
           final doc = docs.first;
           final data = doc.data() as Map<String, dynamic>;
           

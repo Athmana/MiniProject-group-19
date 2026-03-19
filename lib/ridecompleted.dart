@@ -35,7 +35,7 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
         .get();
 
     if (rideDoc.exists) {
-      final driverId = rideDoc.data()?['driverId'];
+      final driverId = rideDoc.data()?['driverId'] ?? rideDoc.data()?['acceptedDriver'];
       if (driverId != null) {
         final userDoc = await _rideService.getUserDetails(driverId);
         if (mounted) {
