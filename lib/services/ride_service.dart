@@ -242,6 +242,7 @@ class RideService {
 
       await _firestore.collection('rideRequests').doc(requestId).update({
         'declinedDrivers': FieldValue.arrayUnion([driverId]),
+        'lastDeclineAt': FieldValue.serverTimestamp(),
       });
       return true;
     } catch (e) {
