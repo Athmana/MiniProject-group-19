@@ -16,6 +16,9 @@ jobs:
       with:
         channel: 'stable'
 
+    - name: Flutter Doctor
+      run: flutter doctor
+
     - name: Install dependencies
       run: flutter pub get
 
@@ -28,9 +31,16 @@ jobs:
     - name: Build APK (Android)
       run: flutter build apk --release
 
-    # Optional: Un-comment this if you want to build for iOS (Requires macOS runner)
-    # - name: Build IPA (iOS)
-    #   run: flutter build ios --release --no-codesign
+    - name: List Build Outputs
+      run: ls -R build/app/outputs
+      continue-on-error: true
+
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: release-apk
+        path: build/app/outputs/flutter-apk/*.apk
 
     - name: upload artifact to Firebase App Distribution
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
