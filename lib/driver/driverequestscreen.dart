@@ -2,8 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/riderpickupscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
-
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/utils/design_system.dart';
 
@@ -31,9 +29,6 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
     _fetchRiderName();
     _listenToRideStatus();
   }
-
-
-
 
   void _listenToRideStatus() {
     _rideSubscription = RideService().listenToRide(widget.rideId).listen((snapshot) {
@@ -82,7 +77,6 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
     final vehicleType = widget.rideData['vehicleType'] ?? "Standard";
 
     return Scaffold(
-
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -116,7 +110,7 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                 children: [
                   Icon(Icons.notifications_active_rounded, color: Colors.green, size: 18),
                   SizedBox(width: 10),
-                  Text(
+                  const Text(
                     "New ride request incoming!",
                     style: TextStyle(
                       color: Colors.green,
@@ -125,28 +119,6 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                     ),
                   ),
                 ],
-
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height,
-            width: MediaQuery.of(context).size.width,
-            child: Container(
-              color: Colors.grey.shade200,
-              child: const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.map, size: 60, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text(
-                      "Map View (Disabled)",
-                      style: TextStyle(color: Colors.grey, fontSize: 18),
-                    ),
-                  ],
-                ),
-
               ),
             ),
             const SizedBox(height: 24),

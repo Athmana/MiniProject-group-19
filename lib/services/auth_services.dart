@@ -212,14 +212,5 @@ class AuthService {
     if (context.mounted) {
       Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
     }
-
-        .get();
-    final driverQuery = await _firestore
-        .collection('drivers')
-        .where('phone', isEqualTo: phone)
-        .get();
-
-    return riderQuery.docs.isNotEmpty || driverQuery.docs.isNotEmpty;
-
   }
 }

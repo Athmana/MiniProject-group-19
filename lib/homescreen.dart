@@ -354,46 +354,27 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
               ),
             ),
 
-            const SizedBox(height: 32),
-            const SizedBox(height: 24),
-
-            // Destination Input
-            const Text(
-              "Where to?",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _destinationController,
-              onSubmitted: (value) => _calculateFares(value),
-              decoration: InputDecoration(
-                hintText: "Enter destination address",
-                prefixIcon: const Icon(Icons.location_on, color: Colors.red),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () => _calculateFares(_destinationController.text),
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
             if (_calculatedDistance != null)
               Padding(
-                padding: const EdgeInsets.only(top: 8.0, left: 4.0),
-                child: Text(
-                  "Estimated Distance: ${_calculatedDistance!.toStringAsFixed(1)} KM",
-                  style: const TextStyle(
-                    color: Color(0xFF2D62ED),
-                    fontWeight: FontWeight.w500,
+                padding: const EdgeInsets.only(top: 12.0, left: 4.0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    "Estimated Distance: ${_calculatedDistance!.toStringAsFixed(1)} KM",
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ),
-            const SizedBox(height: 24),
 
+            const SizedBox(height: 32),
 
             // Vehicle Selection
             const Text("Service Type", style: AppStyles.heading2),
@@ -412,32 +393,6 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
                 _buildVehicleCard("Ambulance", "Emergency", Icons.medical_services_rounded),
               ],
             ),
-
-            // Distance Info Banner
-            if (_fareCalculated && _calculatedDistance != null)
-              Container(
-                margin: const EdgeInsets.only(top: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.08),
-                  borderRadius: AppStyles.commonBorderRadius,
-                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.route_rounded, color: AppColors.primary, size: 18),
-                    const SizedBox(width: 10),
-                    Text(
-                      "Estimated distance: ${_calculatedDistance!.toStringAsFixed(1)} km",
-                      style: const TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
 
             const SizedBox(height: 32),
 
@@ -461,15 +416,16 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
                         );
                         return;
                       }
-                      // Auto-calculate fare if user skipped it
-                      if (!_fareCalculated) {
+
+                      // Auto-calculate fare if user skipped it or distance is missing
+                      if (!_fareCalculated || _calculatedDistance == null) {
                         await _calculateFares(dest);
-                        if (!_fareCalculated) return; // Geocoding failed
-                        setState(() {
-                          _selectedVehiclePrice = _vehiclePrices[_selectedVehicleType];
-                        });
+                        if (!_fareCalculated || _calculatedDistance == null) {
+                          return; // Geocoding failed or distance still null
+                        }
+                        // Update price for selected vehicle
+                        _selectedVehiclePrice = _vehiclePrices[_selectedVehicleType];
                       }
-                      final String price = _selectedVehiclePrice ?? "0";
 
                       setState(() => _isCalculatingFare = true);
                       try {
@@ -478,12 +434,13 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
                           pickupLat: _currentPosition!.latitude,
                           pickupLng: _currentPosition!.longitude,
                           destination: dest,
-                          destinationLat: 0.0,
-                          destinationLng: 0.0,
+                          destinationLat: _destinationLat ?? 0.0,
+                          destinationLng: _destinationLng ?? 0.0,
                           vehicleType: _selectedVehicleType!,
-                          distance: _calculatedDistance ?? 0.0,
-                          price: double.tryParse(price) ?? 0.0,
+                          distance: _calculatedDistance!,
+                          price: double.tryParse(_selectedVehiclePrice ?? "0") ?? 0.0,
                         );
+
                         if (rideId != null && mounted) {
                           Navigator.pushReplacement(
                             context,
@@ -492,64 +449,19 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
                             ),
                           );
                         }
-
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("Error: ${e.toString()}")),
+                            SnackBar(
+                              content: Text("Failed to book ride: ${e.toString()}"),
+                              backgroundColor: AppColors.error,
+                            ),
                           );
-
-
-                        // If distance is null but destination is entered, calculate first
-                        if (_calculatedDistance == null) {
-                          await _calculateFares(dest);
-                          if (_calculatedDistance == null) return;
-                        }
-
-                        setState(() => _isCalculatingFare = true);
-
-                        try {
-                          final String? rideId = await RideService()
-                              .requestRide(
-                                pickupLocation: "Current Location",
-                                pickupLat: _currentPosition!.latitude,
-                                pickupLng: _currentPosition!.longitude,
-                                destination: dest,
-                                destinationLat: _destinationLat ?? 0.0,
-                                destinationLng: _destinationLng ?? 0.0,
-                                vehicleType: _selectedVehicleType!,
-                                distance: _calculatedDistance ?? 0.0,
-                                price:
-                                    double.tryParse(_selectedVehiclePrice!) ??
-                                    0.0,
-                              );
-
-                          if (rideId != null && mounted) {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    WaitingForDriverScreen(rideId: rideId),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("Failed to book ride: $e"),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        } finally {
-                          if (mounted) {
-                            setState(() => _isCalculatingFare = false);
-                          }
-
                         }
                       } finally {
-                        if (mounted) setState(() => _isCalculatingFare = false);
+                        if (mounted) {
+                          setState(() => _isCalculatingFare = false);
+                        }
                       }
                     },
             ),
@@ -621,5 +533,4 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
       ),
     );
   }
-
 }
