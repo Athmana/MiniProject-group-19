@@ -42,17 +42,11 @@ jobs:
         name: release-apk
         path: build/app/outputs/flutter-apk/*.apk
 
-    - name: Authenticate to Google Cloud
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-      uses: google-github-actions/auth@v2
-      with:
-        credentials_json: ${{ secrets.CREDENTIAL_FILE_CONTENT }}
-
     - name: upload artifact to Firebase App Distribution
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
       uses: wzieba/Firebase-Distribution-Github-Action@v1
       with:
         appId: ${{secrets.FIREBASE_APP_ID}}
-        serviceCredentialsFileContent: ${{ secrets.CREDENTIAL_FILE_CONTENT }}
+        token: ${{secrets.FIREBASE_TOKEN}}
         groups: testers
         file: build/app/outputs/flutter-apk/app-release.apk
