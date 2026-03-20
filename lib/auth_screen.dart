@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/services/auth_services.dart';
-import 'package:gowayanad/forgot_password_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   final bool isLogin;
@@ -281,30 +280,7 @@ class _AuthScreenState extends State<AuthScreen>
                 ),
               ),
 
-              if (_isLogin)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ForgotPasswordScreen(),
-                        ),
-                      );
-                    },
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.only(top: 12, bottom: 24),
-                      foregroundColor: primaryColor,
-                    ),
-                    child: const Text(
-                      "Forgot Password?",
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                )
-              else
-                const SizedBox(height: 32),
+              const SizedBox(height: 32),
 
               // Submit Button
               SizedBox(

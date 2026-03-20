@@ -1,10 +1,35 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // Normalizes phone number to always include +91
+  String _normalizePhone(String phone) {
+    // Remove all non-numeric characters
+    String digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    
+    // If it's 10 digits, assume India (+91)
+    if (digits.length == 10) {
+      return '+91$digits';
+    }
+    
+    // If it's already 12 digits starting with 91, just add the +
+    if (digits.length == 12 && digits.startsWith('91')) {
+      return '+$digits';
+    }
+    
+    // If it already has a +, just return cleaned version
+    if (phone.startsWith('+')) {
+      return '+' + phone.replaceAll(RegExp(r'[^0-9]'), '');
+    }
+
+    // Fallback: prepend + if missing
+    return phone.startsWith('+') ? phone : '+$digits';
+  }
 
   // Sign Up with Role (Email/Password)
   Future<void> signUp(String email, String password, String role) async {
@@ -22,21 +47,23 @@ class AuthService {
     });
   }
 
-  // Sign Up with Phone and Password
   Future<void> signUpWithPhone(
     String name,
     String phone,
     String password,
-    String role,
-  ) async {
+    String role, {
+    String? vehicleType,
+  }) async {
+    final normalizedPhone = _normalizePhone(phone);
+    
     // Check for existing accounts with this phone number across both collections
     final riderQuery = await _firestore
         .collection('riders')
-        .where('phone', isEqualTo: phone)
+        .where('phone', isEqualTo: normalizedPhone)
         .get();
     final driverQuery = await _firestore
         .collection('drivers')
-        .where('phone', isEqualTo: phone)
+        .where('phone', isEqualTo: normalizedPhone)
         .get();
 
     int totalExisting = riderQuery.docs.length + driverQuery.docs.length;
@@ -58,15 +85,100 @@ class AuthService {
     String collectionName = (role == 'driver') ? 'drivers' : 'riders';
 
     // Save details to Firestore
-    await _firestore.collection(collectionName).doc(result.user!.uid).set({
+    Map<String, dynamic> userData = {
       'fullName': name,
       'name': name,
-      'phone': phone,
-      'phoneNumber': phone,
+      'phone': normalizedPhone,
+      'phoneNumber': normalizedPhone,
       'internalEmail': pseudoEmail,
       'role': role,
+      'available': false, // Ensure field exists
+      'rating': 0.0,
+      'totalRides': 0,
       'createdAt': FieldValue.serverTimestamp(),
-    });
+      if (vehicleType != null) 'vehicleType': vehicleType,
+    };
+
+    await _firestore.collection(collectionName).doc(result.user!.uid).set(userData);
+  }
+
+  // Admin helper: Create user using a secondary Firebase app instance
+  // to avoid signing out the current admin user.
+  Future<void> signUpWithPhoneAsAdmin(
+    String name,
+    String phone,
+    String password,
+    String role, {
+    String? vehicleType,
+  }) async {
+    final normalizedPhone = _normalizePhone(phone);
+
+    // 1. Check existing (Firestore part is fine as it doesn't affect Auth session)
+    final riderQuery = await _firestore
+        .collection('riders')
+        .where('phone', isEqualTo: normalizedPhone)
+        .get();
+    final driverQuery = await _firestore
+        .collection('drivers')
+        .where('phone', isEqualTo: normalizedPhone)
+        .get();
+
+    int totalExisting = riderQuery.docs.length + driverQuery.docs.length;
+    if (totalExisting >= 10) { // Increased for testing
+      throw Exception("Phone number limit exceeded (Maximum 10 accounts).");
+    }
+
+    int index = totalExisting + 1;
+    String cleanPhone = normalizedPhone.replaceAll('+', '');
+    String pseudoEmail = "${cleanPhone}_$index@gowayanad.app";
+
+    // 2. Create in Auth via secondary app
+    // We use a fixed name and don't delete to avoid "FirebaseApp was deleted" errors
+    const String adminAppName = 'gowayanad_admin';
+    FirebaseApp secondaryApp;
+    try {
+      secondaryApp = Firebase.app(adminAppName);
+    } catch (_) {
+      secondaryApp = await Firebase.initializeApp(
+        name: adminAppName,
+        options: Firebase.app().options,
+      );
+    }
+
+    try {
+      FirebaseAuth secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+      UserCredential result = await secondaryAuth.createUserWithEmailAndPassword(
+        email: pseudoEmail,
+        password: password,
+      );
+
+      String collectionName = (role == 'driver' ? 'drivers' : 'riders');
+
+      // 3. Save to Firestore using the SECONDARY app instance
+      // This works because the secondary app is authenticated as the new user
+      FirebaseFirestore secondaryFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
+
+      Map<String, dynamic> userData = {
+        'fullName': name,
+        'name': name,
+        'phone': normalizedPhone,
+        'phoneNumber': normalizedPhone,
+        'internalEmail': pseudoEmail,
+        'role': role,
+        'available': false, // Ensure field exists
+        'rating': 0.0,
+        'totalRides': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+        if (vehicleType != null) 'vehicleType': vehicleType,
+      };
+
+      await secondaryFirestore.collection(collectionName).doc(result.user!.uid).set(userData);
+      
+      // Sign out from the secondary app instance so it's clean for the next use
+      await secondaryAuth.signOut();
+    } catch (e) {
+      rethrow;
+    }
   }
 
   // Login and Route
@@ -81,20 +193,29 @@ class AuthService {
       // Handle phone number identifier
       bool isPhone = RegExp(r'^\+?[0-9]+$').hasMatch(identifier);
       if (isPhone) {
+        final normalizedPhone = _normalizePhone(identifier);
+        
         // Search in both collections
-        final riderQuery = await _firestore
-            .collection('riders')
-            .where('phone', isEqualTo: identifier)
-            .get();
-        final driverQuery = await _firestore
-            .collection('drivers')
-            .where('phone', isEqualTo: identifier)
-            .get();
+        List<DocumentSnapshot> allDocs = [];
+        try {
+          final riderQuery = await _firestore
+              .collection('riders')
+              .where('phone', isEqualTo: normalizedPhone)
+              .get();
+          final driverQuery = await _firestore
+              .collection('drivers')
+              .where('phone', isEqualTo: normalizedPhone)
+              .get();
 
-        List<DocumentSnapshot> allDocs = [
-          ...riderQuery.docs,
-          ...driverQuery.docs,
-        ];
+          allDocs = [...riderQuery.docs, ...driverQuery.docs];
+        } catch (e) {
+          if (e.toString().contains('permission-denied')) {
+            throw Exception(
+              "Access Denied: Please check Firestore Security Rules. Ensure public read is allowed for phone lookups.",
+            );
+          }
+          rethrow;
+        }
 
         if (allDocs.isEmpty) {
           throw Exception("No account found for this phone number.");
@@ -163,47 +284,6 @@ class AuthService {
         );
       }
     }
-  }
-
-  // Reset password logic (simplified for pseudo-accounts)
-  Future<void> resetPasswordByPhone(String phone, String newPassword) async {
-    // Find all accounts in both collections
-    final riderQuery = await _firestore
-        .collection('riders')
-        .where('phone', isEqualTo: phone)
-        .get();
-    final driverQuery = await _firestore
-        .collection('drivers')
-        .where('phone', isEqualTo: phone)
-        .get();
-
-    for (var doc in [...riderQuery.docs, ...driverQuery.docs]) {
-      await doc.reference.update({'password': newPassword});
-      // Updating actual Firebase Auth password requires re-authentication,
-      // which we can't do here without the user logged in.
-      // But we can update the internal tracking.
-    }
-  }
-
-
-  // Check if a phone number exists in riders or drivers collections
-  // Check if a phone number exists across riders and drivers
-
-  Future<bool> checkPhoneExists(String phone) async {
-    final riderQuery = await _firestore
-        .collection('riders')
-        .where('phone', isEqualTo: phone)
-
-        .limit(1)
-        .get();
-    if (riderQuery.docs.isNotEmpty) return true;
-
-    final driverQuery = await _firestore
-        .collection('drivers')
-        .where('phone', isEqualTo: phone)
-        .limit(1)
-        .get();
-    return driverQuery.docs.isNotEmpty;
   }
 
   // Logout

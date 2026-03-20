@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/riderpickupscreen.dart';
 import 'package:gowayanad/services/ride_service.dart';
@@ -31,9 +32,24 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
   }
 
   void _listenToRideStatus() {
-    _rideSubscription = RideService().listenToRide(widget.rideId).listen((snapshot) {
+    _rideSubscription = RideService().listenToRideRequest(widget.rideId).listen((snapshot) {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
+        
+        // If someone else accepted it, notify and close
+        if (data['status'] == 'accepted' && data['acceptedDriver'] != FirebaseAuth.instance.currentUser?.uid) {
+           if (mounted) {
+            _rideSubscription?.cancel();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Ride already taken by another driver'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+            Navigator.of(context).pop();
+          }
+        }
+
         if (data['status'] == 'cancelled') {
           if (mounted) {
             _rideSubscription?.cancel();
@@ -252,7 +268,12 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
               children: [
                 Expanded(
                   child: TextButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () async {
+                      await RideService().declineRideRequest(widget.rideId);
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                      }
+                    },
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(
@@ -276,7 +297,7 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                   child: CustomButton(
                     label: "ACCEPT",
                     onPressed: () async {
-                      bool success = await RideService().acceptRide(widget.rideId);
+                      bool success = await RideService().acceptRideRequest(widget.rideId);
                       if (context.mounted) {
                         if (success) {
                           Navigator.of(context).pushReplacement(
@@ -290,10 +311,11 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Failed to accept ride'),
+                              content: Text('Could not accept. Ride might be taken or cancelled.'),
                               backgroundColor: AppColors.error,
                             ),
                           );
+                          Navigator.of(context).pop();
                         }
                       }
                     },

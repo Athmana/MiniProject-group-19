@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/paymentscreen.dart';
+import 'package:gowayanad/ridecompleted.dart';
 
 class ReachedLocationScreen extends StatefulWidget {
   final String rideId;
@@ -14,11 +15,34 @@ class ReachedLocationScreen extends StatefulWidget {
 class _ReachedLocationScreenState extends State<ReachedLocationScreen> {
   double _progress = 0.0;
   Timer? _timer;
+  StreamSubscription<DocumentSnapshot>? _rideSubscription;
 
   @override
   void initState() {
     super.initState();
     _startAutoNavigation();
+    _listenToPaymentStatus();
+  }
+
+  void _listenToPaymentStatus() {
+    _rideSubscription = FirebaseFirestore.instance
+        .collection('rideRequests')
+        .doc(widget.rideId)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
+        if (data['paymentStatus'] == 'completed' && mounted) {
+          _timer?.cancel();
+          _rideSubscription?.cancel();
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => RideCompletedScreen(rideId: widget.rideId),
+            ),
+          );
+        }
+      }
+    });
   }
 
   void _startAutoNavigation() {
@@ -54,6 +78,7 @@ class _ReachedLocationScreenState extends State<ReachedLocationScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _rideSubscription?.cancel();
     super.dispose();
   }
 
@@ -134,7 +159,7 @@ class _ReachedLocationScreenState extends State<ReachedLocationScreen> {
                   const SizedBox(height: 8),
                   StreamBuilder<DocumentSnapshot>(
                     stream: FirebaseFirestore.instance
-                        .collection('rides')
+                        .collection('rideRequests')
                         .doc(widget.rideId)
                         .snapshots(),
                     builder: (context, snapshot) {

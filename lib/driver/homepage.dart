@@ -23,11 +23,29 @@ class _DriverHomePageState extends State<DriverHomePage> {
 
   double _totalEarnings = 0.0;
   int _totalRides = 0;
+  double _averageRating = 0.0;
+  Timer? _locationTimer;
+  bool _isViewingRequest = false;
+  Map<String, dynamic>? _driverData;
+  Position? _currentPosition;
 
   @override
   void initState() {
     super.initState();
+    _fetchDriverData();
     _startListeningToEarnings();
+  }
+
+  Future<void> _fetchDriverData() async {
+    final driverId = FirebaseAuth.instance.currentUser?.uid;
+    if (driverId != null) {
+      final doc = await FirebaseFirestore.instance.collection('drivers').doc(driverId).get();
+      if (mounted && doc.exists) {
+        setState(() {
+          _driverData = doc.data();
+        });
+      }
+    }
   }
 
   void _startListeningToEarnings() {
@@ -35,8 +53,13 @@ class _DriverHomePageState extends State<DriverHomePage> {
 
     _completedRidesSubscription = _rideService.getDriverCompletedRides(driverId).listen((snapshot) {
       double earnings = 0.0;
+      double totalRating = 0.0;
+      int ratedRides = 0;
+
       for (var doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
+        
+        // Earnings calculation
         final priceRaw = data['fareAmount'];
         if (priceRaw != null) {
           if (priceRaw is num) {
@@ -46,42 +69,136 @@ class _DriverHomePageState extends State<DriverHomePage> {
             earnings += double.tryParse(cleanPrice) ?? 0.0;
           }
         }
+
+        // Average Rating calculation
+        final rating = data['rating'];
+        if (rating != null) {
+          totalRating += (rating as num).toDouble();
+          ratedRides++;
+        }
       }
       if (mounted) {
         setState(() {
           _totalRides = snapshot.docs.length;
           _totalEarnings = earnings;
+          if (ratedRides > 0) {
+            _averageRating = totalRating / ratedRides;
+          }
         });
       }
     });
   }
 
-  void _toggleOnlineStatus() {
+  void _toggleOnlineStatus() async {
     final newStatus = !_isOnline;
     setState(() {
       _isOnline = newStatus;
     });
+    
+    await _rideService.updateDriverAvailability(newStatus);
+    
     if (newStatus) {
       _startListeningForRides();
+      _startLocationUpdates();
     } else {
       _stopListeningForRides();
+      _stopLocationUpdates();
+    }
+  }
+
+  void _startLocationUpdates() async {
+    // Initial update
+    _updatePosition();
+    // Periodic update every 30 seconds
+    _locationTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _updatePosition();
+    });
+  }
+
+  void _stopLocationUpdates() {
+    _locationTimer?.cancel();
+    _locationTimer = null;
+  }
+
+  Future<void> _updatePosition() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      _currentPosition = position;
+      await _rideService.updateCurrentLocation(position.latitude, position.longitude);
+      debugPrint("DEBUG: Location updated: ${position.latitude}, ${position.longitude}");
+    } catch (e) {
+      debugPrint("DEBUG: Error updating location: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Location Error: Please ensure GPS is ON and Permissions granted."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   void _startListeningForRides() {
-    _rideSubscription = _rideService.getPendingRides().listen((snapshot) {
+    debugPrint("DEBUG: Dynamic listening enabled...");
+    _rideSubscription = _rideService.getBroadcastedRequests().listen((snapshot) {
       if (snapshot.docs.isNotEmpty) {
-        final doc = snapshot.docs.first;
-        final data = doc.data() as Map<String, dynamic>;
-        _stopListeningForRides();
-        if (mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => DriverRequestScreen(rideId: doc.id, rideData: data),
-            ),
-          ).then((_) {
-            if (_isOnline) _startListeningForRides();
-          });
+        final driverId = FirebaseAuth.instance.currentUser?.uid;
+        
+        // Dynamic Filtering in Driver's app
+        final docs = snapshot.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final declined = data['declinedDrivers'] as List? ?? [];
+          if (declined.contains(driverId)) return false;
+
+          // 1. Vehicle Type Check
+          String? driverType = _driverData?['vehicleType'];
+          String? rideType = data['vehicleType'];
+          if (driverType != null && driverType.isNotEmpty && rideType != null) {
+            if (driverType.toLowerCase() != rideType.toLowerCase()) {
+              debugPrint("DEBUG: Skipping ride ${doc.id} due to vehicle mismatch: $driverType vs $rideType");
+              return false;
+            }
+          }
+
+          // 2. Distance Check (Within 10km)
+          if (_currentPosition != null) {
+            double? rLat = (data['pickupLat'] as num?)?.toDouble();
+            double? rLng = (data['pickupLng'] as num?)?.toDouble();
+            if (rLat != null && rLng != null) {
+              double distance = _rideService.calculateDistance(
+                _currentPosition!.latitude, 
+                _currentPosition!.longitude, 
+                rLat, 
+                rLng
+              );
+              if (distance > 10.0) {
+                debugPrint("DEBUG: Skipping ride ${doc.id} due to distance: ${distance.toStringAsFixed(1)} km");
+                return false;
+              }
+            }
+          }
+
+          return true;
+        }).toList();
+
+        if (docs.isNotEmpty && !_isViewingRequest) {
+          debugPrint("DEBUG: Found ${docs.length} matching rides. Showing the first one.");
+          final doc = docs.first;
+          final data = doc.data() as Map<String, dynamic>;
+          
+          if (mounted) {
+            _isViewingRequest = true;
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => DriverRequestScreen(rideId: doc.id, rideData: data),
+              ),
+            ).then((_) {
+              _isViewingRequest = false;
+            });
+          }
         }
       }
     });
@@ -97,6 +214,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
     _rideSubscription?.cancel();
     _positionSubscription?.cancel();
     _completedRidesSubscription?.cancel();
+    _locationTimer?.cancel();
     super.dispose();
   }
 
@@ -221,9 +339,8 @@ class _DriverHomePageState extends State<DriverHomePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildStatItem("4.9", "Rating", Icons.star_rounded),
+                _buildStatItem(_averageRating.toStringAsFixed(1), "Rating", Icons.star_rounded),
                 _buildStatItem(_totalRides.toString(), "Rides", Icons.directions_car_rounded),
-                _buildStatItem("8.5h", "Online", Icons.access_time_filled_rounded),
               ],
             ),
           ],
@@ -377,7 +494,16 @@ class _DriverHomePageState extends State<DriverHomePage> {
                 "₹${ride['fareAmount'] ?? '0'}",
                 style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 16),
               ),
-              const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
+              Row(
+                children: [
+                  const Icon(Icons.star_rounded, color: Colors.orange, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    "${ride['rating'] ?? '5.0'}",
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
             ],
           ),
           const Spacer(),

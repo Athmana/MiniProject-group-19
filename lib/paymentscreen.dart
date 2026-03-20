@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/ridecompleted.dart';
 
@@ -16,6 +17,39 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _isProcessing = false;
   String? _errorMessage;
   String _selectedMethod = "GPay"; // Default selection
+  StreamSubscription<DocumentSnapshot>? _rideSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenToPaymentStatus();
+  }
+
+  void _listenToPaymentStatus() {
+    _rideSubscription = FirebaseFirestore.instance
+        .collection('rideRequests')
+        .doc(widget.rideId)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
+        if (data['paymentStatus'] == 'completed' && mounted) {
+          _rideSubscription?.cancel();
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => RideCompletedScreen(rideId: widget.rideId),
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _rideSubscription?.cancel();
+    super.dispose();
+  }
 
   void _processPayment() async {
     setState(() {
@@ -95,7 +129,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
                 StreamBuilder<DocumentSnapshot>(
                   stream: FirebaseFirestore.instance
-                      .collection('rides')
+                      .collection('rideRequests')
                       .doc(widget.rideId)
                       .snapshots(),
                   builder: (context, snapshot) {

@@ -66,7 +66,7 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "Go Wayanad",
+              "GoWayanad",
               style: TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.bold,
@@ -75,7 +75,7 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
               ),
             ),
             Text(
-              "Professional Ride Services",
+              "Emergency Ride Services",
               style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 12,
@@ -287,11 +287,13 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                         displayTime = timeago.format((rideData['timestamp'] as Timestamp).toDate());
                       }
 
+                      final rating = rideData['rating']?.toString() ?? "0.0";
+
                       return _buildRecentRideCard(
                         rideData['vehicleType'] ?? "Standard",
                         rideData['destinationLocation'] ?? rideData['destination'] ?? "Unknown",
                         displayTime,
-                        "5.0",
+                        rating,
                         displayPrice,
                       );
                     },
