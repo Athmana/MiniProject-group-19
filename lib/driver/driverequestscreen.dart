@@ -31,9 +31,6 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
     _listenToRideStatus();
   }
 
-
-
-
   void _listenToRideStatus() {
     _rideSubscription = RideService().listenToRideRequest(widget.rideId).listen((snapshot) {
       if (snapshot.exists) {
@@ -96,7 +93,6 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
     final vehicleType = widget.rideData['vehicleType'] ?? "Standard";
 
     return Scaffold(
-
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -130,7 +126,7 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                 children: [
                   Icon(Icons.notifications_active_rounded, color: Colors.green, size: 18),
                   SizedBox(width: 10),
-                  Text(
+                  const Text(
                     "New ride request incoming!",
                     style: TextStyle(
                       color: Colors.green,
