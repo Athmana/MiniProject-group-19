@@ -95,7 +95,7 @@ class _CustomButtonState extends State<CustomButton> {
               shape: RoundedRectangleBorder(
                 borderRadius: AppStyles.commonBorderRadius,
               ),
-              shadowColor: AppColors.primary.withOpacity(0.3),
+              shadowColor: AppColors.primary.withAlpha((0.3 * 255).round()),
             ),
             child: widget.isLoading
                 ? const SizedBox(

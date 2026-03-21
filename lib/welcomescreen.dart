@@ -24,7 +24,7 @@ class WelcomeScreen extends StatelessWidget {
                   image: const AssetImage('assets/welcome_bg.png'),
                   fit: BoxFit.cover,
                   colorFilter: ColorFilter.mode(
-                    Colors.black.withOpacity(0.05),
+                    Colors.black.withAlpha((0.05 * 255).round()),
                     BlendMode.darken,
                   ),
                 ),
@@ -37,7 +37,7 @@ class WelcomeScreen extends StatelessWidget {
                     colors: [
                       Colors.transparent,
                       Colors.transparent,
-                      Colors.white.withOpacity(0.8),
+                      Colors.white.withAlpha((0.8 * 255).round()),
                       Colors.white,
                     ],
                   ),
@@ -137,13 +137,13 @@ class WelcomeScreen extends StatelessWidget {
                             Icon(
                               Icons.admin_panel_settings_outlined,
                               size: 18,
-                              color: AppColors.textSecondary.withOpacity(0.5),
+                              color: AppColors.textSecondary.withAlpha((0.5 * 255).round()),
                             ),
                             const SizedBox(width: 8),
                             Text(
                               "Admin Dashboard",
                               style: TextStyle(
-                                color: AppColors.textSecondary.withOpacity(0.5),
+                                color: AppColors.textSecondary.withAlpha((0.5 * 255).round()),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
