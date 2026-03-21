@@ -42,8 +42,20 @@ jobs:
         name: release-apk
         path: build/app/outputs/flutter-apk/*.apk
 
-    - name: upload artifact to Firebase App Distribution
+    - name: Create GitHub Release
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: softprops/action-gh-release@v2
+      with:
+        files: build/app/outputs/flutter-apk/app-release.apk
+        tag_name: v1.0.${{ github.run_number }}
+        name: Release v1.0.${{ github.run_number }}
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: upload artifact to Firebase App Distribution
+      if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && false # Disabled due to Blaze plan requirement
       uses: wzieba/Firebase-Distribution-Github-Action@v1
       with:
         appId: ${{secrets.FIREBASE_APP_ID}}
