@@ -35,3 +35,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/welcome_bg.png
+# Triggering CI build for GitHub Releases verification
