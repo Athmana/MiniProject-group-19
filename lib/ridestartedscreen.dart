@@ -36,7 +36,7 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
           _rideData = data;
         });
 
-        final dId = _rideData?['driverId'] ?? _rideData?['acceptedDriver'];
+        final dId = _rideData?['driverId'] ?? _rideData?['acceptedDriverId'] ?? _rideData?['assignedDriverId'];
         if (_driverName == null && dId != null) {
           _rideService.getUserDetails(dId).then((user) {
             if (mounted && user != null) {

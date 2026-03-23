@@ -26,7 +26,7 @@ class _ReachedLocationScreenState extends State<ReachedLocationScreen> {
 
   void _listenToPaymentStatus() {
     _rideSubscription = FirebaseFirestore.instance
-        .collection('rideRequests')
+        .collection('ride_requests')
         .doc(widget.rideId)
         .snapshots()
         .listen((snapshot) {
@@ -159,7 +159,7 @@ class _ReachedLocationScreenState extends State<ReachedLocationScreen> {
                   const SizedBox(height: 8),
                   StreamBuilder<DocumentSnapshot>(
                     stream: FirebaseFirestore.instance
-                        .collection('rideRequests')
+                        .collection('ride_requests')
                         .doc(widget.rideId)
                         .snapshots(),
                     builder: (context, snapshot) {

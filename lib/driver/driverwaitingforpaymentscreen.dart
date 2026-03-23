@@ -53,7 +53,7 @@ class _DriverWaitingPaymentScreenState
 
   void _fetchRiderName() async {
     final doc = await FirebaseFirestore.instance
-        .collection('rideRequests')
+        .collection('ride_requests')
         .doc(widget.rideId)
         .get();
     if (doc.exists) {

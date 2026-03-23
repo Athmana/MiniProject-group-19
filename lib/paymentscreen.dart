@@ -27,7 +27,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   void _listenToPaymentStatus() {
     _rideSubscription = FirebaseFirestore.instance
-        .collection('rideRequests')
+        .collection('ride_requests')
         .doc(widget.rideId)
         .snapshots()
         .listen((snapshot) {
@@ -129,7 +129,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
                 StreamBuilder<DocumentSnapshot>(
                   stream: FirebaseFirestore.instance
-                      .collection('rideRequests')
+                      .collection('ride_requests')
                       .doc(widget.rideId)
                       .snapshots(),
                   builder: (context, snapshot) {

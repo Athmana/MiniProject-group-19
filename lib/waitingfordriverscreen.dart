@@ -22,6 +22,8 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
   DateTime _screenOpenTime = DateTime.now();
   Timer? _timeoutTimer;
   bool _isNavigating = false;
+  String _statusTitle = "Booking Confirmed!";
+  String _statusMessage = "Searching for the nearest available driver to accept your emergency request...";
 
   @override
   void initState() {
@@ -58,6 +60,20 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
     ) {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
+        final String status = data['status'] ?? '';
+        
+        // Show different messages based on status
+        if (mounted) {
+          setState(() {
+            if (status == 'assigned') {
+              _statusTitle = "Driver Assigned!";
+              _statusMessage = "Notifying your driver to accept the request...";
+            } else if (status == 'waiting') {
+              _statusTitle = "Booking Confirmed!";
+              _statusMessage = "Searching for the nearest available driver...";
+            }
+          });
+        }
         
         // Check for declines
         final lastDecline = data['lastDeclineAt'] as Timestamp?;
@@ -65,16 +81,15 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('A driver declined your request. Still searching...'),
+                content: Text('A driver declined your request. Re-assigning to the next nearest driver...'),
                 duration: Duration(seconds: 2),
               ),
             );
-            // Update screenOpenTime to avoid repeated notifications for same decline
             _screenOpenTime = lastDecline.toDate().add(const Duration(seconds: 1));
           }
         }
 
-        if (data['status'] == 'accepted') {
+        if (status == 'accepted') {
           _timeoutTimer?.cancel();
           if (mounted && !_isNavigating) {
             _isNavigating = true;
@@ -86,13 +101,13 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
               ),
             );
           }
-        } else if (data['status'] == 'cancelled' || data['status'] == 'no_driver_found') {
+        } else if (status == 'cancelled' || status == 'no_driver_found') {
           _timeoutTimer?.cancel();
           if (mounted && !_isNavigating) {
             _isNavigating = true;
             _rideSubscription?.cancel();
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(data['status'] == 'cancelled' ? 'Ride request was cancelled.' : 'No drivers found.')),
+              SnackBar(content: Text(status == 'cancelled' ? 'Ride request was cancelled.' : 'No drivers found.')),
             );
             Navigator.pushAndRemoveUntil(
               context,
@@ -158,13 +173,13 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
               const SizedBox(height: 40),
 
               // 2. Status Text
-              const Text(
-                "Booking Confirmed!",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              Text(
+                _statusTitle,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               Text(
-                "Searching for the nearest available driver to accept your emergency request...",
+                _statusMessage,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 15,
