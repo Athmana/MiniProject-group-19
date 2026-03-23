@@ -30,12 +30,12 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
 
   void _fetchDriverName() async {
     final rideDoc = await FirebaseFirestore.instance
-        .collection('rideRequests')
+        .collection('ride_requests')
         .doc(widget.rideId)
         .get();
 
     if (rideDoc.exists) {
-      final driverId = rideDoc.data()?['driverId'] ?? rideDoc.data()?['acceptedDriver'];
+      final driverId = rideDoc.data()?['driverId'] ?? rideDoc.data()?['acceptedDriverId'] ?? rideDoc.data()?['assignedDriverId'];
       if (driverId != null) {
         final userDoc = await _rideService.getUserDetails(driverId);
         if (mounted) {
@@ -94,7 +94,7 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
               // Detailed Ride Card
               StreamBuilder<DocumentSnapshot>(
                 stream: FirebaseFirestore.instance
-                    .collection('rideRequests')
+                    .collection('ride_requests')
                     .doc(widget.rideId)
                     .snapshots(),
                 builder: (context, snapshot) {

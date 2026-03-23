@@ -143,7 +143,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
 
   void _startListeningForRides() {
     debugPrint("DEBUG: Dynamic listening enabled...");
-    _rideSubscription = _rideService.getBroadcastedRequests().listen((snapshot) {
+    _rideSubscription = _rideService.getAssignedRequests().listen((snapshot) {
       if (snapshot.docs.isNotEmpty) {
         final driverId = FirebaseAuth.instance.currentUser?.uid;
         

@@ -36,16 +36,18 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
         
-        // If someone else accepted it, notify and close
-        if (data['status'] == 'accepted' && data['acceptedDriver'] != FirebaseAuth.instance.currentUser?.uid) {
+        // For targeted assignments, if status is no longer assigned, close
+        if (data['status'] != 'assigned') {
            if (mounted) {
             _rideSubscription?.cancel();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Ride already taken by another driver'),
-                backgroundColor: Colors.orange,
-              ),
-            );
+            if (data['status'] == 'accepted' && data['acceptedDriverId'] != FirebaseAuth.instance.currentUser?.uid) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Ride already taken by another driver'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
             Navigator.of(context).pop();
           }
         }

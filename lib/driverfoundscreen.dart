@@ -42,7 +42,7 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
 
         _startCountdown();
 
-        final dId = _rideData?['driverId'] ?? _rideData?['acceptedDriver'];
+        final dId = _rideData?['driverId'] ?? _rideData?['acceptedDriverId'] ?? _rideData?['assignedDriverId'];
         if (_driverName == null && dId != null) {
           _rideService.getUserDetails(dId).then((user) {
             if (mounted && user != null) {
