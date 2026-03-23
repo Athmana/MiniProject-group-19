@@ -13,9 +13,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
 
   // Default role
-  String _selectedRole = 'user';
+  String _selectedRole = 'rider';
 
-  final List<String> _roles = ['user', 'driver'];
+  final List<String> _roles = ['rider', 'driver'];
 
   void _handleRegister() async {
     try {

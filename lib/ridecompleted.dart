@@ -30,12 +30,12 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
 
   void _fetchDriverName() async {
     final rideDoc = await FirebaseFirestore.instance
-        .collection('rides')
+        .collection('ride_requests')
         .doc(widget.rideId)
         .get();
 
     if (rideDoc.exists) {
-      final driverId = rideDoc.data()?['driverId'];
+      final driverId = rideDoc.data()?['driverId'] ?? rideDoc.data()?['acceptedDriverId'] ?? rideDoc.data()?['assignedDriverId'];
       if (driverId != null) {
         final userDoc = await _rideService.getUserDetails(driverId);
         if (mounted) {
@@ -94,7 +94,7 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
               // Detailed Ride Card
               StreamBuilder<DocumentSnapshot>(
                 stream: FirebaseFirestore.instance
-                    .collection('rides')
+                    .collection('ride_requests')
                     .doc(widget.rideId)
                     .snapshots(),
                 builder: (context, snapshot) {
@@ -103,11 +103,11 @@ class _RideCompletedScreenState extends State<RideCompletedScreen> {
                   }
 
                   final data = snapshot.data!.data() as Map<String, dynamic>;
-                  final String price = "₹${data['price'] ?? '0'}";
+                  final String price = "₹${data['fareAmount'] ?? '0'}";
                   final String vehicle = data['vehicleType'] ?? "Ride";
                   final String pickup = data['pickupLocation'] ?? "Unknown";
                   final String destination =
-                      data['destination'] ?? "Destination";
+                      data['destinationLocation'] ?? "Destination";
 
                   return Container(
                     margin: const EdgeInsets.symmetric(horizontal: 24),

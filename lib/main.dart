@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:gowayanad/driver/homepage.dart';
 import 'package:gowayanad/firebase_options.dart';
 import 'package:gowayanad/homepage.dart';
-import 'package:gowayanad/loginscreen.dart';
+import 'package:gowayanad/auth_screen.dart';
+import 'package:gowayanad/welcomescreen.dart';
+import 'package:gowayanad/homescreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,9 +18,11 @@ void main() async {
       initialRoute: '/',
       routes: {
         '/': (context) => const AuthWrapper(),
-        '/login': (context) => const LoginScreen(),
-        '/userHome': (context) => EmergencyRideHome(),
-        '/driverHome': (context) => DriverHomePage(),
+        '/login': (context) => const AuthScreen(isLogin: true),
+        '/signup': (context) => const AuthScreen(isLogin: false),
+        '/riderHome': (context) => const EmergencyRideHome(),
+        '/riderBooking': (context) => const RiderBookingScreen(),
+        '/driverHome': (context) => const DriverHomePage(),
       },
     ),
   );
@@ -39,12 +43,31 @@ class AuthWrapper extends StatelessWidget {
         }
 
         if (snapshot.hasData && snapshot.data != null) {
-          // User is logged in, grab their role
-          return FutureBuilder<DocumentSnapshot>(
-            future: FirebaseFirestore.instance
-                .collection('users')
-                .doc(snapshot.data!.uid)
-                .get(),
+          // User is logged in, grab their role by checking riders then drivers
+          return FutureBuilder<String?>(
+            future: () async {
+              try {
+                DocumentSnapshot riderDoc = await FirebaseFirestore.instance
+                    .collection('riders')
+                    .doc(snapshot.data!.uid)
+                    .get();
+                if (riderDoc.exists) return 'rider';
+              } catch (e) {
+                debugPrint("Rider lookup failed: $e");
+              }
+
+              try {
+                DocumentSnapshot driverDoc = await FirebaseFirestore.instance
+                    .collection('drivers')
+                    .doc(snapshot.data!.uid)
+                    .get();
+                if (driverDoc.exists) return 'driver';
+              } catch (e) {
+                debugPrint("Driver lookup failed: $e");
+              }
+
+              return null;
+            }(),
             builder: (context, roleSnapshot) {
               if (roleSnapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(
@@ -52,8 +75,8 @@ class AuthWrapper extends StatelessWidget {
                 );
               }
 
-              if (roleSnapshot.hasData && roleSnapshot.data!.exists) {
-                String role = roleSnapshot.data!.get('role') ?? 'rider';
+              if (roleSnapshot.hasData) {
+                String role = roleSnapshot.data!;
                 if (role == 'driver') {
                   return const DriverHomePage();
                 } else {
@@ -61,14 +84,14 @@ class AuthWrapper extends StatelessWidget {
                 }
               }
 
-              // Fallback if document doesn't exist
-              return const EmergencyRideHome();
+              // Fallback if document doesn't exist (e.g., deleted from Firestore but auth remains)
+              return const WelcomeScreen();
             },
           );
         }
 
         // User is NOT logged in
-        return const LoginScreen();
+        return const WelcomeScreen();
       },
     );
   }

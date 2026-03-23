@@ -1,7 +1,0 @@
-Analyzing gowayanad...
-
-   info - lib\admin_panel.dart:79:17 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
-   info - lib\driver\riderpickupscreen.dart:180:31 - The local variable '_pinController' starts with an underscore. Try renaming the variable to not start with an underscore. - no_leading_underscores_for_local_identifiers
-   info - lib\services\auth_services.dart:67:7 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
-
-3 issues found.

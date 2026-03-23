@@ -1,1 +1,0 @@
-[info] Don't invoke 'print' in production code (C:\Users\athma\OneDrive\Desktop\Mini Project\gowayanad\lib\homescreen.dart:140:7)

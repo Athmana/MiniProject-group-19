@@ -20,7 +20,7 @@ class DriverRideFinishedScreen extends StatelessWidget {
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('rides')
+            .collection('ride_requests')
             .doc(rideId)
             .snapshots(),
         builder: (context, snapshot) {
@@ -30,16 +30,16 @@ class DriverRideFinishedScreen extends StatelessWidget {
 
           if (snapshot.hasData && snapshot.data!.exists) {
             final data = snapshot.data!.data() as Map<String, dynamic>;
-            price = "₹${data['price'] ?? '0'}";
+            price = "₹${data['fareAmount'] ?? '0'}";
 
-            final double distance = (data['distance'] ?? 0.0).toDouble();
+            final double distance = (data['distanceKm'] ?? 0.0).toDouble();
             distanceText = "${distance.toStringAsFixed(1)} km";
 
             // Assuming driver gets 85% of the fare, or just show full for now
             // Clean price string for calculation
             String cleanPrice = price.replaceAll(RegExp(r'[^0-9.]'), '');
             double total = double.tryParse(cleanPrice) ?? 0.0;
-            earnings = "₹${(total * 0.85).toStringAsFixed(0)}";
+            earnings = "₹${total.toStringAsFixed(0)}";
           }
 
           return SingleChildScrollView(
@@ -71,10 +71,6 @@ class DriverRideFinishedScreen extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF2D62ED),
                         ),
-                      ),
-                      const Text(
-                        "(85% share)",
-                        style: TextStyle(color: Colors.grey, fontSize: 10),
                       ),
                     ],
                   ),

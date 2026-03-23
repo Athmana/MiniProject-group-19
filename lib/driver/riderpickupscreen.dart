@@ -1,6 +1,12 @@
+import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
-import 'package:gowayanad/services/ride_service.dart';
 import 'package:gowayanad/driver/driverridestartedscreen.dart';
+import 'package:gowayanad/services/ride_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DriverToPickupScreen extends StatefulWidget {
   final String rideId;
@@ -18,14 +24,64 @@ class DriverToPickupScreen extends StatefulWidget {
 
 class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
   String? _riderName;
-  final TextEditingController _pinController = TextEditingController();
-  bool _isPinVerified = false;
-  String? _pinError;
-  bool _isStartingRide = false;
+  String? _riderPhone;
+  bool _hasArrived = false;
+  final List<TextEditingController> _controllers = List.generate(
+    4,
+    (_) => TextEditingController(),
+  );
+  final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
+  bool _isLoading = false;
+
+  StreamSubscription<DocumentSnapshot>? _rideSubscription;
+  Map<String, dynamic>? _currentRideData;
+
   @override
   void initState() {
     super.initState();
+    _currentRideData = widget.rideData;
     _fetchRiderName();
+    _listenToRideStatus();
+  }
+
+
+
+  void _listenToRideStatus() {
+    _rideSubscription = RideService().listenToRideRequest(widget.rideId).listen((
+      snapshot,
+    ) {
+      if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
+        setState(() {
+          _currentRideData = data;
+          if (data['status'] == 'arrived') {
+            _hasArrived = true;
+          }
+        });
+
+        if (data['status'] == 'cancelled') {
+          if (mounted) {
+            _rideSubscription?.cancel();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Rider cancelled the trip')),
+            );
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _rideSubscription?.cancel();
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
+    for (var node in _focusNodes) {
+      node.dispose();
+    }
+    super.dispose();
   }
 
   void _fetchRiderName() async {
@@ -34,44 +90,122 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
       final user = await RideService().getUserDetails(riderId);
       if (mounted && user != null) {
         setState(() {
-          _riderName = user['fullName'];
+          _riderName = user['fullName'] ?? user['name'] ?? "Rider";
+          _riderPhone = user['phoneNumber'];
         });
       }
+    }
+  }
+
+
+
+  void _verifyOtp() async {
+    String enteredOtp = _controllers.map((c) => c.text).join();
+    if (enteredOtp.length < 4) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Please enter 4-digit OTP")));
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final result = await RideService().verifyRidePin(widget.rideId, enteredOtp);
+
+    if (result['success'] == true && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => DriverRideStartedScreen(rideId: widget.rideId),
+        ),
+      );
+    } else if (mounted) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'] ?? "Failed to start ride")),
+      );
+    }
+  }
+
+  Future<void> _cancelRide() async {
+    bool confirm =
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Cancel Trip"),
+            content: const Text("Are you sure you want to cancel this trip?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("No"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text("Yes, Cancel"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirm || !mounted) return;
+
+    setState(() => _isLoading = true);
+
+    bool success = await RideService().cancelRide(widget.rideId);
+
+    if (mounted) {
+      if (!success) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to cancel trip.')));
+      }
+      // On success, the _listenToRideStatus stream will pick up the real-time
+      // 'cancelled' status, and pop the screen properly.
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16, top: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.red),
+              tooltip: 'Cancel Ride',
+              onPressed: _isLoading ? null : _cancelRide,
+            ),
+          ),
+        ],
+      ),
       body: Stack(
         children: [
-          // 1. Background Status Area (Replacing Map)
-          Positioned.fill(
+          // 1. Map View
+          SizedBox(
+            height: MediaQuery.of(context).size.height,
+            width: MediaQuery.of(context).size.width,
             child: Container(
-              color: const Color(0xFFE3F2FD),
-              child: Center(
+              color: Colors.grey.shade200,
+              child: const Center(
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.navigation,
-                      size: 100,
-                      color: Color(0xFF2D62ED),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      "On the way to Pickup",
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black54,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    Icon(Icons.map, size: 80, color: Colors.grey),
+                    SizedBox(height: 16),
                     Text(
-                      "Pickup: ${widget.rideData['pickupLocation'] ?? 'Address'}",
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.grey),
+                      "Map View (Disabled)",
+                      style: TextStyle(color: Colors.grey, fontSize: 18),
                     ),
                   ],
                 ),
@@ -79,46 +213,48 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
             ),
           ),
 
-          // 2. Top Navigation Info (Floating Card)
+          // 2. Navigation Info
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.only(
+                left: 16.0,
+                right: 16.0,
+                top: 60.0,
+              ), // Added top padding to clear the action button
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: const Color(0xFF2D62ED),
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 10),
+                  ],
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.location_on,
-                      color: Colors.white,
-                      size: 40,
-                    ),
+                    const Icon(Icons.turn_right, color: Colors.white, size: 40),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            "Arriving to Pickup",
-                            style: TextStyle(
+                          Text(
+                            _hasArrived ? "Rider is Here" : "Heading to Pickup",
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           Text(
-                            widget.rideData['pickupLocation'] ?? "Kalpetta",
+                            _hasArrived
+                                ? "Verify OTP to start trip"
+                                : "Follow the map to reach the passenger",
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 14,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -129,7 +265,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
             ),
           ),
 
-          // 3. Bottom Passenger Info & Arrival Button
+          // 3. Passenger Info & Start Button
           Align(
             alignment: Alignment.bottomCenter,
             child: Container(
@@ -158,247 +294,199 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
                               ),
                             ),
                             Text(
-                              "Pickup: ${widget.rideData['pickupLocation'] ?? 'Destination'}",
+                              "Pickup: ${_currentRideData?['pickupLocation'] ?? 'Remote Location'}",
                               style: const TextStyle(
                                 color: Colors.grey,
                                 fontSize: 14,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
                       ),
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(
-                          Icons.call,
-                          color: Colors.green,
-                          size: 28,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Divider(),
-                  const SizedBox(height: 10),
-                  if (!_isPinVerified) ...[
-                    const Text(
-                      "ENTER RIDER PIN",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _pinController,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      maxLength: 6,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        letterSpacing: 8,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: "000000",
-                        counterText: "",
-                        filled: true,
-                        fillColor: Colors.grey[100],
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        errorText: _pinError,
-                      ),
-                    ),
-                  ] else
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle, color: Colors.green),
-                          SizedBox(width: 8),
-                          Text(
-                            "PIN Verified Successfully",
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 24),
-
-                  // Main Action Button
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            bool? confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text("Cancel Ride"),
-                                content: const Text(
-                                  "Are you sure you want to cancel this ride?",
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text("No"),
-                                  ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    child: const Text(
-                                      "Yes, Cancel",
-                                      style: TextStyle(color: Colors.red),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                      if (_riderPhone != null)
+                        InkWell(
+                          onTap: () async {
+                            final Uri launchUri = Uri(
+                              scheme: 'tel',
+                              path: _riderPhone,
                             );
-
-                            if (confirm == true) {
-                              bool success = await RideService().cancelRide(
-                                widget.rideId,
-                              );
-                              if (success && mounted) {
-                                Navigator.of(
-                                  context,
-                                ).popUntil((route) => route.isFirst);
-                              } else if (mounted) {
+                            if (await canLaunchUrl(launchUri)) {
+                              await launchUrl(launchUri);
+                            } else {
+                              if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Failed to cancel ride'),
-                                  ),
+                                  const SnackBar(content: Text("Could not initiate call")),
                                 );
                               }
                             }
                           },
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            side: const BorderSide(color: Colors.redAccent),
-                            shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5FE),
                               borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFF2D62ED).withOpacity(0.2),
+                              ),
                             ),
-                          ),
-                          child: const Text(
-                            "CANCEL RIDE",
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton(
-                          onPressed: _isStartingRide
-                              ? null
-                              : () async {
-                                  if (!_isPinVerified) {
-                                    // Verify PIN
-                                    setState(() {
-                                      _pinError = null;
-                                    });
-                                    final result = await RideService()
-                                        .verifyRidePin(
-                                          widget.rideId,
-                                          _pinController.text.trim(),
-                                        );
-                                    if (result['success'] == true) {
-                                      setState(() {
-                                        _isPinVerified = true;
-                                      });
-                                    } else {
-                                      setState(() {
-                                        _pinError = result['message'];
-                                      });
-                                    }
-                                  } else {
-                                    // Start Ride
-                                    setState(() {
-                                      _isStartingRide = true;
-                                    });
-                                    bool success = await RideService()
-                                        .updateRideStatus(
-                                          widget.rideId,
-                                          'started',
-                                        );
-                                    if (success) {
-                                      if (mounted) {
-                                        Navigator.pushReplacement(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                DriverRideStartedScreen(
-                                                  rideId: widget.rideId,
-                                                ),
-                                          ),
-                                        );
-                                      }
-                                    } else {
-                                      if (mounted) {
-                                        setState(() {
-                                          _isStartingRide = false;
-                                        });
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Failed to start the ride',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  }
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _isPinVerified
-                                ? Colors.green
-                                : Colors.black,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: _isStartingRide
-                              ? const CircularProgressIndicator(
-                                  color: Colors.white,
-                                )
-                              : Text(
-                                  _isPinVerified
-                                      ? "START THE RIDE"
-                                      : "VERIFY PIN",
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.call_rounded,
+                                  size: 16,
+                                  color: Color(0xFF2D62ED),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "CALL ${_riderPhone!}",
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                                    color: Color(0xFF2D62ED),
                                   ),
                                 ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
                     ],
                   ),
+                  const SizedBox(height: 24),
+
+                  if (!_hasArrived)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 60,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          bool success = await RideService().updateRideStatus(
+                            widget.rideId,
+                            'arrived',
+                          );
+                          if (!context.mounted) return;
+                          if (success) {
+                            setState(() {
+                              _hasArrived = true;
+                            });
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Failed to update status to arrived',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          "REACHED PICKUP LOCATION",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Column(
+                      children: [
+                        const Text(
+                          "Enter Passenger OTP",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: List.generate(4, (index) => _otpBox(index)),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _verifyOtp,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    "VERIFY & START RIDE",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _otpBox(int index) {
+    return SizedBox(
+      width: 50,
+      height: 50,
+      child: TextField(
+        controller: _controllers[index],
+        focusNode: _focusNodes[index],
+        textAlign: TextAlign.center,
+        keyboardType: TextInputType.number,
+        maxLength: 1,
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        decoration: InputDecoration(
+          counterText: "",
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF2D62ED), width: 2),
+          ),
+        ),
+        onChanged: (value) {
+          if (value.isNotEmpty && index < 3) {
+            _focusNodes[index + 1].requestFocus();
+          } else if (value.isEmpty && index > 0) {
+            _focusNodes[index - 1].requestFocus();
+          }
+        },
       ),
     );
   }

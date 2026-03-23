@@ -34,7 +34,7 @@ class _DriverWaitingPaymentScreenState
         final data = snapshot.data() as Map<String, dynamic>;
         if (mounted) {
           setState(() {
-            _price = "₹${data['price'] ?? '0'}";
+            _price = "₹${data['fareAmount'] ?? '0'}";
           });
         }
 
@@ -53,7 +53,7 @@ class _DriverWaitingPaymentScreenState
 
   void _fetchRiderName() async {
     final doc = await FirebaseFirestore.instance
-        .collection('rides')
+        .collection('ride_requests')
         .doc(widget.rideId)
         .get();
     if (doc.exists) {

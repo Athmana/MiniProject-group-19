@@ -3,6 +3,7 @@ import 'package:gowayanad/reachedlocationscreen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/services/ride_service.dart';
 import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 
 class RideStartedScreen extends StatefulWidget {
   final String rideId;
@@ -17,6 +18,7 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
   String? _driverName;
+  String? _driverPhone;
 
   @override
   void initState() {
@@ -25,21 +27,22 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
   }
 
   void _listenToRideStatus() {
-    _rideSubscription = _rideService.listenToRide(widget.rideId).listen((
+    _rideSubscription = _rideService.listenToRideRequest(widget.rideId).listen((
       snapshot,
     ) async {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
-
         setState(() {
           _rideData = data;
         });
 
-        if (_driverName == null && _rideData?['driverId'] != null) {
-          _rideService.getUserDetails(_rideData!['driverId']).then((user) {
+        final dId = _rideData?['driverId'] ?? _rideData?['acceptedDriverId'] ?? _rideData?['assignedDriverId'];
+        if (_driverName == null && dId != null) {
+          _rideService.getUserDetails(dId).then((user) {
             if (mounted && user != null) {
               setState(() {
-                _driverName = user['fullName'] ?? "Driver";
+                _driverName = user['fullName'] ?? user['name'] ?? "Driver";
+                _driverPhone = user['phoneNumber'];
               });
             }
           });
@@ -55,9 +58,33 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
               ),
             );
           }
+        } else if (_rideData?['status'] == 'cancelled') {
+          if (mounted) {
+            _rideSubscription?.cancel();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Ride was cancelled.')),
+            );
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
         }
       }
     });
+  }
+
+  Future<void> _makeCall() async {
+    if (_driverPhone == null || _driverPhone!.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Driver phone number not available")),
+        );
+      }
+      return;
+    }
+
+    final Uri launchUri = Uri(scheme: 'tel', path: _driverPhone);
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    }
   }
 
   @override
@@ -69,159 +96,263 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // 1. Background Status Area (Replacing Map)
-          Positioned.fill(
-            child: Container(
-              color: const Color(0xFFF1F5FE),
-              child: Center(
+      backgroundColor: const Color(0xFFF8FAFF),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 1. Compact Professional Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFF1F5FE), Color(0xFFE8EFFF)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+                ),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
-                      Icons.local_taxi,
-                      size: 80,
-                      color: Color(0xFF2D62ED),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF2D62ED).withOpacity(0.1),
+                            blurRadius: 20,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.local_taxi_rounded,
+                        size: 50,
+                        color: Color(0xFF2D62ED),
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _rideData != null ? "Trip in Progress" : "Connecting...",
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black54,
+                    const SizedBox(height: 20),
+                    const Text(
+                      "TRIP IN PROGRESS",
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5,
+                        color: Color(0xFF2D62ED),
                       ),
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      "Please stay safe during the ride",
-                      style: TextStyle(color: Colors.grey),
+                      "Safe travels with Go Wayanad",
+                      style: TextStyle(
+                        color: Colors.black54,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ),
 
-          // 2. Top Info Bar (Floating)
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black12, blurRadius: 10),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              "Arriving to your Destination",
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              _rideData?['destination'] ?? "Loading...",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+              const SizedBox(height: 8),
 
-          // 3. Bottom Driver Card (Floating)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 30,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 15)],
-                ),
+              // 2. Trip Information (Sequential Cards)
+              Padding(
+                padding: const EdgeInsets.all(16.0),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const CircleAvatar(
-                        radius: 25,
-                        child: Icon(Icons.person),
-                      ),
-                      title: Text(
-                        _driverName ?? "Driver Loading...",
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        _rideData?['vehicleType'] ?? "Vehicle Info",
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.call, color: Colors.green),
-                            onPressed: () {},
+                    // A. Destination Card
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.message,
-                              color: Color(0xFF2D62ED),
+                        ],
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5FE),
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                            onPressed: () {},
+                            child: const Icon(Icons.location_on_rounded, color: Color(0xFF2D62ED), size: 20),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "DESTINATION",
+                                  style: TextStyle(
+                                    color: Colors.grey.shade500,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _rideData?['destinationLocation'] ?? "Loading...",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: Colors.black87,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Fare Estimate",
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                        Text(
-                          "₹${_rideData?['price'] ?? '0'}",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
+
+                    const SizedBox(height: 16),
+
+                    // B. Driver & Fare Card
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
                           ),
-                        ),
-                      ],
+                        ],
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              const CircleAvatar(
+                                radius: 24,
+                                backgroundColor: Color(0xFFF1F5FE),
+                                child: Icon(Icons.person_rounded, color: Color(0xFF2D62ED), size: 24),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _driverName ?? "Driver Loading...",
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 16,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    Text(
+                                      _rideData?['vehicleType']?.toUpperCase() ?? "VEHICLE INFO",
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (_driverPhone != null)
+                                InkWell(
+                                  onTap: _makeCall,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF2E7D32),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.call_rounded, color: Colors.white, size: 20),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20),
+                            child: Divider(height: 1),
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "PAYABLE AMOUNT",
+                                    style: TextStyle(
+                                      color: Colors.grey.shade500,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  const Text(
+                                    "Fixed Fare",
+                                    style: TextStyle(fontSize: 12, color: Colors.black45),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5FE),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  "₹${_rideData?['fareAmount'] ?? '0'}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 20,
+                                    color: Color(0xFF2D62ED),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
+              
+              const SizedBox(height: 20),
+              
+              // Progress Indicator
+              const Center(
+                child: SizedBox(
+                  width: 30,
+                  height: 30,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2D62ED)),
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 40),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

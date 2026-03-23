@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gowayanad/driverfoundscreen.dart';
+import 'package:gowayanad/homepage.dart';
 import 'package:gowayanad/services/ride_service.dart';
 
 class WaitingForDriverScreen extends StatefulWidget {
@@ -18,26 +19,102 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
   final RideService _rideService = RideService();
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
 
+  DateTime _screenOpenTime = DateTime.now();
+  Timer? _timeoutTimer;
+  bool _isNavigating = false;
+  String _statusTitle = "Booking Confirmed!";
+  String _statusMessage = "Searching for the nearest available driver to accept your emergency request...";
+
   @override
   void initState() {
     super.initState();
     _listenToRideStatus();
+    _startTimeoutTimer();
+  }
+
+  void _startTimeoutTimer() {
+    _timeoutTimer = Timer(const Duration(seconds: 30), () async {
+      if (mounted && _rideSubscription != null) {
+        await _rideService.updateRideStatus(widget.rideId, 'no_driver_found');
+        if (mounted && !_isNavigating) {
+          _isNavigating = true;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No drivers available nearby. Please try again later.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const EmergencyRideHome()),
+            (route) => false,
+          );
+        }
+      }
+    });
   }
 
   void _listenToRideStatus() {
-    _rideSubscription = _rideService.listenToRide(widget.rideId).listen((
+    _rideSubscription = _rideService.listenToRideRequest(widget.rideId).listen((
       snapshot,
     ) {
       if (snapshot.exists) {
         final data = snapshot.data() as Map<String, dynamic>;
-        if (data['status'] == 'accepted') {
+        final String status = data['status'] ?? '';
+        
+        // Show different messages based on status
+        if (mounted) {
+          setState(() {
+            if (status == 'assigned') {
+              _statusTitle = "Driver Assigned!";
+              _statusMessage = "Notifying your driver to accept the request...";
+            } else if (status == 'waiting') {
+              _statusTitle = "Booking Confirmed!";
+              _statusMessage = "Searching for the nearest available driver...";
+            }
+          });
+        }
+        
+        // Check for declines
+        final lastDecline = data['lastDeclineAt'] as Timestamp?;
+        if (lastDecline != null && lastDecline.toDate().isAfter(_screenOpenTime)) {
           if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('A driver declined your request. Re-assigning to the next nearest driver...'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+            _screenOpenTime = lastDecline.toDate().add(const Duration(seconds: 1));
+          }
+        }
+
+        if (status == 'accepted') {
+          _timeoutTimer?.cancel();
+          if (mounted && !_isNavigating) {
+            _isNavigating = true;
             _rideSubscription?.cancel();
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
                 builder: (context) => DriverFoundScreen(rideId: widget.rideId),
               ),
+            );
+          }
+        } else if (status == 'cancelled' || status == 'no_driver_found') {
+          _timeoutTimer?.cancel();
+          if (mounted && !_isNavigating) {
+            _isNavigating = true;
+            _rideSubscription?.cancel();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(status == 'cancelled' ? 'Ride request was cancelled.' : 'No drivers found.')),
+            );
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const EmergencyRideHome(),
+              ),
+              (route) => false,
             );
           }
         }
@@ -48,6 +125,7 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
   @override
   void dispose() {
     _rideSubscription?.cancel();
+    _timeoutTimer?.cancel();
     super.dispose();
   }
 
@@ -95,13 +173,13 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
               const SizedBox(height: 40),
 
               // 2. Status Text
-              const Text(
-                "Booking Confirmed!",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              Text(
+                _statusTitle,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               Text(
-                "Searching for the nearest available driver to accept your emergency request...",
+                _statusMessage,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 15,
@@ -144,9 +222,20 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
 
               // 4. Cancel Option
               TextButton(
-                onPressed: () {
-                  // Show a confirmation dialog or go back
-                  Navigator.pop(context);
+                onPressed: () async {
+                  if (_isNavigating) return;
+                  _isNavigating = true;
+                  // Cancel the ride in Firestore before popping
+                  await _rideService.cancelRide(widget.rideId);
+                  if (mounted) {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EmergencyRideHome(),
+                      ),
+                      (route) => false,
+                    );
+                  }
                 },
                 child: const Text(
                   "Cancel Request",
