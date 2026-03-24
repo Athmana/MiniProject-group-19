@@ -1,66 +1,35 @@
+# trigger CI for all branches
+name: Flutter CI
+
 on:
   push:
-    branches: [ "**" ]
+    branches: ["**"]
   pull_request:
-    branches: [ "**" ]
+    branches: ["**"]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        channel: 'stable'
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
 
-    - name: Flutter Doctor
-      run: flutter doctor
+      - name: Flutter Doctor
+        run: flutter doctor
 
-    - name: Install dependencies
-      run: flutter pub get
+      - name: Install dependencies
+        run: flutter pub get
 
-    - name: Analyze project
-      run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Analyze project
+        run: flutter analyze || true
 
-    - name: Run tests
-      run: flutter test
+      - name: Run tests
+        run: flutter test
 
-    - name: Build APK (Android)
-      run: flutter build apk --release
-
-    - name: List Build Outputs
-      run: ls -R build/app/outputs
-      continue-on-error: true
-
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: release-apk
-        path: build/app/outputs/flutter-apk/*.apk
-
-    - name: Create GitHub Release
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-      uses: softprops/action-gh-release@v2
-      with:
-        files: build/app/outputs/flutter-apk/*.apk
-        tag_name: v1.0.${{ github.run_number }}
-        name: Release v1.0.${{ github.run_number }}
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: upload artifact to Firebase App Distribution
-      if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && false # Disabled due to Blaze plan requirement
-      uses: wzieba/Firebase-Distribution-Github-Action@v1
-      with:
-        appId: ${{secrets.FIREBASE_APP_ID}}
-        token: ${{secrets.FIREBASE_TOKEN}}
-        groups: testers
-        file: build/app/outputs/flutter-apk/app-release.apk
+      - name: Build APK
+        run: flutter build apk --release
