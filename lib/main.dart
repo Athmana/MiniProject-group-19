@@ -2,12 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:gowayanad/driver/homepage.dart';
-import 'package:gowayanad/firebase_options.dart';
-import 'package:gowayanad/homepage.dart';
-import 'package:gowayanad/auth_screen.dart';
-import 'package:gowayanad/welcomescreen.dart';
-import 'package:gowayanad/homescreen.dart';
+import 'package:gowayanad/frontend/driver/homepage.dart';
+import 'package:gowayanad/backend/firebase_options.dart';
+import 'package:gowayanad/frontend/screens/homepage.dart';
+import 'package:gowayanad/frontend/screens/auth_screen.dart';
+import 'package:gowayanad/frontend/screens/welcomescreen.dart';
+import 'package:gowayanad/frontend/screens/homescreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
