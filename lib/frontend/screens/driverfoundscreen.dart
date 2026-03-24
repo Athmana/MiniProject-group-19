@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gowayanad/frontend/screens/ridestartedscreen.dart';
 import 'package:gowayanad/backend/services/ride_service.dart';
 import 'dart:async';
@@ -8,15 +9,26 @@ import 'package:url_launcher/url_launcher.dart';
 
 class DriverFoundScreen extends StatefulWidget {
   final String rideId;
+  final RideService? rideService;
+  final FirebaseFirestore? firestore;
+  final FirebaseAuth? auth;
 
-  const DriverFoundScreen({super.key, required this.rideId});
+  const DriverFoundScreen({
+    super.key,
+    required this.rideId,
+    this.rideService,
+    this.firestore,
+    this.auth,
+  });
 
   @override
   State<DriverFoundScreen> createState() => _DriverFoundScreenState();
 }
 
 class _DriverFoundScreenState extends State<DriverFoundScreen> {
-  final RideService _rideService = RideService();
+  late final RideService _rideService;
+  late final FirebaseFirestore _firestore;
+  late final FirebaseAuth _auth;
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
   String? _driverName;
@@ -28,6 +40,9 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
   @override
   void initState() {
     super.initState();
+    _rideService = widget.rideService ?? RideService();
+    _firestore = widget.firestore ?? FirebaseFirestore.instance;
+    _auth = widget.auth ?? FirebaseAuth.instance;
     _listenToRideStatus();
   }
 
@@ -68,7 +83,12 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => RideStartedScreen(rideId: widget.rideId),
+                builder: (context) => RideStartedScreen(
+                  rideId: widget.rideId,
+                  rideService: _rideService,
+                  firestore: _firestore,
+                  auth: _auth,
+                ),
               ),
             );
           }
@@ -80,7 +100,13 @@ class _DriverFoundScreenState extends State<DriverFoundScreen> {
             );
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (context) => const EmergencyRideHome()),
+              MaterialPageRoute(
+                builder: (context) => EmergencyRideHome(
+                  rideService: _rideService,
+                  firestore: _firestore,
+                  auth: _auth,
+                ),
+              ),
               (route) => false,
             );
           }

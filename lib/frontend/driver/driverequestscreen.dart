@@ -12,6 +12,7 @@ class DriverRequestScreen extends StatefulWidget {
   final Map<String, dynamic> rideData;
   final RideService? rideService;
   final FirebaseAuth? auth;
+  final FirebaseFirestore? firestore;
 
   const DriverRequestScreen({
     super.key,
@@ -19,6 +20,7 @@ class DriverRequestScreen extends StatefulWidget {
     required this.rideData,
     this.rideService,
     this.auth,
+    this.firestore,
   });
 
   @override
@@ -28,6 +30,7 @@ class DriverRequestScreen extends StatefulWidget {
 class _DriverRequestScreenState extends State<DriverRequestScreen> {
   late final RideService _rideService;
   late final FirebaseAuth _auth;
+  late final FirebaseFirestore _firestore;
   String? _riderName;
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
 
@@ -36,6 +39,7 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
     super.initState();
     _rideService = widget.rideService ?? RideService();
     _auth = widget.auth ?? FirebaseAuth.instance;
+    _firestore = widget.firestore ?? FirebaseFirestore.instance;
     _fetchRiderName();
     _listenToRideStatus();
   }
@@ -336,6 +340,9 @@ Icons.star_rounded, color: Colors.orange, size: 16),
                               builder: (context) => DriverToPickupScreen(
                                 rideId: widget.rideId,
                                 rideData: widget.rideData,
+                                rideService: _rideService,
+                                auth: _auth,
+                                firestore: _firestore,
                               ),
                             ),
                           );

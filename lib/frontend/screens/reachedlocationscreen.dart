@@ -1,18 +1,33 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:gowayanad/backend/services/ride_service.dart';
 import 'package:gowayanad/frontend/screens/paymentscreen.dart';
 import 'package:gowayanad/frontend/screens/ridecompleted.dart';
 
 class ReachedLocationScreen extends StatefulWidget {
   final String rideId;
-  const ReachedLocationScreen({super.key, required this.rideId});
+  final RideService? rideService;
+  final FirebaseFirestore? firestore;
+  final FirebaseAuth? auth;
+
+  const ReachedLocationScreen({
+    super.key,
+    required this.rideId,
+    this.rideService,
+    this.firestore,
+    this.auth,
+  });
 
   @override
   State<ReachedLocationScreen> createState() => _ReachedLocationScreenState();
 }
 
 class _ReachedLocationScreenState extends State<ReachedLocationScreen> {
+  late final RideService _rideService;
+  late final FirebaseFirestore _firestore;
+  late final FirebaseAuth _auth;
   double _progress = 0.0;
   Timer? _timer;
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
@@ -20,12 +35,15 @@ class _ReachedLocationScreenState extends State<ReachedLocationScreen> {
   @override
   void initState() {
     super.initState();
+    _rideService = widget.rideService ?? RideService();
+    _firestore = widget.firestore ?? FirebaseFirestore.instance;
+    _auth = widget.auth ?? FirebaseAuth.instance;
     _startAutoNavigation();
     _listenToPaymentStatus();
   }
 
   void _listenToPaymentStatus() {
-    _rideSubscription = FirebaseFirestore.instance
+    _rideSubscription = _firestore
         .collection('ride_requests')
         .doc(widget.rideId)
         .snapshots()
@@ -37,7 +55,12 @@ class _ReachedLocationScreenState extends State<ReachedLocationScreen> {
           _rideSubscription?.cancel();
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (context) => RideCompletedScreen(rideId: widget.rideId),
+              builder: (context) => RideCompletedScreen(
+                rideId: widget.rideId,
+                rideService: _rideService,
+                firestore: _firestore,
+                auth: _auth,
+              ),
             ),
           );
         }
@@ -69,7 +92,12 @@ class _ReachedLocationScreenState extends State<ReachedLocationScreen> {
     if (mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => PaymentScreen(rideId: widget.rideId),
+          builder: (context) => PaymentScreen(
+            rideId: widget.rideId,
+            rideService: _rideService,
+            firestore: _firestore,
+            auth: _auth,
+          ),
         ),
       );
     }
@@ -158,7 +186,7 @@ class _ReachedLocationScreenState extends State<ReachedLocationScreen> {
                   ),
                   const SizedBox(height: 8),
                   StreamBuilder<DocumentSnapshot>(
-                    stream: FirebaseFirestore.instance
+                    stream: _firestore
                         .collection('ride_requests')
                         .doc(widget.rideId)
                         .snapshots(),

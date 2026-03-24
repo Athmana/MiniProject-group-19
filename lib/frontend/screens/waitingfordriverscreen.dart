@@ -2,21 +2,33 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gowayanad/frontend/screens/driverfoundscreen.dart';
 import 'package:gowayanad/frontend/screens/homepage.dart';
 import 'package:gowayanad/backend/services/ride_service.dart';
 
 class WaitingForDriverScreen extends StatefulWidget {
   final String rideId;
+  final RideService? rideService;
+  final FirebaseFirestore? firestore;
+  final FirebaseAuth? auth;
 
-  const WaitingForDriverScreen({super.key, required this.rideId});
+  const WaitingForDriverScreen({
+    super.key,
+    required this.rideId,
+    this.rideService,
+    this.firestore,
+    this.auth,
+  });
 
   @override
   State<WaitingForDriverScreen> createState() => _WaitingForDriverScreenState();
 }
 
 class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
-  final RideService _rideService = RideService();
+  late final RideService _rideService;
+  late final FirebaseFirestore _firestore;
+  late final FirebaseAuth _auth;
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
 
   DateTime _screenOpenTime = DateTime.now();
@@ -28,6 +40,9 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
   @override
   void initState() {
     super.initState();
+    _rideService = widget.rideService ?? RideService();
+    _firestore = widget.firestore ?? FirebaseFirestore.instance;
+    _auth = widget.auth ?? FirebaseAuth.instance;
     _listenToRideStatus();
     _startTimeoutTimer();
   }
@@ -65,7 +80,13 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
           );
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (context) => const EmergencyRideHome()),
+            MaterialPageRoute(
+              builder: (context) => EmergencyRideHome(
+                rideService: _rideService,
+                firestore: _firestore,
+                auth: _auth,
+              ),
+            ),
             (route) => false,
           );
         }
@@ -116,7 +137,12 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => DriverFoundScreen(rideId: widget.rideId),
+                builder: (context) => DriverFoundScreen(
+                  rideId: widget.rideId,
+                  rideService: _rideService,
+                  firestore: _firestore,
+                  auth: _auth,
+                ),
               ),
             );
           }
@@ -131,7 +157,11 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
-                builder: (context) => const EmergencyRideHome(),
+                builder: (context) => EmergencyRideHome(
+                  rideService: _rideService,
+                  firestore: _firestore,
+                  auth: _auth,
+                ),
               ),
               (route) => false,
             );
@@ -250,7 +280,11 @@ class _WaitingForDriverScreenState extends State<WaitingForDriverScreen> {
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const EmergencyRideHome(),
+                        builder: (context) => EmergencyRideHome(
+                          rideService: _rideService,
+                          firestore: _firestore,
+                          auth: _auth,
+                        ),
                       ),
                       (route) => false,
                     );

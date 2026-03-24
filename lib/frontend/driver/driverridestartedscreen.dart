@@ -61,7 +61,12 @@ class _DriverRideStartedScreenState extends State<DriverRideStartedScreen> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) =>
-              DriverWaitingPaymentScreen(rideId: widget.rideId),
+              DriverWaitingPaymentScreen(
+                rideId: widget.rideId,
+                rideService: _rideService,
+                auth: _auth,
+                firestore: _firestore,
+              ),
         ),
       );
     }

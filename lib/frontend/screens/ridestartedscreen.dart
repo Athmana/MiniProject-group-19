@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gowayanad/frontend/screens/reachedlocationscreen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gowayanad/backend/services/ride_service.dart';
 import 'dart:async';
 import 'package:gowayanad/frontend/screens/homepage.dart';
@@ -8,14 +9,26 @@ import 'package:url_launcher/url_launcher.dart';
 
 class RideStartedScreen extends StatefulWidget {
   final String rideId;
-  const RideStartedScreen({super.key, required this.rideId});
+  final RideService? rideService;
+  final FirebaseFirestore? firestore;
+  final FirebaseAuth? auth;
+
+  const RideStartedScreen({
+    super.key,
+    required this.rideId,
+    this.rideService,
+    this.firestore,
+    this.auth,
+  });
 
   @override
   State<RideStartedScreen> createState() => _RideStartedScreenState();
 }
 
 class _RideStartedScreenState extends State<RideStartedScreen> {
-  final RideService _rideService = RideService();
+  late final RideService _rideService;
+  late final FirebaseFirestore _firestore;
+  late final FirebaseAuth _auth;
   StreamSubscription<DocumentSnapshot>? _rideSubscription;
   Map<String, dynamic>? _rideData;
   String? _driverName;
@@ -24,6 +37,9 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
   @override
   void initState() {
     super.initState();
+    _rideService = widget.rideService ?? RideService();
+    _firestore = widget.firestore ?? FirebaseFirestore.instance;
+    _auth = widget.auth ?? FirebaseAuth.instance;
     _listenToRideStatus();
   }
 
@@ -54,8 +70,12 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
             _rideSubscription?.cancel();
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
-                builder: (context) =>
-                    ReachedLocationScreen(rideId: widget.rideId),
+                builder: (context) => ReachedLocationScreen(
+                  rideId: widget.rideId,
+                  rideService: _rideService,
+                  firestore: _firestore,
+                  auth: _auth,
+                ),
               ),
             );
           }
@@ -67,7 +87,13 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
             );
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (context) => const EmergencyRideHome()),
+              MaterialPageRoute(
+                builder: (context) => EmergencyRideHome(
+                  rideService: _rideService,
+                  firestore: _firestore,
+                  auth: _auth,
+                ),
+              ),
               (route) => false,
             );
           }

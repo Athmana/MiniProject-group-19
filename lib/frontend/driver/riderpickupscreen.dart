@@ -14,6 +14,7 @@ class DriverToPickupScreen extends StatefulWidget {
   final Map<String, dynamic> rideData;
   final RideService? rideService;
   final FirebaseAuth? auth;
+  final FirebaseFirestore? firestore;
 
   const DriverToPickupScreen({
     super.key,
@@ -21,6 +22,7 @@ class DriverToPickupScreen extends StatefulWidget {
     required this.rideData,
     this.rideService,
     this.auth,
+    this.firestore,
   });
 
   @override
@@ -30,6 +32,7 @@ class DriverToPickupScreen extends StatefulWidget {
 class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
   late final RideService _rideService;
   late final FirebaseAuth _auth;
+  late final FirebaseFirestore _firestore;
   String? _riderName;
   String? _riderPhone;
   bool _hasArrived = false;
@@ -48,6 +51,7 @@ class _DriverToPickupScreenState extends State<DriverToPickupScreen> {
     super.initState();
     _rideService = widget.rideService ?? RideService();
     _auth = widget.auth ?? FirebaseAuth.instance;
+    _firestore = widget.firestore ?? FirebaseFirestore.instance;
     _currentRideData = widget.rideData;
     _fetchRiderName();
     _listenToRideStatus();

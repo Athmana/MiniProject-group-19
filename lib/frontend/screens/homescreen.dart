@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:gowayanad/backend/services/location_service.dart';
 import 'package:gowayanad/backend/services/geocoding_service.dart';
@@ -15,6 +16,7 @@ class RiderBookingScreen extends StatefulWidget {
   final LocationService? locationService;
 
   final GeocodingService? geocodingService;
+  final FirebaseFirestore? firestore;
   final FirebaseAuth? auth;
 
   const RiderBookingScreen({
@@ -22,6 +24,7 @@ class RiderBookingScreen extends StatefulWidget {
     this.rideService,
     this.locationService,
     this.geocodingService,
+    this.firestore,
     this.auth,
   });
 
@@ -33,6 +36,8 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
   late final RideService _rideService;
   late final LocationService _locationService;
   late final GeocodingService _geocodingService;
+  late final FirebaseFirestore _firestore;
+  late final FirebaseAuth _auth;
   Position? _currentPosition;
   bool _isLoadingLocation = true;
   final TextEditingController _destinationController = TextEditingController();
@@ -58,9 +63,12 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
   @override
   void initState() {
     super.initState();
+    debugPrint("RiderBookingScreen initState: firestore is ${widget.firestore == null ? 'NULL' : 'NOT NULL'}");
     _rideService = widget.rideService ?? RideService();
     _locationService = widget.locationService ?? LocationService();
     _geocodingService = widget.geocodingService ?? GeocodingService();
+    _firestore = widget.firestore ?? FirebaseFirestore.instance;
+    _auth = widget.auth ?? FirebaseAuth.instance;
     _fetchLocation();
   }
 
@@ -422,7 +430,6 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
               onPressed: (_isLoadingLocation || _isCalculatingFare)
                   ? null
                   : () async {
-                      final navigator = Navigator.of(context);
                       final scaffoldMessenger = ScaffoldMessenger.of(context);
                       final String dest = _destinationController.text.trim();
                       if (dest.isEmpty) {
@@ -467,11 +474,17 @@ class _RiderBookingScreenState extends State<RiderBookingScreen> {
                         );
 
                         if (rideId != null) {
-                           navigator.pushReplacement(
-                            MaterialPageRoute(
-                              builder: (context) => WaitingForDriverScreen(rideId: rideId),
-                            ),
-                          );
+                           Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WaitingForDriverScreen(
+              rideId: rideId,
+              rideService: _rideService,
+              firestore: _firestore,
+              auth: _auth,
+            ),
+          ),
+        );
                         }
                       } catch (e) {
                         scaffoldMessenger.showSnackBar(

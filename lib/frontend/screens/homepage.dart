@@ -243,6 +243,7 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                           rideService: _rideService,
                           locationService: _locationService,
                           geocodingService: _geocodingService,
+                          firestore: _firestore,
                           auth: _auth,
                         ),
                       ),
@@ -267,6 +268,13 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                   _auth.currentUser?.uid ?? 'anonymous_rider',
                 ),
                 builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    debugPrint("RecentActivity Stream: Found ${snapshot.data!.docs.length} total docs for rider ${_auth.currentUser?.uid}");
+                    for (var doc in snapshot.data!.docs) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      debugPrint("Doc ${doc.id}: status=${data['status']}, paymentStatus=${data['paymentStatus']}");
+                    }
+                  }
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Padding(
                       padding: EdgeInsets.only(top: 20),
@@ -275,33 +283,33 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                   }
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(32),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: AppStyles.commonBorderRadius,
-                        border: Border.all(color: AppColors.secondary),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(Icons.history, color: AppColors.secondaryDark, size: 48),
-                          const SizedBox(height: 12),
-                          Text(
-                            "No recent activity to show",
-                            style: TextStyle(color: AppColors.textSecondary),
-                          ),
-                        ],
-                      ),
-                    );
+                    return _buildNoActivityContainer();
+                  }
+
+                  // Filter for 'completed' and sort by 'timestamp' descending
+                  final docs = snapshot.data!.docs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return data['paymentStatus'] == 'completed' || data['status'] == 'completed';
+                  }).toList();
+
+                  docs.sort((a, b) {
+                    final dataA = a.data() as Map<String, dynamic>;
+                    final dataB = b.data() as Map<String, dynamic>;
+                    final tA = dataA['timestamp'] ?? 0;
+                    final tB = dataB['timestamp'] ?? 0;
+                    return (tB as num).compareTo(tA as num);
+                  });
+
+                  if (docs.isEmpty) {
+                    return _buildNoActivityContainer();
                   }
 
                   return ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: snapshot.data!.docs.length,
+                    itemCount: docs.length,
                     itemBuilder: (context, index) {
-                      final doc = snapshot.data!.docs[index];
+                      final doc = docs[index];
                       final rideData = doc.data() as Map<String, dynamic>;
 
                       final rawPrice = rideData['fareAmount'] ?? rideData['price'];
@@ -311,7 +319,12 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
                       if (rideData['completedAt'] != null) {
                         displayTime = timeago.format((rideData['completedAt'] as Timestamp).toDate());
                       } else if (rideData['timestamp'] != null) {
-                        displayTime = timeago.format((rideData['timestamp'] as Timestamp).toDate());
+                        final ts = rideData['timestamp'];
+                        if (ts is int) {
+                          displayTime = timeago.format(DateTime.fromMillisecondsSinceEpoch(ts));
+                        } else if (ts is Timestamp) {
+                          displayTime = timeago.format(ts.toDate());
+                        }
                       }
 
                       final rating = rideData['rating']?.toString() ?? "0.0";
@@ -425,4 +438,25 @@ class _EmergencyRideHomeState extends State<EmergencyRideHome> {
     );
   }
 
+  Widget _buildNoActivityContainer() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: AppStyles.commonBorderRadius,
+        border: Border.all(color: AppColors.secondary),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.history, color: AppColors.secondaryDark, size: 48),
+          const SizedBox(height: 12),
+          Text(
+            "No recent activity to show",
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
 }

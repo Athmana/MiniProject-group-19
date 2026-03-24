@@ -264,7 +264,6 @@ class RideService {
     return _db
         .collection('ride_requests')
         .where('acceptedDriverId', isEqualTo: driverId)
-        .where('paymentStatus', isEqualTo: 'completed') // Use payment as reliable indicator
         .snapshots();
   }
 
@@ -272,8 +271,6 @@ class RideService {
     return _db
         .collection('ride_requests')
         .where('riderId', isEqualTo: riderId)
-        .where('paymentStatus', isEqualTo: 'completed') // Use payment as reliable indicator
-        .orderBy('timestamp', descending: true)
         .snapshots();
   }
 
